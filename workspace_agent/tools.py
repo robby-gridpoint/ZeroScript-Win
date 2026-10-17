@@ -7,7 +7,10 @@ local bridge or wrapped by a dedicated MCP server.
 from __future__ import annotations
 
 import difflib
+import fnmatch
+import json
 import os
+import re
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -156,6 +159,182 @@ class Workspace:
             "created": not existed,
             "diff": diff[:MAX_OUTPUT_CHARS],
         }
+
+    def find_files(self, pattern: str = "*", path: str = ".", max_results: int = 200, include_hidden: bool = False) -> dict[str, Any]:
+        """Find files by glob against their workspace-relative path or filename."""
+        if not isinstance(pattern, str) or not pattern.strip():
+            raise WorkspaceError("A file glob pattern is required.")
+        base = self._resolve(path)
+        if not base.is_dir():
+            raise WorkspaceError(f"Not a directory: {path}")
+        limit = max(1, min(int(max_results), MAX_RESULTS))
+        matches: list[dict[str, Any]] = []
+        truncated = False
+        for current, dirs, names in os.walk(base):
+            dirs[:] = sorted(
+                d for d in dirs
+                if d not in DEFAULT_IGNORES and (include_hidden or not d.startswith("."))
+            )
+            for name in sorted(names):
+                if not include_hidden and name.startswith("."):
+                    continue
+                item = Path(current) / name
+                rel = item.relative_to(self.root).as_posix()
+                rel_from_base = item.relative_to(base).as_posix()
+                if not (fnmatch.fnmatchcase(rel, pattern) or fnmatch.fnmatchcase(rel_from_base, pattern)
+                        or fnmatch.fnmatchcase(name, pattern)):
+                    continue
+                try:
+                    matches.append({"path": rel, "size": item.stat().st_size})
+                except OSError:
+                    continue
+                if len(matches) >= limit:
+                    truncated = True
+                    break
+            if truncated:
+                break
+        return {"pattern": pattern, "path": base.relative_to(self.root).as_posix() or ".",
+                "matches": matches, "truncated": truncated}
+
+    def project_info(self) -> dict[str, Any]:
+        """Summarize common project manifests, package scripts, source mix, and Git state."""
+        root_files = sorted(p.name for p in self.root.iterdir() if p.is_file())
+        manifests = [
+            "package.json", "pnpm-workspace.yaml", "yarn.lock", "pnpm-lock.yaml",
+            "package-lock.json", "pyproject.toml", "requirements.txt", "Pipfile",
+            "Cargo.toml", "go.mod", "go.work", "pom.xml", "build.gradle",
+            "build.gradle.kts", "settings.gradle", "composer.json", "Gemfile",
+            "CMakeLists.txt", "Makefile", "justfile", "Dockerfile",
+        ]
+        present = [name for name in manifests if (self.root / name).is_file()]
+        scripts: dict[str, str] = {}
+        package_path = self.root / "package.json"
+        if package_path.is_file():
+            try:
+                package = json.loads(package_path.read_text(encoding="utf-8"))
+                scripts = {str(k): str(v) for k, v in (package.get("scripts") or {}).items()}
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+                scripts = {}
+        inventory = self.list_files(max_results=MAX_RESULTS, include_hidden=False)
+        extensions: dict[str, int] = {}
+        for item in inventory["files"]:
+            suffix = Path(item["path"]).suffix.lower() or "[no extension]"
+            extensions[suffix] = extensions.get(suffix, 0) + 1
+        if package_path.is_file():
+            project_type = "Node.js / JavaScript / TypeScript"
+        elif (self.root / "pyproject.toml").is_file() or (self.root / "requirements.txt").is_file():
+            project_type = "Python"
+        elif (self.root / "Cargo.toml").is_file():
+            project_type = "Rust"
+        elif (self.root / "go.mod").is_file():
+            project_type = "Go"
+        elif any(name.endswith((".sln", ".csproj")) for name in root_files):
+            project_type = ".NET / C#"
+        elif (self.root / "CMakeLists.txt").is_file():
+            project_type = "C / C++ (CMake)"
+        elif (self.root / "pom.xml").is_file() or (self.root / "build.gradle").is_file():
+            project_type = "Java / JVM"
+        else:
+            project_type = "mixed or undetected"
+        return {
+            "root": str(self.root),
+            "name": self.root.name or str(self.root),
+            "project_type": project_type,
+            "is_git_repository": (self.root / ".git").exists(),
+            "manifest_files": present,
+            "package_scripts": scripts,
+            "source_file_count": len(inventory["files"]),
+            "file_inventory_truncated": inventory["truncated"],
+            "extension_counts": dict(sorted(extensions.items(), key=lambda item: (-item[1], item[0]))[:20]),
+            "top_level_files": root_files[:100],
+        }
+
+    def symbols(self, query: str = "", path: str = ".", max_results: int = 200) -> dict[str, Any]:
+        """Find likely function/type/variable declarations using language-neutral patterns."""
+        base = self._resolve(path)
+        if not base.is_dir():
+            raise WorkspaceError(f"Not a directory: {path}")
+        limit = max(1, min(int(max_results), MAX_RESULTS))
+        patterns = [
+            ("function", re.compile(r"^\\s*(?:(?:export|public|private|protected|static|async|local|def|fn)\\s+)*(?:function|def|fn)\\s+([A-Za-z_$][\\w$]*)")),
+            ("type", re.compile(r"^\\s*(?:(?:export|public|private|abstract|sealed|data)\\s+)*(?:class|interface|type|enum|struct|trait|record)\\s+([A-Za-z_$][\\w$]*)")),
+            ("variable", re.compile(r"^\\s*(?:export\\s+)?(?:const|let|var|local)\\s+([A-Za-z_$][\\w$]*)\\s*(?:[:=])")),
+        ]
+        needle = query.casefold().strip()
+        results: list[dict[str, Any]] = []
+        scanned = 0
+        for current, dirs, names in os.walk(base):
+            dirs[:] = sorted(d for d in dirs if d not in DEFAULT_IGNORES and not d.startswith("."))
+            for name in sorted(names):
+                if name.startswith("."):
+                    continue
+                file_path = Path(current) / name
+                try:
+                    if file_path.stat().st_size > MAX_READ_BYTES:
+                        continue
+                    lines = file_path.read_text(encoding="utf-8").splitlines()
+                except (OSError, UnicodeDecodeError):
+                    continue
+                scanned += 1
+                for number, line in enumerate(lines, 1):
+                    found = None
+                    for kind, expression in patterns:
+                        match = expression.search(line)
+                        if match:
+                            found = (kind, match.group(1))
+                            break
+                    if not found:
+                        continue
+                    kind, symbol = found
+                    if needle and needle not in symbol.casefold() and needle not in line.casefold():
+                        continue
+                    results.append({
+                        "name": symbol, "kind": kind,
+                        "path": file_path.relative_to(self.root).as_posix(),
+                        "line": number, "text": line.strip()[:500],
+                    })
+                    if len(results) >= limit:
+                        return {"query": query, "symbols": results, "truncated": True, "files_scanned": scanned}
+        return {"query": query, "symbols": results, "truncated": False, "files_scanned": scanned}
+
+    def apply_patch(self, path: str, old_string: str, new_string: str, replace_all: bool = False) -> dict[str, Any]:
+        """Apply an exact text replacement, refusing ambiguous matches by default."""
+        target = self._resolve(path)
+        if not target.is_file():
+            raise WorkspaceError(f"Patch target is not an existing file: {path}")
+        if not isinstance(old_string, str) or not old_string:
+            raise WorkspaceError("old_string must be a non-empty exact source fragment.")
+        if not isinstance(new_string, str):
+            raise WorkspaceError("new_string must be a string.")
+        try:
+            content = target.read_text(encoding="utf-8")
+        except UnicodeDecodeError as exc:
+            raise WorkspaceError("Refusing to patch a non-UTF-8 file.") from exc
+        occurrences = content.count(old_string)
+        if occurrences == 0:
+            raise WorkspaceError("Exact old_string was not found. Re-read the file and use a smaller, exact patch.")
+        if occurrences > 1 and not replace_all:
+            raise WorkspaceError(f"Patch is ambiguous: old_string appears {occurrences} times. Include more context or set replace_all=true.")
+        updated = content.replace(old_string, new_string) if replace_all else content.replace(old_string, new_string, 1)
+        result = self.write_file(path, updated)
+        result["replacements"] = occurrences if replace_all else 1
+        return result
+
+    def git_diff(self, staged: bool = False, path: str = ".") -> dict[str, Any]:
+        """Return a bounded diff of staged or unstaged changes."""
+        relative = self._resolve(path).relative_to(self.root).as_posix()
+        command = ["git", "diff", "--no-ext-diff"]
+        if staged:
+            command.append("--cached")
+        if relative not in ("", "."):
+            command.extend(["--", relative])
+        result = self._run(command, timeout=20)
+        return {"staged": bool(staged), "path": relative or ".", **result}
+
+    def git_log(self, limit: int = 10) -> dict[str, Any]:
+        """Return recent commit summaries without changing the working tree."""
+        count = max(1, min(int(limit), 30))
+        return self._run(["git", "log", f"-{count}", "--oneline", "--decorate"], timeout=15)
 
     def git_status(self) -> dict[str, Any]:
         result = self._run(["git", "status", "--short", "--branch"], timeout=15)
