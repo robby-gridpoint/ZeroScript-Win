@@ -969,7 +969,7 @@
       const scoped = name === "list_tools" && !args.server
         ? A.toolList
         : A.toolList.filter((t) => (t.server || "roblox") === requested);
-      if (!A.toolList.length) return `Output of '${name}':\nNo commands available - the bridge or Roblox Studio may be offline.`;
+      if (!A.toolList.length) return `Output of '${name}':\nNo workspace or MCP tools are available - check the local bridge.`;
       if (!scoped.length) {
         return `Output of '${name}':\nERROR: no server named "${requested}" is connected. Connected servers: ${[...known].join(", ") || "roblox"}. Call list_mcp_servers to check.`;
       }
