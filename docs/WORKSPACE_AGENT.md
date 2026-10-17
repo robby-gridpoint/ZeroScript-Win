@@ -6,7 +6,7 @@ ZeroScript-Win exposes a local-first coding workspace independently from its opt
 
 - The first-run workspace falls back to the bridge directory for compatibility, but it is marked unconfigured.
 - The bootstrap tool catalogue includes the current workspace path and its configured state in the `workspace_info` description. The agent uses that state to ask for a project folder before performing inspection or edits.
-- The user can provide a full path through chat (`workspace_set_root`) or open the native operating-system folder dialog (`workspace_browse`).
+- The user can provide a full path through chat (`workspace_set_root`) or open the native operating-system folder dialog (`workspace_browse`). The picker returns a proposed path only; `workspace_set_root` activates and persists that exact path.
 - The selected folder is persisted in `.zs-workspace.json` beside the bridge. This file is ignored by Git because it contains a machine-specific path.
 - `ZS_WORKSPACE_ROOT`, when set, takes precedence over the saved folder.
 
@@ -18,6 +18,9 @@ ZeroScript-Win exposes a local-first coding workspace independently from its opt
 | `workspace_set_root` | Validate and persist a folder explicitly supplied by the user. |
 | `workspace_browse` | Open the native folder picker and save the selected folder. |
 | `workspace_project_info` | Detect common manifests, project-type hints, package scripts, Git presence, and file-extension inventory. |
+| `workspace_create_directory` | Create a workspace-relative directory without overwriting an existing path. |
+| `workspace_move_path` | Move/rename a file or directory within the workspace without overwriting a destination. |
+| `workspace_delete_file` | Delete a single regular file; directories and symbolic links are refused. Use only after an explicit user request. |
 | `workspace_tree` | Return a depth-limited project tree while skipping generated folders and symbolic links. |
 | `workspace_list_files` | List project files while skipping common generated directories and symbolic links. |
 | `workspace_find_files` | Find paths using glob patterns. |
@@ -60,5 +63,9 @@ From the repository root:
 ```powershell
 py -3 -m unittest workspace_agent.test_tools -v
 ```
+
+## Workspace Explorer interface
+
+Open **Workspace Explorer** from the extension popup to use the local tree, source editor, search panel, outline/project panes, Git views, and command runner. The source editor is a lightweight text editor, not a full language-server-backed IDE: syntax highlighting, language servers, breakpoints, and debugger integration are not implemented in this remaster stage. Unsaved files are not saved to a different workspace if the selected root changes.
 
 This tool layer remains independent from the Roblox MCP package.
