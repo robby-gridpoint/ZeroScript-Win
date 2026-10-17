@@ -81,3 +81,19 @@ py -3 -m unittest workspace_agent.test_tools workspace_agent.test_bridge -v
 Open **Workspace Explorer** from the extension popup to use the local tree, multi-tab source editor with independent unsaved buffers, lightweight language-token highlighting and line numbers, fuzzy Quick Open, searchable Command Palette, current-file Find/Replace, folder-scoped search/replace, outline/project panes, Git views including a clickable changed-file list, and command runner. Current-file Find/Replace supports previous/next navigation, match-case, Replace, and Replace All in the unsaved buffer. Workspace search accepts a workspace-relative folder scope. Replace in Files supports literal or regex replacements, shows per-file diffs before applying, asks for confirmation, and rejects stale previews. The editor supports Tab indentation, basic Enter auto-indent, Ctrl+F find in file, Ctrl+H replace in file, Ctrl+S, Ctrl+Shift+S Save All, Ctrl+W close tab, Ctrl+P quick open, Ctrl+Shift+P command palette, Ctrl+Shift+F search in files, and Ctrl+Shift+H Replace in Files. Project metadata exposes detected package tasks plus whitelisted native tasks for common Python, Rust, Go, .NET, Maven, Gradle, and CMake projects. One-click tasks require confirmation. Package scripts can be called as `package:<script-name>`; language-native tasks use namespaced keys such as `python.test` or `rust.check`. Common compiler/linter/test output formats can become clickable file/line diagnostics in Problems. The task runner refuses unknown task names rather than accepting arbitrary command strings. Git Source Control includes per-file stage/unstage and a commit box; those actions require explicit confirmation and a commit never pushes automatically. It is not a full language-server-backed IDE: semantic highlighting, language servers, inline diagnostics while typing, completion, breakpoints, and debugger integration are not implemented in this remaster stage. Unsaved files are not saved to a different workspace if the selected root changes.
 
 This tool layer remains independent from the Roblox MCP package.
+
+
+## Roblox Studio tree export
+
+The bridge exposes `roblox_export_tree` when the Roblox integration is configured. It requires a selected local workspace and an active Roblox Studio MCP session.
+
+- Uses Studio's `execute_luau` tool in Edit context to enumerate all `LuaSourceContainer` instances and read source in bounded pages.
+- Exports `Script`, `LocalScript`, and `ModuleScript` files beneath a workspace-relative `root_path` (default: `RobloxExport`).
+- Preserves the DataModel hierarchy as folders and uses `.server.lua`, `.client.lua`, and `.module.lua` suffixes to retain script roles.
+- Writes locally through the workspace writer in bounded batches; script source is not copied into the agent conversation.
+- Existing files are not overwritten unless the caller explicitly sets `overwrite=true`. The writer validates each batch before writing.
+- Instance names are sanitized for Windows-compatible paths. Non-script instances and binary assets are not exported.
+
+Example arguments: `{"root_path":"RobloxExport","overwrite":false}`.
+
+The export is text-source mirroring, not a full place-file backup. It does not include instances, properties, assets, packages, or other non-script state.
