@@ -256,7 +256,7 @@ class Workspace:
             raise WorkspaceError(f"Not a directory: {path}")
         limit = max(1, min(int(max_results), MAX_RESULTS))
         patterns = [
-            ("function", re.compile(r"^\s*(?:(?:export|public|private|protected|static|async|local|def|fn)\s+)*(?:function|def|fn)\s+([A-Za-z_$][\w$]*)")),
+            ("function", re.compile(r"^\s*(?:(?:export|public|private|protected|static|async|local|pub|crate)\s+)*(?:function|def|fn)\s+([A-Za-z_$][\w$]*)")),
             ("type", re.compile(r"^\s*(?:(?:export|public|private|abstract|sealed|data)\s+)*(?:class|interface|type|enum|struct|trait|record)\s+([A-Za-z_$][\w$]*)")),
             ("variable", re.compile(r"^\s*(?:export\s+)?(?:const|let|var|local)\s+([A-Za-z_$][\w$]*)\s*(?:[:=])")),
         ]
