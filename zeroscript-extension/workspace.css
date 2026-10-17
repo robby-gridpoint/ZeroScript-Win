@@ -209,8 +209,13 @@ input[type=checkbox] { margin: 0; accent-color: var(--accent); }
 .navigation-empty { padding: 24px 12px; border: 1px dashed #29374b; border-radius: 8px; }
 
 .git-changes { display: flex; flex-direction: column; gap: 3px; padding: 2px 0 8px; }
-.git-change-row { display: flex; align-items: stretch; min-width: 0; }
+.git-change-row { display: flex; flex-direction: column; align-items: stretch; min-width: 0; padding: 3px 0; border-bottom: 1px solid rgba(42, 53, 71, .6); }
+.git-change-primary { min-width: 0; }
 .git-change-open { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; padding: 7px 6px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: #b9c7db; text-align: left; }
+.git-change-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 4px; padding: 0 6px 5px 42px; }
+.git-change-action { min-height: 21px; padding: 3px 7px; border: 1px solid #2d3b51; border-radius: 5px; background: #131b28; color: #8798b1; font-size: 9px; }
+.git-change-action:hover { border-color: #526b99; background: #1b2a40; color: #dce7fa; }
+.git-change-action.stage { color: #8dd0a5; border-color: #315643; }
 .git-change-open:hover { border-color: #2c3b52; background: #182332; color: #edf3ff; }
 .git-change-code { display: grid; place-items: center; min-width: 28px; height: 23px; padding: 0 4px; flex: 0 0 auto; border-radius: 5px; background: #1e293a; color: #9ba9bd; font-family: Consolas, monospace; font-size: 9px; font-weight: 700; }
 .git-change-code.modified { background: #342c1e; color: #e5bd79; }
