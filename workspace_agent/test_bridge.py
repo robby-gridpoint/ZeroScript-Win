@@ -32,6 +32,8 @@ class WorkspaceBridgeTests(unittest.TestCase):
         self.assertIn("workspace_multi_edit", by_name)
         self.assertIn("workspace_replace_in_files", by_name)
         self.assertIn("workspace_create_file", by_name)
+        multi_edit_properties = by_name["workspace_multi_edit"]["inputSchema"]["properties"]["edits"]["items"]["properties"]
+        self.assertIs(multi_edit_properties["whole_file"]["default"], False)
         self.assertIn("workspace_recent_roots", by_name)
         self.assertIn("workspace_open_recent", by_name)
         self.assertIn("workspace_git_stage_file", by_name)
