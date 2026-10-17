@@ -51,6 +51,12 @@ class Workspace:
     def describe(self) -> dict[str, Any]:
         return {"root": str(self.root), "name": self.root.name or str(self.root), "exists": True}
 
+    @staticmethod
+    def _read_text_exact(target: Path) -> str:
+        """Read UTF-8 text without translating CRLF/LF, preserving source EOL style."""
+        with target.open("r", encoding="utf-8", newline="") as handle:
+            return handle.read()
+
     def list_files(self, path: str = ".", max_results: int = 200, include_hidden: bool = False) -> dict[str, Any]:
         base = self._resolve(path)
         if not base.exists() or not base.is_dir():
@@ -94,7 +100,7 @@ class Workspace:
         if size > allowed:
             raise WorkspaceError(f"File is {size} bytes; limit is {allowed}. Read a smaller file or split it.")
         try:
-            content = target.read_text(encoding="utf-8")
+            content = self._read_text_exact(target)
         except UnicodeDecodeError as exc:
             raise WorkspaceError("File is not valid UTF-8 text.") from exc
         return {"path": target.relative_to(self.root).as_posix(), "content": content}
@@ -158,7 +164,7 @@ class Workspace:
         previous = ""
         if existed:
             try:
-                previous = target.read_text(encoding="utf-8")
+                previous = self._read_text_exact(target)
             except UnicodeDecodeError as exc:
                 raise WorkspaceError("Refusing to overwrite a non-UTF-8 file.") from exc
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -212,7 +218,7 @@ class Workspace:
 
             if target not in pending:
                 try:
-                    original = target.read_text(encoding="utf-8")
+                    original = self._read_text_exact(target)
                 except UnicodeDecodeError as exc:
                     raise WorkspaceError(f"Refusing to edit non-UTF-8 file: {path}") from exc
                 pending[target] = {
