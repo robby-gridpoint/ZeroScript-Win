@@ -109,6 +109,28 @@ function activeTab() {
   return state.openTabs.find((tab) => tab.key === state.activeTabKey) || null;
 }
 
+function normalizeEditorContent(content) {
+  return String(content || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+}
+
+function detectLineEnding(content) {
+  const text = String(content || "");
+  if (text.includes("\r\n")) return "\r\n";
+  if (text.includes("\r") && !text.includes("\n")) return "\r";
+  return "\n";
+}
+
+function encodeLineEndings(content, lineEnding = "\n") {
+  const normalized = normalizeEditorContent(content);
+  return lineEnding === "\r\n" ? normalized.replace(/\n/g, "\r\n")
+    : lineEnding === "\r" ? normalized.replace(/\n/g, "\r")
+    : normalized;
+}
+
+function lineEndingLabel(lineEnding) {
+  return lineEnding === "\r\n" ? "CRLF" : lineEnding === "\r" ? "CR" : "LF";
+}
+
 function syncActiveTabFromEditor() {
   const tab = activeTab();
   if (!tab) return;
@@ -176,7 +198,7 @@ function switchToTab(key) {
   $("statusFile").textContent = tab.path;
   $("languageStatus").textContent = languageForPath(tab.path);
   $("encodingStatus").textContent = "UTF-8";
-  $("eolStatus").textContent = tab.content.includes("\r\n") ? "CRLF" : "LF";
+  $("eolStatus").textContent = lineEndingLabel(tab.lineEnding);
   selectFileInTree(tab.path);
   updateHighlight();
   updateCursorStatus();
@@ -257,10 +279,12 @@ async function saveAllTabs() {
     for (const tab of dirtyTabs) {
       if (tab.root !== activeRoot) continue;
       try {
-        const currentContent = tab.content;
-        await callTool("workspace_write_file", { path: tab.path, content: currentContent });
+        const currentContent = normalizeEditorContent(tab.content);
+        const diskContent = encodeLineEndings(currentContent, tab.lineEnding);
+        await callTool("workspace_write_file", { path: tab.path, content: diskContent });
+        tab.content = currentContent;
         tab.savedContent = currentContent;
-        tab.dirty = tab.content !== currentContent;
+        tab.dirty = false;
         saved.push(tab.path);
       } catch (error) {
         failed.push(tab.path + ": " + error.message);
@@ -466,13 +490,15 @@ async function openFile(path, jumpLine = 1) {
     const result = await callTool("workspace_read_file", { path });
     const filePath = result.path || path;
     const key = tabKey(filePath, root);
-    const content = result.content || "";
+    const diskContent = result.content || "";
+    const content = normalizeEditorContent(diskContent);
     const tab = {
       key,
       path: filePath,
       root,
       content,
       savedContent: content,
+      lineEnding: detectLineEnding(diskContent),
       dirty: false,
     };
     state.openTabs.push(tab);
@@ -488,7 +514,7 @@ async function openFile(path, jumpLine = 1) {
     $("statusFile").textContent = filePath;
     $("languageStatus").textContent = languageForPath(filePath);
     $("encodingStatus").textContent = "UTF-8";
-    $("eolStatus").textContent = content.includes("\r\n") ? "CRLF" : "LF";
+    $("eolStatus").textContent = lineEndingLabel(tab.lineEnding);
     renderDirty();
     renderOpenTabs();
     selectFileInTree(filePath);
@@ -517,12 +543,14 @@ async function saveFile() {
     errorOutput("Save blocked", "The selected workspace changed after this tab was opened. Switch back to the original workspace or copy the buffer elsewhere before saving.");
     return;
   }
-  const content = $("codeEditor").value;
+  const content = normalizeEditorContent($("codeEditor").value);
+  const diskContent = encodeLineEndings(content, tab.lineEnding);
   setBusy(true, `Saving ${tab.path}…`);
   try {
-    const result = await callTool("workspace_write_file", { path: tab.path, content });
+    const result = await callTool("workspace_write_file", { path: tab.path, content: diskContent });
+    tab.content = content;
     tab.savedContent = content;
-    tab.dirty = tab.content !== content;
+    tab.dirty = false;
     if (state.activeTabKey === tab.key) {
       state.savedContent = tab.savedContent;
       state.dirty = tab.dirty;
@@ -551,7 +579,9 @@ async function reloadCurrentFile() {
   setBusy(true, "Reloading " + tab.path + "…");
   try {
     const result = await callTool("workspace_read_file", { path: tab.path });
-    const content = result.content || "";
+    const diskContent = result.content || "";
+    const content = normalizeEditorContent(diskContent);
+    tab.lineEnding = detectLineEnding(diskContent);
     tab.content = content;
     tab.savedContent = content;
     tab.dirty = false;
@@ -560,7 +590,7 @@ async function reloadCurrentFile() {
       state.savedContent = content;
       state.dirty = false;
       $("codeEditor").value = content;
-      $("eolStatus").textContent = content.includes("\r\n") ? "CRLF" : "LF";
+      $("eolStatus").textContent = lineEndingLabel(tab.lineEnding);
       updateHighlight();
       updateCursorStatus();
     }
