@@ -1155,6 +1155,12 @@ class MCPManager:
              "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}, "old_string": {"type": "string"}, "new_string": {"type": "string"}, "replace_all": {"type": "boolean", "default": False}}, "required": ["path", "old_string", "new_string"], "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_write_file", "description": "Create or replace a UTF-8 text file inside the selected project. Returns a unified diff. This modifies files.",
              "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"], "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_git_stage_file", "description": "Stage one file path inside the selected workspace using Git. Does not stage an entire directory. Only call after the user explicitly asks to stage that file.",
+             "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"], "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_git_unstage_file", "description": "Remove one file path from the Git index without changing its working-tree contents. Only call after the user explicitly asks to unstage that file.",
+             "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"], "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_git_commit", "description": "Create a local commit from already-staged changes; this does not push. Only call when the user explicitly requests a commit and provides or confirms the commit message.",
+             "inputSchema": {"type": "object", "properties": {"message": {"type": "string", "minLength": 1, "maxLength": 500}}, "required": ["message"], "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_git_status", "description": "Get Git working-tree status for the selected project.",
              "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_git_diff", "description": "Read staged or unstaged Git changes, optionally limited to a workspace-relative path.",
@@ -1339,6 +1345,12 @@ class MCPManager:
             return self.workspace.apply_patch(args["path"], args["old_string"], args["new_string"], args.get("replace_all", False))
         if name == "workspace_write_file":
             return self.workspace.write_file(args["path"], args["content"])
+        if name == "workspace_git_stage_file":
+            return self.workspace.git_stage_file(args["path"])
+        if name == "workspace_git_unstage_file":
+            return self.workspace.git_unstage_file(args["path"])
+        if name == "workspace_git_commit":
+            return self.workspace.git_commit(args["message"])
         if name == "workspace_git_status":
             return self.workspace.git_status()
         if name == "workspace_git_diff":
