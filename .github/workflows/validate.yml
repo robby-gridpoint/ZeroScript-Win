@@ -56,6 +56,8 @@ jobs:
           node --check zeroscript-extension/core/config.js 2>&1 | tee -a extension-test-results.txt
           node zeroscript-extension/core/config.test.cjs 2>&1 | tee -a extension-test-results.txt
           node --check zeroscript-extension/workspace.js 2>&1 | tee -a extension-test-results.txt
+          node --check zeroscript-extension/workspace-diagnostics.js 2>&1 | tee -a extension-test-results.txt
+          node zeroscript-extension/workspace-diagnostics.test.cjs 2>&1 | tee -a extension-test-results.txt
           node --check zeroscript-extension/core/parser.js 2>&1 | tee -a extension-test-results.txt
           node --check zeroscript-extension/core/main.js 2>&1 | tee -a extension-test-results.txt
           node --check zeroscript-extension/background.js 2>&1 | tee -a extension-test-results.txt
