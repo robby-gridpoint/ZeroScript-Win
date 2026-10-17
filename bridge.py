@@ -1,12 +1,12 @@
 # # SPDX-License-Identifier: GPL-3.0-or-later
 # bridge.py
 # ──────────────────────────────────────────────────────────────────────────
-#  ZeroScript Bridge
-#  Local WebSocket <-> Roblox Studio MCP server.
+#  ZeroScript-Win Bridge
+#  Local WebSocket <-> workspace tools and optional MCP integrations.
 #  The browser extension talks to this over ws://127.0.0.1:<PORT>.
 #
-#  What this bridge exposes to Kimi (aggregated into one tools/list):
-#    - Every MCP server declared in config.json (by default: roblox), each
+#  What this bridge exposes to the extension (aggregated into one tool catalogue):
+#    - Workspace tools plus every MCP server declared in config.json, each
 #      spawned as a stdio child and routed by tool name.
 #
 #  Design goals (robustness first):
@@ -26,6 +26,12 @@ import subprocess
 import sys
 import threading
 import time
+
+try:
+    from workspace_agent.tools import Workspace, WorkspaceError
+except Exception:
+    Workspace = None
+    WorkspaceError = RuntimeError
 
 try:
     # Sibling script (same folder as bridge.py, which Python puts on sys.path
@@ -74,13 +80,13 @@ def _enable_ansi_colors():
 HOST = "127.0.0.1"
 # Keep in sync with zeroscript-extension/manifest.json "version" - printed at
 # startup so a user's terminal output alone tells us which build they're on.
-BRIDGE_VERSION = "1.5.5"
+BRIDGE_VERSION = "1.6.0"
 PORT = int(os.environ.get("ZS_BRIDGE_PORT", "17613"))
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(HERE, "config.json")
 
-# The primary server. It is always present, added by the installer, and can
-# never be edited/removed through the extension (it is what ZeroScript is FOR).
+# Conventional ID for the optional Roblox Studio adapter. Workspace tools work
+# independently, even when this server is absent or Studio is closed.
 PRIMARY_SERVER_ID = "roblox"
 
 if _enable_ansi_colors():
@@ -653,7 +659,7 @@ def _read_config():
                 return cfg
         except Exception as e:
             log(f"config.json unreadable ({e}) - starting from a fresh one", "yl")
-    return {"mcpServers": {PRIMARY_SERVER_ID: {"command": "launch_studio_mcp.py", "args": []}}}
+    return {"mcpServers": {}}
 
 
 def _write_config(cfg):
@@ -665,13 +671,10 @@ def _write_config(cfg):
 
 
 def config_add_server(server_id, command, args=None, env=None):
-    """Add/replace an addon server in config.json. Refuses to touch the primary
-    (roblox) server. Returns (ok, error)."""
+    """Add or replace a configured MCP server. Returns (ok, error)."""
     sid = (server_id or "").strip()
     if not sid:
         return False, "server id is required"
-    if sid == PRIMARY_SERVER_ID:
-        return False, f"'{PRIMARY_SERVER_ID}' is the primary server and cannot be edited"
     if not (command or "").strip():
         return False, "a command is required"
     cfg = _read_config()
@@ -687,10 +690,8 @@ def config_add_server(server_id, command, args=None, env=None):
 
 
 def config_remove_server(server_id):
-    """Remove an addon server from config.json. Refuses the primary server."""
+    """Remove a configured MCP server from config.json."""
     sid = (server_id or "").strip()
-    if sid == PRIMARY_SERVER_ID:
-        return False, f"'{PRIMARY_SERVER_ID}' is the primary server and cannot be removed"
     cfg = _read_config()
     if sid not in cfg.get("mcpServers", {}):
         return False, f"server '{sid}' is not in the config"
@@ -1066,6 +1067,64 @@ class MCPManager:
         self.clients = {}          # server_id -> MCPClient
         self.index = {}            # advertised_name -> (holder, real_name)
         self.index_lock = threading.Lock()
+        # The workspace root is explicit and configurable through the
+        # ZS_WORKSPACE_ROOT environment variable. Default to the repository
+        # folder so the coding tools work without requiring Roblox Studio.
+        self.workspace_root = os.environ.get("ZS_WORKSPACE_ROOT", HERE)
+        self.workspace = None
+        self.workspace_error = None
+        self._load_workspace()
+
+    def _load_workspace(self):
+        if Workspace is None:
+            self.workspace_error = "Workspace tools could not be imported."
+            return
+        try:
+            self.workspace = Workspace(self.workspace_root)
+            log(f"workspace selected: {self.workspace.root}", "cy")
+        except Exception as exc:
+            self.workspace_error = str(exc)
+            log(f"workspace unavailable: {exc}", "yl")
+
+    def _workspace_tools(self):
+        if self.workspace is None:
+            return []
+        return [
+            {"name": "workspace_info", "description": "Get the selected project root and name.",
+             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_list_files", "description": "List source files in the selected project. Generated directories are skipped.",
+             "inputSchema": {"type": "object", "properties": {"path": {"type": "string", "default": "."}, "max_results": {"type": "integer", "minimum": 1, "maximum": 500}, "include_hidden": {"type": "boolean"}}, "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_read_file", "description": "Read a UTF-8 text file inside the selected project (maximum 1 MB).",
+             "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"], "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_search", "description": "Search source text case-insensitively inside the selected project.",
+             "inputSchema": {"type": "object", "properties": {"query": {"type": "string"}, "path": {"type": "string", "default": "."}, "max_results": {"type": "integer", "minimum": 1, "maximum": 500}}, "required": ["query"], "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_write_file", "description": "Create or replace a UTF-8 text file inside the selected project. Returns a unified diff. This modifies files.",
+             "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"], "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_git_status", "description": "Get Git working-tree status for the selected project.",
+             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_run_command", "description": "Run a command as an argument array from the selected project directory. Shell expansion is disabled. Use only commands required for the requested development task.",
+             "inputSchema": {"type": "object", "properties": {"command": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 100}, "timeout": {"type": "integer", "minimum": 1, "maximum": 300}}, "required": ["command"], "additionalProperties": False}, "server": "workspace"},
+        ]
+
+    def _call_workspace(self, name, arguments):
+        if self.workspace is None:
+            raise RuntimeError(self.workspace_error or "Workspace is unavailable.")
+        args = arguments or {}
+        if name == "workspace_info":
+            return self.workspace.describe()
+        if name == "workspace_list_files":
+            return self.workspace.list_files(args.get("path", "."), args.get("max_results", 200), args.get("include_hidden", False))
+        if name == "workspace_read_file":
+            return self.workspace.read_file(args["path"])
+        if name == "workspace_search":
+            return self.workspace.search(args["query"], args.get("path", "."), args.get("max_results", 100))
+        if name == "workspace_write_file":
+            return self.workspace.write_file(args["path"], args["content"])
+        if name == "workspace_git_status":
+            return self.workspace.git_status()
+        if name == "workspace_run_command":
+            return self.workspace.run_command(args["command"], args.get("timeout", 60))
+        raise RuntimeError(f"unknown workspace tool '{name}'")
 
     def load_config(self):
         servers = _read_config().get("mcpServers", {}) or {}
@@ -1136,9 +1195,13 @@ class MCPManager:
                 tt["name"] = advertised
                 tt["server"] = sid
                 out.append(tt)
+        out.extend(self._workspace_tools())
         return out
 
     def call(self, name, arguments, timeout):
+        if name.startswith("workspace_"):
+            result = self._call_workspace(name, arguments)
+            return {"text": json.dumps(result, ensure_ascii=False, indent=2), "images": []}
         with self.index_lock:
             entry = self.index.get(name)
         if entry is None:

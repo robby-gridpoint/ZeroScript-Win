@@ -896,7 +896,7 @@
     if (!name) return ZS.FEEDBACK.parseError("malformed");
     // NEVER execute while the AI tab is backgrounded/minimized. This is the single
     // choke point for ALL execution (agentLoop's tool dispatch AND the bootstrap's
-    // list_commands), so it closes the hole the loop-entry gate alone left open:
+    // tool calls), so it closes the hole the loop-entry gate alone left open:
     // the tab is foreground when a cycle starts, the model then generates for
     // 30-120s, the user minimizes MID-generation, and waitForResponse returns a
     // tool call that fired into Studio off-screen (observed live: GLM minimized
@@ -926,10 +926,10 @@
       const servers = (A.bridge && A.bridge.servers) || [];
       const lines = servers.length
         ? servers.map((sv) => {
-            const label = sv.id === "roblox" ? "Roblox Studio (primary)" : `${sv.id} (addon)`;
+            const label = sv.id === "roblox" ? "Roblox Studio (optional)" : `${sv.id} (MCP integration)`;
             return `- ${sv.id}: ${label} - ${sv.alive ? `${sv.tools || 0} commands available` : "offline (no tools)"}`;
           })
-        : ["- roblox: Roblox Studio (primary) - unknown (bridge did not report server health)"];
+        : ["- No MCP integrations configured; workspace tools remain available."];
       return (
         `Output of 'list_mcp_servers':\n` +
         `Connected MCP servers (${lines.length}):\n${lines.join("\n")}\n` +
@@ -941,14 +941,14 @@
     // if the model explicitly asks via {"server": "<id>"} (see list_mcp_servers).
     if (name === "list_commands" || name === "list_tools") {
       await ensureTools();
-      const requested = (args.server || "roblox").trim();
+      const requested = (args.server || (name === "list_tools" ? "all" : "roblox")).trim();
       // The MCP proxy keeps advertising Roblox's catalogue even with no Studio
       // attached, so list_commands would hand back the full command list and read
       // as "Roblox is fine" - then every command silently fails. When Roblox is
       // actually unusable, short-circuit the DEFAULT (roblox) listing into a plain
       // "Roblox is down" note that points the model at the other server(s), so it
       // can keep working in degraded mode instead of firing dead Roblox commands.
-      if (requested === "roblox") {
+      if (name === "list_commands" && requested === "roblox") {
         const s = A.bridge || {};
         const srv = s.servers || [];
         const rbx = srv.find((x) => x.id === "roblox");
@@ -966,8 +966,10 @@
       // Tools from a bridge that doesn't tag "server" yet (old version) have no
       // .server field at all - treat those as the primary server rather than
       // hiding everything.
-      const scoped = A.toolList.filter((t) => (t.server || "roblox") === requested);
-      if (!A.toolList.length) return `Output of '${name}':\nNo commands available - the bridge or Roblox Studio may be offline.`;
+      const scoped = name === "list_tools" && !args.server
+        ? A.toolList
+        : A.toolList.filter((t) => (t.server || "roblox") === requested);
+      if (!A.toolList.length) return `Output of '${name}':\nNo workspace or MCP tools are available - check the local bridge.`;
       if (!scoped.length) {
         return `Output of '${name}':\nERROR: no server named "${requested}" is connected. Connected servers: ${[...known].join(", ") || "roblox"}. Call list_mcp_servers to check.`;
       }
@@ -1460,8 +1462,7 @@
               // what the model gets when it lists commands itself. Anti-drift only
               // needs the primary Roblox set; addon commands were listed on demand
               // and the bridge routes by name regardless.
-              const roblox = A.toolList.filter((t) => (t.server || "roblox") === "roblox");
-              toSend += ZS.toolsReminder(roblox) + "\n" + ZS.memoryNudge();
+              toSend += ZS.toolsReminder(A.toolList) + "\n" + ZS.memoryNudge();
               diag("tools.reminder", { after: REMIND_TOOLS_EVERY });
             }
           }
@@ -1639,6 +1640,7 @@
       siteName: P.displayName,
       customPrompt: ui.getCustomPrompt(),
       providerNotes: P.promptExtra || "",
+      tools: A.toolList || [],
     });
   }
 
@@ -1649,7 +1651,7 @@
   // answering "I can't invoke those commands in this session" while the
   // extension sits there ready and waiting. Observed repeatedly on ChatGPT.
   //
-  // The periodic tools reminder does NOT fix this: it re-anchors command NAMES,
+  // The periodic tools reminder does NOT fix this: it re-anchors tool names,
   // but it never restates that the commands actually run. So providers that need
   // it set `resendSystemEvery`, and the whole prompt goes back in.
   //
@@ -1836,8 +1838,8 @@
                                // the model makes seconds later)
       if (!alive()) return;
       if (!A.toolList.length) {
-        ui.banner("warn", "Bridge or Studio offline",
-          "Could not fetch Roblox tools. Run start.bat and make sure Roblox Studio is open, then try again.");
+        ui.banner("warn", "No tools available",
+          "Could not fetch workspace or MCP tools. Run start.bat, check the bridge connection, and try again.");
         return;
       }
       const modeState = await P.ensureComposerReady("startup");
@@ -1863,7 +1865,7 @@
       const firstName = startRes.calls && startRes.calls[0] && startRes.calls[0].tool;
       if (startRes.kind === "tool" && startRes.calls && startRes.calls.length === 1 &&
           (firstName === "list_commands" || firstName === "list_tools")) {
-        decorate.toolBox(startRes.item, "Loading commands", "run", "", true);
+        decorate.toolBox(startRes.item, "Loading tools", "run", "", true);
         const toolFeedback = await runTool(startRes.calls[0]);
         // Roblox down short-circuits list_commands into a plain "offline" note
         // (main.js, list_commands handler) instead of the real catalogue - detect
@@ -1872,15 +1874,15 @@
         // attached, so A.toolList still has 25+ entries that were never actually
         // usable this boot).
         if (/Roblox Studio is currently OFFLINE/.test(toolFeedback)) {
-          decorate.toolBox(startRes.item, "Loading commands", "err", "Roblox offline", true);
+          decorate.toolBox(startRes.item, "Loading tools", "err", "Roblox offline", true);
         } else {
           // Count what the model ACTUALLY received: list_commands is scoped to the
           // primary Roblox server (main.js ~629), so showing A.toolList.length (every
           // connected server merged - Roblox + Blender + addons) overstated the boot
           // count and made it look like all servers were loaded at once. Count the
           // Roblox-scoped tools instead, matching the real result.
-          const robloxCount = A.toolList.filter((t) => (t.server || "roblox") === "roblox").length;
-          decorate.toolBox(startRes.item, "Loading commands", "done", `${robloxCount} commands`, true);
+          const listedCount = firstName === "list_tools" ? A.toolList.length : A.toolList.filter((t) => (t.server || "roblox") === "roblox").length;
+          decorate.toolBox(startRes.item, "Loading tools", "done", `${listedCount} tools`, true);
         }
         const base2 = await submitAndGetBase(toolFeedback);
         const readyRes = await waitForResponse(base2); // wait for "I'm ready" reply
@@ -1890,7 +1892,7 @@
       A.started = true;
       rememberSession(P.conversationKey()); // survives virtualization AND reloads
       ui.setStarted(true);
-      ui.toast(`Agent ready. Ask ${P.displayName} to build something in Roblox.`);
+      ui.toast(`Agent ready. Ask ${P.displayName} to work on your project.`);
     } catch (e) {
       if (alive()) ui.banner("warn", "Startup failed", String((e && e.message) || e));
     } finally {

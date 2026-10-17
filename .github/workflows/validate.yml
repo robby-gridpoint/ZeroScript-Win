@@ -1,0 +1,38 @@
+name: Validate workspace agent
+
+on:
+  push:
+    branches: ["master", "agent/workspace-foundation"]
+  pull_request:
+
+jobs:
+  python-tests:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install bridge dependency
+        run: python -m pip install websockets
+      - name: Test workspace tools
+        run: python -m unittest workspace_agent.test_tools -v
+      - name: Compile Python
+        run: python -m compileall -q bridge.py workspace_agent
+  extension-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check extension JavaScript syntax
+        run: |
+          node --check zeroscript-extension/core/config.js
+          node zeroscript-extension/core/config.test.cjs
+          node --check zeroscript-extension/core/parser.js
+          node --check zeroscript-extension/core/main.js
+          node --check zeroscript-extension/background.js
+          node --check zeroscript-extension/popup.js
+      - name: Validate extension manifest
+        run: node -e "JSON.parse(require('fs').readFileSync('zeroscript-extension/manifest.json','utf8'))"
