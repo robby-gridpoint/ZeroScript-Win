@@ -250,12 +250,9 @@ async function saveAllTabs() {
     return;
   }
   const blocked = dirtyTabs.filter((tab) => tab.root !== activeRoot);
-  if (blocked.length) {
-    errorOutput("Save All blocked", blocked.length + " tab(s) belong to a different workspace. Switch back to that folder before saving those buffers.");
-  }
   setBusy(true, "Saving open files…");
   const saved = [];
-  const failed = [];
+  const failed = blocked.map((tab) => tab.path + ": belongs to a different workspace; switch back to its folder to save.");
   try {
     for (const tab of dirtyTabs) {
       if (tab.root !== activeRoot) continue;
@@ -1226,6 +1223,14 @@ async function mutateGitFile(unstage = false) {
     return;
   }
   const verb = unstage ? "Unstage" : "Stage";
+  if (!unstage && tab.dirty) {
+    if (!window.confirm("Save the unsaved editor buffer for " + tab.path + " before staging it?")) return;
+    await saveFile();
+    if (tab.dirty) {
+      errorOutput("Stage cancelled", "The file is still unsaved. Fix the save failure before staging it.");
+      return;
+    }
+  }
   if (!window.confirm(verb + " " + tab.path + " in the local Git index? This does not create a commit or push changes.")) return;
   setBusy(true, verb + "ing " + tab.path + "…");
   try {
@@ -1370,6 +1375,16 @@ function renderProjectTasks(project) {
 async function runProjectTask(manager, name) {
   const command = manager === "bun" ? ["bun", "run", name] : [manager, "run", name];
   const display = command.join(" ");
+  const activeRoot = state.workspace && state.workspace.root;
+  const dirtyProjectTabs = state.openTabs.filter((tab) => tab.root === activeRoot && tab.dirty);
+  if (dirtyProjectTabs.length) {
+    if (!window.confirm("Save " + dirtyProjectTabs.length + " modified tab(s) before running this task?")) return;
+    await saveAllTabs();
+    if (state.openTabs.some((tab) => tab.root === activeRoot && tab.dirty)) {
+      errorOutput("Task cancelled", "Some files in this workspace are still unsaved. Resolve Save All failures before running tests/builds.");
+      return;
+    }
+  }
   if (!window.confirm(`Run the project-defined script below?\n\n${display}\n\nProject scripts are executable code and may modify files or access the network.`)) return;
   setBusy(true, `Running ${name}…`);
   try {
