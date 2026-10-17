@@ -207,3 +207,17 @@ input[type=checkbox] { margin: 0; accent-color: var(--accent); }
 .navigation-item-detail { color: #8ea2bf; font-size: 9px; overflow-wrap: anywhere; }
 .navigation-item-excerpt { margin-top: 2px; color: #74859d; font-family: Consolas, monospace; font-size: 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .navigation-empty { padding: 24px 12px; border: 1px dashed #29374b; border-radius: 8px; }
+
+.git-changes { display: flex; flex-direction: column; gap: 3px; padding: 2px 0 8px; }
+.git-change-row { display: flex; align-items: stretch; min-width: 0; }
+.git-change-open { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; padding: 7px 6px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: #b9c7db; text-align: left; }
+.git-change-open:hover { border-color: #2c3b52; background: #182332; color: #edf3ff; }
+.git-change-code { display: grid; place-items: center; min-width: 28px; height: 23px; padding: 0 4px; flex: 0 0 auto; border-radius: 5px; background: #1e293a; color: #9ba9bd; font-family: Consolas, monospace; font-size: 9px; font-weight: 700; }
+.git-change-code.modified { background: #342c1e; color: #e5bd79; }
+.git-change-code.added { background: #1c352d; color: #7bd7a7; }
+.git-change-code.untracked { background: #1b352d; color: #79d8a6; }
+.git-change-code.deleted { background: #3a2327; color: #f09a9d; }
+.git-change-code.renamed { background: #202c42; color: #9ebcff; }
+.git-change-copy { display: flex; flex-direction: column; flex: 1; min-width: 0; gap: 3px; }
+.git-change-path { min-width: 0; color: #d0dced; font-family: Consolas, monospace; font-size: 10px; overflow-wrap: anywhere; }
+.git-change-status { color: #73849b; font-size: 9px; overflow-wrap: anywhere; }
