@@ -30,6 +30,13 @@ class WorkspaceTests(unittest.TestCase):
         self.assertIn("-print('hello')", result["diff"])
         self.assertIn("+print('updated')", result["diff"])
 
+    def test_read_write_preserves_windows_line_endings(self):
+        target = self.root / "source.txt"
+        target.write_bytes(b"first\r\nsecond\r\n")
+        self.assertEqual(self.ws.read_file("source.txt")["content"], "first\r\nsecond\r\n")
+        self.ws.write_file("source.txt", self.ws.read_file("source.txt")["content"].replace("second", "updated"))
+        self.assertEqual(target.read_bytes(), b"first\r\nupdated\r\n")
+
     def test_blocks_path_traversal(self):
         with self.assertRaises(WorkspaceError):
             self.ws.read_file("../outside.txt")
