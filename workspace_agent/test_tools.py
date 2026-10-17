@@ -135,22 +135,14 @@ class WorkspaceTests(unittest.TestCase):
         self.assertIn("declaration", kinds)
         self.assertEqual(result["path"], "src/app.py")
 
-    def test_create_file_refuses_overwrite(self):
-        (self.root / "src").mkdir()
-        result = self.ws.create_file("src/new.txt", "hello\n")
-        self.assertTrue(result["created"])
-        self.assertEqual(self.ws.read_file("src/new.txt")["content"], "hello\n")
-        with self.assertRaises(WorkspaceError):
-            self.ws.create_file("src/new.txt", "do not overwrite")
-        self.assertEqual(self.ws.read_file("src/new.txt")["content"], "hello\n")
-
-    def test_create_file_refuses_overwrite(self):
+    def test_create_file_refuses_overwrite_and_requires_parent(self):
         self.ws.create_directory("src")
         result = self.ws.create_file("src/new.py", "print('new')\n")
         self.assertTrue(result["created"])
         self.assertEqual(self.ws.read_file("src/new.py")["content"], "print('new')\n")
         with self.assertRaises(WorkspaceError):
-            self.ws.create_file("src/new.py", "replace me")
+            self.ws.create_file("src/new.py", "do not overwrite")
+        self.assertEqual(self.ws.read_file("src/new.py")["content"], "print('new')\n")
         with self.assertRaises(WorkspaceError):
             self.ws.create_file("src/missing/nested.py", "no parents created")
 
