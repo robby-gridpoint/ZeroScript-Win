@@ -37,6 +37,9 @@ ZeroScript-Win exposes a local-first coding workspace independently from its opt
 | `workspace_git_status` | Read Git branch and working-tree status. |
 | `workspace_git_diff` | Read staged or unstaged diffs, optionally for one path. |
 | `workspace_git_branches` | List local and remote Git branches. |
+| `workspace_git_stage_file` | Stage one file in the Git index; does not stage directories or commit. |
+| `workspace_git_unstage_file` | Remove one file from the Git index without changing working-tree contents. |
+| `workspace_git_commit` | Create a local commit from staged changes; does not push. |
 | `workspace_git_log` | Read recent commit summaries. |
 | `workspace_run_command` | Run argv-array commands from the selected root, without shell expansion and with bounded time/output. |
 
@@ -57,7 +60,8 @@ Legacy conversations calling bare Roblox tool names are routed to the matching R
 - Text reads/writes and search results are bounded. Common generated directories are excluded by default.
 - Targeted patches require a non-empty exact fragment. Ambiguous matches are refused by default.
 - Command execution uses argv arrays and `shell=False`, which avoids shell expansion but does not sandbox the selected executable.
-- The current foundation does not yet provide a per-command approval dialog. Treat command execution as powerful: select trusted workspaces and never expose the loopback bridge on a public interface.
+- Git stage, unstage, and commit operations are separate tools. They should only be invoked after explicit user intent; the Workspace Explorer additionally asks for confirmation before these UI actions.
+- The current foundation does not yet provide a per-command approval dialog for agent-issued tools. Treat command execution as powerful: select trusted workspaces and never expose the loopback bridge on a public interface.
 - The native folder picker can depend on the local Python install having Tk support. If unavailable, the agent can use a folder path explicitly provided by the user.
 
 ## Tests
