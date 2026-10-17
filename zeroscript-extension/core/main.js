@@ -1812,12 +1812,12 @@
   // ════════════════════════════════════════════════════════════════════════
   //  SESSION BOOTSTRAP  ("Starting Up" animated chip, shown in the conversation)
   // ════════════════════════════════════════════════════════════════════════
-  async function startSession() {
+  async function startSession(attachToExisting = false) {
     if (A.running || A.starting) return;
-    // "Start session" is allowed ONLY on a blank conversation. Opening an
-    // EXISTING conversation must never trigger the bootstrap.
-    if (!P.chatIsEmpty() && !A.started) {
-      ui.toast("Open a new, empty conversation to start a session.");
+    // Existing conversations require an explicit user action ("Start agent in
+    // this chat"). Never attach automatically during page load or navigation.
+    if (!P.chatIsEmpty() && !A.started && !attachToExisting) {
+      ui.toast("Choose Start agent in this chat to attach ZeroScript here.");
       return;
     }
     A.userStopped = false;
@@ -2631,6 +2631,7 @@
     function onActionClick() {
       const kind = actionBtn.dataset.kind;
       if (kind === "start" || kind === "start-degraded") startSession();
+      else if (kind === "attach") startSession(true);
     }
 
     // ── Custom prompt (persisted) ───────────────────────────────────────────
@@ -3071,8 +3072,18 @@
         }
         disabled = !bridgeOk && !addonOk;
       } else {
-        toneClass = "noagent";
-        msg = `No agent here. Open a new chat to start one.`;
+        // A populated chat can still host a session, but only after an explicit
+        // click. This is especially useful when the user opens ZeroScript from
+        // an existing ChatGPT conversation. Bootstrap instructions are appended
+        // as a new turn; existing conversation history is left intact.
+        toneClass = bridgeOk || addonOk ? "standby" : "warn";
+        warn = !bridgeOk && !addonOk;
+        msg = bridgeOk || addonOk
+          ? "Existing chat. Start the agent here, or continue chatting normally."
+          : "Run start.bat and connect an MCP server to start the agent here.";
+        label = "▶︎ Start agent in this chat";
+        kind = "attach";
+        disabled = !bridgeOk && !addonOk;
       }
       // Parked on visibility: the loop is alive but deliberately frozen because
       // this tab is not the foreground tab of its window. Say so explicitly -
@@ -3093,7 +3104,7 @@
         const modeWarn = P.modeWarning();
         if (modeWarn) {
           toneClass = "warn"; warn = true; msg = modeWarn;
-          if (kind === "start" || kind === "start-degraded") disabled = true;
+          if (kind === "start" || kind === "start-degraded" || kind === "attach") disabled = true;
         }
       }
       // Only touch the DOM when something actually changed. renderBar runs on
