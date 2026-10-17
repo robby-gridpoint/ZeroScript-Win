@@ -83,7 +83,7 @@ const ZSProvider = (() => {
     // primary action remains inside the composer form, with a send test id when
     // idle and an icon-based Stop state while generating.
     submitBtn: "#composer-submit-button, button[data-testid='send-button'], button[data-testid='stop-button'], form[data-chatgpt-composer] button[type='submit'], form[data-chatgpt-composer] button.size-token-button-composer",
-    stopBtn: "button[data-testid='stop-button'], form[data-chatgpt-composer] button.size-token-button-composer",
+    stopBtn: "button[data-testid='stop-button'], form[data-chatgpt-composer] button.size-token-button-composer:has(svg.icon-primary-action > path[d=\"" + STOP_ICON_PATH + "\"])",
     codeWrap: "pre",
     errorSurfaces: '[role="alert"],[data-testid*="error"],[class*="error-message"]',
   };
@@ -1038,13 +1038,12 @@ const ZSProvider = (() => {
     // it to the EDITOR needed a -paddingBottom/2 nudge, because that node carries
     // bottom padding as growth headroom - covering the band removes the need.)
     // React re-renders a turn's content subtree on every token, wiping any chip
-    // placed inside it. Anchor chips at the turn-element level (the stable
-    // data-message-author-role div), where they survive those re-renders.
+    // placed inside it. Anchor chips at the stable role/content unit returned by
+    // allItems() (legacy message-role div or modern content-search unit).
     chipAtItemLevel: true,
-    // ChatGPT's turn elements are semantic (data-message-author-role) and carry
-    // a stable id, so the core's "has THIS send produced its reply turn yet?"
-    // gate is trustworthy here - it keys off lastAssistantId, which survives the
-    // list virtualization that would break a count-based test.
+    // ChatGPT's old and new turn containers expose stable message/content keys;
+    // itemKey() normalizes them so the core's "has THIS send produced its reply
+    // turn yet?" gate survives conversation list virtualization.
     reliableCounts: true,
     // No unstableWarning: the free-tier caps are real, but the pill it renders is
     // a permanently-visible floating element and it sat ON TOP of ChatGPT's own
@@ -1058,7 +1057,7 @@ const ZSProvider = (() => {
       try { document.documentElement.setAttribute("data-zs-gpt-ver", "2026-10-17_composer-turn-compat"); } catch {}
     },
     // turns
-    allItems, role, itemKey, replyNodes, isUserItem, isAssistantItem, itemText, classifyText,
+    allItems, role, replyNodes, isUserItem, isAssistantItem, itemText, classifyText,
     assistantCount, userCount, lastAssistant, lastAssistantId, itemKey, readAssistant,
     streamLen, snapshot,
     // composer / state
