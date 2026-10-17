@@ -1067,10 +1067,22 @@ class MCPManager:
         self.clients = {}          # server_id -> MCPClient
         self.index = {}            # advertised_name -> (holder, real_name)
         self.index_lock = threading.Lock()
-        # The workspace root is explicit and configurable through the
-        # ZS_WORKSPACE_ROOT environment variable. Default to the repository
-        # folder so the coding tools work without requiring Roblox Studio.
-        self.workspace_root = os.environ.get("ZS_WORKSPACE_ROOT", HERE)
+        # An explicit environment override wins; otherwise restore the last
+        # user-selected workspace from a private local settings file. Falling
+        # back to the bridge directory keeps old installs usable, but is NOT
+        # treated as an intentional project selection.
+        self.workspace_settings_path = os.path.join(HERE, ".zs-workspace.json")
+        env_root = os.environ.get("ZS_WORKSPACE_ROOT", "").strip()
+        saved_root = ""
+        if not env_root:
+            try:
+                with open(self.workspace_settings_path, "r", encoding="utf-8") as fp:
+                    saved_root = str(json.load(fp).get("root", "")).strip()
+            except (OSError, ValueError, TypeError):
+                saved_root = ""
+        self.workspace_root = env_root or saved_root or HERE
+        self.workspace_configured = bool(env_root or saved_root)
+        self.workspace_source = "environment" if env_root else ("saved" if saved_root else "default")
         self.workspace = None
         self.workspace_error = None
         self._load_workspace()
@@ -1253,8 +1265,8 @@ clients = set()
 #    the active place closed) it returns "...doesn't have a place opened / previously
 #    active Studio has disconnected". That is the authoritative "place loaded" signal
 #    (same phrase the call path already recognises in core/main.js).
-STUDIO_PROBE_TOOL = "list_roblox_studios"
-STUDIO_STATE_TOOL = "get_studio_state"
+STUDIO_PROBE_TOOL = "roblox/list_roblox_studios"
+STUDIO_STATE_TOOL = "roblox/get_studio_state"
 # Substrings get_studio_state emits when a Studio is connected but no place is open.
 NO_PLACE_MARKERS = ("doesn't have a place", "no place opened", "place opened",
                     "has disconnected", "no active studio")
