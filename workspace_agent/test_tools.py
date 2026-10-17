@@ -60,6 +60,16 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(len(search["matches"]), 1)
         self.assertEqual(search["matches"][0]["line"], 2)
 
+    def test_search_regex_case_sensitivity_and_columns(self):
+        self.ws.write_file("src/search.txt", "Hello 123\nhello 456\n")
+        sensitive = self.ws.search("Hello", case_sensitive=True)
+        self.assertEqual(len(sensitive["matches"]), 1)
+        numeric = self.ws.search(r"\d+", regex=True)
+        self.assertEqual([item["line"] for item in numeric["matches"]], [1, 2])
+        self.assertEqual(numeric["matches"][0]["column"], 7)
+        with self.assertRaises(WorkspaceError):
+            self.ws.search("[", regex=True)
+
     def test_finds_files_by_glob(self):
         (self.root / "src").mkdir()
         (self.root / "src" / "main.luau").write_text("return true\n", encoding="utf-8")
