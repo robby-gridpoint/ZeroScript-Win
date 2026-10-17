@@ -257,13 +257,15 @@ function setInfoMode(title, data, path = "") {
 
 function renderDirty() {
   $("dirtyDot").classList.toggle("hidden", !state.dirty);
-  $("saveFile").disabled = !state.currentFile || !state.dirty || state.busy ||
-    !state.workspace || state.workspace.root !== state.fileWorkspaceRoot;
-  $("renamePath").disabled = !state.currentFile || state.busy;
-  $("deleteFile").disabled = !state.currentFile || state.busy;
+  const tab = activeTab();
+  $("saveFile").disabled = !tab || !tab.dirty || state.busy ||
+    !state.workspace || state.workspace.root !== tab.root;
+  $("renamePath").disabled = !tab || state.busy;
+  $("deleteFile").disabled = !tab || state.busy;
   $("activeFileName").textContent = state.currentFile
     ? state.currentFile.split("/").pop() + (state.dirty ? " •" : "")
     : "Welcome";
+  renderOpenTabs();
 }
 
 function languageForPath(path) {
@@ -1250,7 +1252,7 @@ $("fileTree").addEventListener("click", (event) => {
   }
 });
 $("codeEditor").addEventListener("input", () => {
-  state.dirty = $("codeEditor").value !== state.savedContent;
+  syncActiveTabFromEditor();
   updateHighlight();
   renderDirty();
 });
