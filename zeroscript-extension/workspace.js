@@ -21,6 +21,7 @@ const state = {
   modalFiltered: [],
   modalIndex: 0,
   problemDiagnostics: [],
+  replacePreview: null,
   outputs: {
     output: "ZeroScript local workspace ready. Select a folder to begin.",
     problems: "No reported problems.",
@@ -994,6 +995,7 @@ const COMMAND_PALETTE_ITEMS = [
   { title: "Close Other Tabs", detail: "Close all tabs except the current one", icon: "⊟", action: "close-other-tabs", shortcut: "" },
   { title: "Close All Tabs", detail: "Close every open editor tab", icon: "×", action: "close-all-tabs", shortcut: "" },
   { title: "Search in Files", detail: "Search project text, optionally with regex", icon: "⌕", action: "search", shortcut: "Ctrl+Shift+F" },
+  { title: "Replace in Files", detail: "Preview literal or regex replacements across the workspace", icon: "⇄", action: "replace-in-files", shortcut: "Ctrl+Shift+H" },
   { title: "Show Project Overview", detail: "Inspect manifests, project type, scripts, and source inventory", icon: "◈", action: "project", shortcut: "" },
   { title: "Show Git Status", detail: "Review branch and working-tree status", icon: "⑂", action: "git-status", shortcut: "" },
   { title: "Show Unstaged Diff", detail: "Read uncommitted file changes", icon: "±", action: "git-diff", shortcut: "" },
@@ -1238,6 +1240,10 @@ async function activateModalItem(item) {
   } else if (item.action === "search") {
     setView("search");
     $("searchQuery").focus();
+  } else if (item.action === "replace-in-files") {
+    setView("search");
+    $("searchQuery").focus();
+    $("replaceQuery").focus();
   } else if (item.action === "project") {
     setView("project");
     await loadProjectInfo();
@@ -1305,6 +1311,153 @@ async function runSearch() {
   } finally {
     setBusy(false);
   }
+}
+
+function clearReplacePreview() {
+  state.replacePreview = null;
+  const host = $("replacePreview");
+  if (host) {
+    host.replaceChildren();
+    host.classList.add("hidden");
+  }
+  const apply = $("applyReplace");
+  if (apply) apply.disabled = true;
+}
+
+function renderReplacePreview(result) {
+  const host = $("replacePreview");
+  host.replaceChildren();
+  if (!result) {
+    host.classList.add("hidden");
+    $("applyReplace").disabled = true;
+    return;
+  }
+  host.classList.remove("hidden");
+  const summary = document.createElement("div");
+  summary.className = "replace-preview-summary" + (result.truncated ? " warning" : "");
+  summary.textContent = result.truncated
+    ? "Preview is incomplete or exceeds the file limit. Narrow the folder/query and preview again; applying this preview is disabled."
+    : result.files_changed === 0
+      ? "No replacements found. No files will be changed."
+      : result.replacements + " occurrence(s) across " + result.files_changed + " file(s), scanning " +
+        result.files_scanned + " file(s). Nothing has been written yet.";
+  host.append(summary);
+  for (const file of result.files || []) {
+    const card = document.createElement("section");
+    card.className = "replace-diff-card";
+    const heading = document.createElement("header");
+    heading.className = "replace-diff-heading";
+    const path = document.createElement("span");
+    path.textContent = file.path;
+    const count = document.createElement("span");
+    count.className = "replace-diff-count";
+    count.textContent = file.replacements + " replacement(s)";
+    heading.append(path, count);
+    const diff = document.createElement("pre");
+    diff.className = "replace-diff";
+    diff.textContent = file.diff || "(No visible diff)";
+    card.append(heading, diff);
+    host.append(card);
+  }
+  if (result.skipped_large_files) {
+    const note = document.createElement("div");
+    note.className = "problem-source";
+    note.textContent = result.skipped_large_files + " oversized file(s) were skipped.";
+    host.append(note);
+  }
+  $("applyReplace").disabled = !state.replacePreview || !state.replacePreview.previewHash ||
+    result.files_changed === 0 || !!result.truncated || state.busy;
+}
+
+async function previewReplaceInFiles() {
+  if (state.busy) return;
+  const query = $("searchQuery").value;
+  const replacement = $("replaceQuery").value;
+  if (!query) {
+    errorOutput("Replace in Files", "Enter text or a regular expression in the Search in project field first.");
+    $("searchQuery").focus();
+    return;
+  }
+  if (!state.workspace || !state.workspace.configured) {
+    errorOutput("Replace in Files", "Choose a project workspace before previewing replacements.");
+    return;
+  }
+  clearReplacePreview();
+  setBusy(true, "Previewing replacements…");
+  try {
+    const options = {
+      query,
+      replacement,
+      path: ".",
+      max_files: 100,
+      case_sensitive: $("searchCase").checked,
+      regex: $("searchRegex").checked,
+      apply: false,
+    };
+    const result = await callTool("workspace_replace_in_files", options);
+    state.replacePreview = {
+      query,
+      replacement,
+      caseSensitive: options.case_sensitive,
+      regex: options.regex,
+      previewHash: result.preview_hash,
+      result,
+    };
+    renderReplacePreview(result);
+    writeOutput("Replace preview", result.replacements + " occurrence(s) across " + result.files_changed +
+      " file(s). Preview only; no files were changed.");
+  } catch (error) {
+    clearReplacePreview();
+    errorOutput("Replace preview failed", error);
+  } finally {
+    setBusy(false);
+    if (state.replacePreview) renderReplacePreview(state.replacePreview.result);
+  }
+}
+
+async function applyReplacePreview() {
+  if (state.busy || !state.replacePreview) return;
+  const preview = state.replacePreview;
+  if (preview.query !== $("searchQuery").value ||
+      preview.replacement !== $("replaceQuery").value ||
+      preview.caseSensitive !== $("searchCase").checked ||
+      preview.regex !== $("searchRegex").checked) {
+    clearReplacePreview();
+    errorOutput("Replace preview expired", "Search text, replacement, or options changed. Preview the replacements again before applying.");
+    return;
+  }
+  const resultPreview = preview.result;
+  if (resultPreview.truncated || !resultPreview.files_changed || !preview.previewHash) return;
+  const confirmText = "Apply Replace in Files?\n\nSearch: " + preview.query +
+    "\nReplace: " + preview.replacement +
+    "\nFiles: " + resultPreview.files_changed +
+    "\nOccurrences: " + resultPreview.replacements +
+    "\n\nThis writes changes to disk. A stale preview will be rejected if any matching file changed.";
+  if (!window.confirm(confirmText)) return;
+  setBusy(true, "Applying replacements…");
+  let applied = false;
+  try {
+    const result = await callTool("workspace_replace_in_files", {
+      query: preview.query,
+      replacement: preview.replacement,
+      path: ".",
+      max_files: 100,
+      case_sensitive: preview.caseSensitive,
+      regex: preview.regex,
+      apply: true,
+      expected_hash: preview.previewHash,
+    });
+    clearReplacePreview();
+    await refreshTree();
+    writeOutput("Replace applied", result.message || ("Replaced " + result.replacements + " occurrence(s) across " + result.files_changed + " file(s)."));
+    applied = true;
+  } catch (error) {
+    clearReplacePreview();
+    errorOutput("Replace failed", error);
+  } finally {
+    setBusy(false);
+  }
+  if (applied && $("searchQuery").value) await runSearch();
 }
 
 async function mutateGitFile(unstage = false) {
@@ -1850,6 +2003,13 @@ $("commitMessage").addEventListener("keydown", (event) => {
   if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) commitStagedChanges();
 });
 $("runSearch").addEventListener("click", runSearch);
+$("previewReplace").addEventListener("click", previewReplaceInFiles);
+$("applyReplace").addEventListener("click", applyReplacePreview);
+$("clearReplacePreview").addEventListener("click", clearReplacePreview);
+$("searchQuery").addEventListener("input", clearReplacePreview);
+$("replaceQuery").addEventListener("input", clearReplacePreview);
+$("searchRegex").addEventListener("change", clearReplacePreview);
+$("searchCase").addEventListener("change", clearReplacePreview);
 $("loadGitStatus").addEventListener("click", loadGitStatus);
 $("loadGitDiff").addEventListener("click", () => loadGitDiff(false));
 $("loadStagedDiff").addEventListener("click", () => loadGitDiff(true));
@@ -1928,6 +2088,11 @@ document.addEventListener("keydown", (event) => {
     event.preventDefault();
     setView("search");
     $("searchQuery").focus();
+  } else if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "h") {
+    event.preventDefault();
+    setView("search");
+    $("searchQuery").focus();
+    $("replaceQuery").focus();
   } else if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "p") {
     event.preventDefault();
     openCommandPalette();
