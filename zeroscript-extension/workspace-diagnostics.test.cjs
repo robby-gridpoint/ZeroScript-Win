@@ -49,6 +49,15 @@ const { parseTaskDiagnostics, workspaceRelativeDiagnosticPath } = require("./wor
 }
 
 {
+  const items = parseTaskDiagnostics("WARNING: src/cleanup.py:4: deprecated function", "/workspace");
+  assert.equal(items.length, 1);
+  assert.equal(items[0].path, "src/cleanup.py");
+  assert.equal(items[0].line, 4);
+  assert.equal(items[0].severity, "warning");
+  assert.match(items[0].message, /deprecated function/);
+}
+
+{
   const items = parseTaskDiagnostics("C:/outside/secret.py:1: error: rejected path", "C:/workspace");
   assert.equal(items.length, 1);
   assert.equal(items[0].path, null, "absolute paths outside the workspace must not become navigable");
