@@ -633,7 +633,7 @@ async function createFile() {
   }
   setBusy(true, "Creating file…");
   try {
-    const result = await callTool("workspace_write_file", { path: path.trim(), content: "" });
+    const result = await callTool("workspace_create_file", { path: path.trim(), content: "" });
     await refreshTree();
     await openFile(path.trim());
     writeOutput("File created", result);
