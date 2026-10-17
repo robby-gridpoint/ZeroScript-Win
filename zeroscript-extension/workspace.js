@@ -569,6 +569,7 @@ function fuzzyScore(query, candidate) {
 const COMMAND_PALETTE_ITEMS = [
   { title: "Open File", detail: "Quick Open a file from the workspace", icon: "⌕", action: "quick-open", shortcut: "Ctrl+P" },
   { title: "Choose Workspace Folder", detail: "Pick and activate a local project folder", icon: "▱", action: "workspace", shortcut: "" },
+  { title: "Switch Recent Workspace", detail: "Switch between previously selected project folders", icon: "⌂", action: "recent-workspaces", shortcut: "" },
   { title: "Save Current File", detail: "Save the open source file", icon: "↓", action: "save", shortcut: "Ctrl+S" },
   { title: "Search in Files", detail: "Search project text, optionally with regex", icon: "⌕", action: "search", shortcut: "Ctrl+Shift+F" },
   { title: "Show Project Overview", detail: "Inspect manifests, project type, scripts, and source inventory", icon: "◈", action: "project", shortcut: "" },
@@ -598,7 +599,7 @@ function renderModalResults() {
   if (filtered.length === 0) {
     const empty = document.createElement("div");
     empty.className = "modal-empty";
-    empty.textContent = state.modalMode === "quickOpen" ? "No matching files. Try another path fragment." : "No matching commands.";
+    empty.textContent = state.modalMode === "quickOpen" ? "No matching files. Try another path fragment." : state.modalMode === "recent" ? "No saved recent projects found." : "No matching commands.";
     host.append(empty);
     return;
   }
@@ -647,11 +648,12 @@ function showModal(mode, items, initialQuery = "") {
   state.modalItems = items;
   state.modalFiltered = [];
   state.modalIndex = 0;
-  $("modalTitle").textContent = mode === "quickOpen" ? "Quick Open" : "Command Palette";
+  $("modalTitle").textContent = mode === "quickOpen" ? "Quick Open" : mode === "recent" ? "Recent Workspaces" : "Command Palette";
   $("modalSubtitle").textContent = mode === "quickOpen"
     ? "Search project files by name or path"
+    : mode === "recent" ? "Switch to a project folder you previously selected"
     : "Search and run ZeroScript workspace commands";
-  $("modalInput").placeholder = mode === "quickOpen" ? "Type a file name or path…" : "Type a command…";
+  $("modalInput").placeholder = mode === "quickOpen" ? "Type a file name or path…" : mode === "recent" ? "Filter recent project folders…" : "Type a command…";
   $("modalInput").value = initialQuery;
   $("modalBackdrop").classList.remove("hidden");
   renderModalResults();
@@ -722,6 +724,37 @@ function iconForFile(name) {
   return icons[ext] || "·";
 }
 
+async function openRecentWorkspaces() {
+  try {
+    showModal("recent", [{
+      title: "Loading recent projects…",
+      detail: "Reading saved local workspace history",
+      icon: "↻",
+      action: "none",
+    }]);
+    const result = await callTool("workspace_recent_roots", {});
+    const roots = result.recent_roots || [];
+    const items = roots.map((entry) => ({
+      title: entry.name || entry.path,
+      detail: entry.path + (entry.current ? " · Active" : entry.exists ? "" : " · Folder missing"),
+      path: entry.path,
+      icon: entry.current ? "●" : "⌂",
+      current: !!entry.current,
+      exists: !!entry.exists,
+      action: entry.exists && !entry.current ? "open-recent" : "none",
+    }));
+    if (state.modalMode === "recent") {
+      state.modalItems = items;
+      state.modalIndex = 0;
+      renderModalResults();
+      $("modalInput").focus();
+    }
+  } catch (error) {
+    closeModal();
+    errorOutput("Recent workspace lookup failed", error);
+  }
+}
+
 function openCommandPalette() {
   showModal("command", COMMAND_PALETTE_ITEMS);
 }
@@ -737,6 +770,31 @@ async function activateModalItem(item) {
     await openQuickOpen();
   } else if (item.action === "workspace") {
     await chooseWorkspace();
+  } else if (item.action === "recent-workspaces") {
+    await openRecentWorkspaces();
+  } else if (item.action === "open-recent") {
+    if (!mayReplaceEditorView()) return;
+    setBusy(true, "Switching workspace…");
+    try {
+      const result = await callTool("workspace_open_recent", { path: item.path });
+      state.workspace = result;
+      state.folder = ".";
+      state.currentFile = null;
+      state.fileWorkspaceRoot = null;
+      state.savedContent = "";
+      state.dirty = false;
+      $("codeEditor").value = "";
+      showWelcome();
+      renderDirty();
+      updateWorkspaceHeader();
+      await loadWorkspaceDetails();
+      writeOutput("Workspace switched", result);
+    } catch (error) {
+      errorOutput("Could not switch workspace", error);
+    } finally {
+      setBusy(false);
+      updateWorkspaceHeader();
+    }
   } else if (item.action === "save") {
     await saveFile();
   } else if (item.action === "search") {
@@ -1003,6 +1061,7 @@ async function createFile() {
 
 $("chooseWorkspace").addEventListener("click", chooseWorkspace);
 $("welcomeOpen").addEventListener("click", chooseWorkspace);
+$("recentWorkspaces").addEventListener("click", openRecentWorkspaces);
 $("refreshWorkspace").addEventListener("click", initialize);
 $("welcomeSearch").addEventListener("click", () => { setView("search"); $("searchQuery").focus(); });
 $("welcomeGit").addEventListener("click", () => setView("source"));
