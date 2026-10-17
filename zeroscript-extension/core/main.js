@@ -327,17 +327,28 @@
         tries++;
       }
       if (messageSent) diag("send.cleared", { tries });
-      // All retries exhausted with NO evidence the message landed (textarea never
-      // cleared, no new turn). Silently returning here left the loop waiting for
-      // a reply that will never come (~60s "empty" timeout) with zero explanation
-      // - the reported "the tool result just never gets injected" symptom. Tell
-      // the user what actually happened so they can nudge the conversation
-      // themselves instead of watching a stuck bar.
-      if (!messageSent && !landed() && !A.stop) {
-        diag("send.failed", { tries });
-        ui.banner("warn", "Message could not be sent",
-          `${P.displayName} did not accept the injected message after ${tries} attempts. ` +
-          `Send a short message yourself (e.g. "continue") to resume the agent.`);
+      // A cleared editor is a useful fast signal, but it is NOT proof that the
+      // result turn reached conversation history. Some providers clear/rebuild
+      // their composer before the submitted turn is actually committed. Confirm
+      // that the user turn landed before allowing the agent loop to wait for an
+      // assistant response; otherwise a function result can disappear between
+      // execution and the next model turn.
+      const resultLanded = landed();
+      if (!resultLanded && messageSent && !A.stop) {
+        diag("send.clearWithoutLanding", { tries });
+        // Give the provider's DOM/network-backed render a short grace period.
+        // Do not re-send immediately: that risks duplicating a result when the
+        // provider is merely slow to commit it.
+        await waitFor(() => landed() || A.stop, 5000);
+      }
+      const confirmedLanded = landed();
+      if (!confirmedLanded && !A.stop) {
+        diag("send.failed", { tries, editorCleared: messageSent, landed: false });
+        ui.banner("warn", "Function result was not delivered",
+          `${P.displayName} did not confirm the injected tool result in conversation history after ${tries} attempts. ` +
+          `The tool may have executed, but its result was not delivered to the model. Send "continue" to resume, and check the conversation before retrying the action.`);
+      } else if (confirmedLanded) {
+        diag("send.confirmed", { tries, editorCleared: messageSent });
       }
       return base;
     } finally {
