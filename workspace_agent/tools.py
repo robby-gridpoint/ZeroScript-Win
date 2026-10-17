@@ -411,13 +411,36 @@ class Workspace:
         scripts: dict[str, str] = {}
         package_path = self.root / "package.json"
         declared_package_manager = ""
+        package_name = None
+        dependency_names: set[str] = set()
         if not package_path.is_symlink() and package_path.is_file():
             try:
                 package = json.loads(package_path.read_text(encoding="utf-8"))
                 scripts = {str(k): str(v) for k, v in (package.get("scripts") or {}).items()}
+                package_name = str(package.get("name") or "").strip() or None
                 declared_package_manager = str(package.get("packageManager") or "").split("@", 1)[0].strip().lower()
+                for dependency_group in ("dependencies", "devDependencies", "peerDependencies", "optionalDependencies"):
+                    values = package.get(dependency_group) or {}
+                    if isinstance(values, dict):
+                        dependency_names.update(str(name).lower() for name in values)
             except (OSError, UnicodeDecodeError, json.JSONDecodeError):
                 scripts = {}
+                package_name = None
+                dependency_names = set()
+        framework_catalogue = [
+            ("next", "Next.js"), ("react", "React"), ("vue", "Vue"), ("nuxt", "Nuxt"),
+            ("svelte", "Svelte"), ("@sveltejs/kit", "SvelteKit"), ("astro", "Astro"),
+            ("@angular/core", "Angular"), ("vite", "Vite"), ("express", "Express"),
+            ("fastify", "Fastify"), ("@nestjs/core", "NestJS"), ("electron", "Electron"),
+            ("expo", "Expo"), ("react-native", "React Native"), ("tailwindcss", "Tailwind CSS"),
+            ("@playwright/test", "Playwright Test"), ("playwright", "Playwright"),
+            ("vitest", "Vitest"), ("jest", "Jest"), ("puppeteer", "Puppeteer"),
+            ("prisma", "Prisma"), ("@prisma/client", "Prisma"), ("drizzle-orm", "Drizzle"),
+            ("three", "Three.js"), ("babylonjs", "Babylon.js"),
+        ]
+        framework_hints = list(dict.fromkeys(
+            label for package_id, label in framework_catalogue if package_id in dependency_names
+        ))
         if declared_package_manager in {"pnpm", "yarn", "bun", "npm"}:
             package_manager = declared_package_manager
         elif (self.root / "pnpm-lock.yaml").is_file() and not (self.root / "pnpm-lock.yaml").is_symlink():
@@ -462,8 +485,10 @@ class Workspace:
             "project_type": project_type,
             "is_git_repository": (self.root / ".git").exists(),
             "manifest_files": present,
+            "package_name": package_name,
             "package_manager": package_manager,
             "package_scripts": scripts,
+            "framework_hints": framework_hints,
             "source_file_count": len(inventory["files"]),
             "file_inventory_truncated": inventory["truncated"],
             "extension_counts": dict(sorted(extensions.items(), key=lambda item: (-item[1], item[0]))[:20]),
