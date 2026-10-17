@@ -67,6 +67,18 @@
             <label><input id="searchCase" type="checkbox" /> Match case</label>
           </div>
           <button class="small-primary" id="runSearch">Search files</button>
+          <div class="replace-section">
+            <div class="section-caption">REPLACE IN FILES</div>
+            <label class="field-label" for="replaceQuery">Replace with</label>
+            <input id="replaceQuery" placeholder="Replacement text" autocomplete="off" />
+            <div class="replace-actions">
+              <button class="panel-action" id="previewReplace">Preview Replace All</button>
+              <button class="panel-action" id="clearReplacePreview">Clear Preview</button>
+            </div>
+            <div id="replacePreview" class="replace-preview hidden"></div>
+            <button class="small-primary" id="applyReplace" disabled>Apply Replacement</button>
+            <p class="subtle">Preview first. Applying requires confirmation; files changed after preview are protected from stale replacements.</p>
+          </div>
           <div id="searchResults" class="search-results"></div>
         </section>
 
