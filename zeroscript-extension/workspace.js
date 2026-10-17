@@ -1410,52 +1410,58 @@ async function loadGitBranches() {
 function renderProjectTasks(project) {
   const host = $("taskList");
   host.replaceChildren();
-  const scripts = project && project.package_scripts ? project.package_scripts : {};
-  const manager = project && project.package_manager;
-  const names = Object.keys(scripts);
+  const catalogue = project && Array.isArray(project.task_catalogue) ? project.task_catalogue : [];
   const longRunning = /^(?:dev|start|serve|watch|preview|storybook|docs:dev|dev:.*|watch:.*)$/i;
-  const preferred = names.filter((name) => /(?:^|:)(?:test|build|lint|check|typecheck|validate|verify|compile|format:check|format:verify)(?:$|:)/i.test(name) && !longRunning.test(name));
-  const safeNames = (preferred.length ? preferred : names.filter((name) => !longRunning.test(name))).slice(0, 12);
-  if (!manager || safeNames.length === 0) {
+  const riskyOneClick = /^(?:deploy|publish|release|upload|migrate|destroy|reset|clean:all)(?:$|:)/i;
+  const packageTasks = catalogue.filter((item) =>
+    item.kind === "package" && !longRunning.test(item.name || "") && !riskyOneClick.test(item.name || "")
+  );
+  const preferred = packageTasks.filter((item) =>
+    /(?:^|:)(?:test|build|lint|check|typecheck|validate|verify|compile|format:check|format:verify)(?:$|:)/i.test(item.name || "")
+  );
+  const builtins = catalogue.filter((item) => item.kind === "builtin");
+  const selected = [...builtins, ...(preferred.length ? preferred : packageTasks)];
+  const safeTasks = selected.slice(0, 16);
+  if (safeTasks.length === 0) {
     const empty = document.createElement("div");
     empty.className = "empty-state";
-    empty.textContent = manager
-      ? "No one-shot task scripts detected. Use the Command Runner for a custom project command."
-      : "No package.json task scripts detected for this project.";
+    empty.textContent = "No supported one-shot tasks detected. Use the Command Runner for a custom command, or add test/build scripts to your project manifest.";
     host.append(empty);
     return;
   }
-  const iconFor = (name) => /test/i.test(name) ? "✓" : /lint|format/i.test(name) ? "≋" : /typecheck|check|validate|verify/i.test(name) ? "◇" : /build|compile/i.test(name) ? "⚒" : "›";
-  for (const name of safeNames) {
+  const iconFor = (task) => /test/i.test(task.name) ? "✓" : /lint|format|vet/i.test(task.name) ? "≋"
+    : /typecheck|check|validate|verify/i.test(task.name) ? "◇" : /build|compile|package/i.test(task.name) ? "⚒" : "›";
+  for (const task of safeTasks) {
     const button = document.createElement("button");
     button.className = "task-action";
     const icon = document.createElement("span");
     icon.className = "task-icon";
-    icon.textContent = iconFor(name);
+    icon.textContent = iconFor(task);
     const copy = document.createElement("span");
     copy.className = "task-name";
     const label = document.createElement("span");
-    label.textContent = name;
+    label.textContent = task.name || task.task;
     const command = document.createElement("span");
     command.className = "task-command";
-    command.textContent = `${manager} run ${name}`;
+    command.textContent = task.command_label || task.description || task.task;
     copy.append(label, command);
     button.append(icon, copy);
-    button.title = `Run the project-defined script: ${manager} run ${name}`;
-    button.addEventListener("click", () => runProjectTask(manager, name));
+    button.title = (task.description || "Run the selected project's declared task") + "\n\n" + command.textContent;
+    button.addEventListener("click", () => runProjectTask(task));
     host.append(button);
   }
-  if (names.length > safeNames.length) {
+  const omitted = catalogue.length - safeTasks.length;
+  if (omitted > 0) {
     const note = document.createElement("div");
     note.className = "empty-state";
-    note.textContent = `${names.length - safeNames.length} additional package script(s) were not promoted to one-click tasks. Use the Command Runner to invoke them.`;
+    note.textContent = omitted + " additional task(s) were not promoted to one-click actions. Use the Command Runner when you need a specific custom command.";
     host.append(note);
   }
 }
 
-async function runProjectTask(manager, name) {
-  const command = manager === "bun" ? ["bun", "run", name] : [manager, "run", name];
-  const display = command.join(" ");
+async function runProjectTask(task) {
+  const taskName = task.task;
+  const display = task.command_label || taskName;
   const activeRoot = state.workspace && state.workspace.root;
   const dirtyProjectTabs = state.openTabs.filter((tab) => tab.root === activeRoot && tab.dirty);
   if (dirtyProjectTabs.length) {
@@ -1466,14 +1472,15 @@ async function runProjectTask(manager, name) {
       return;
     }
   }
-  if (!window.confirm(`Run the project-defined script below?\n\n${display}\n\nProject scripts are executable code and may modify files or access the network.`)) return;
-  setBusy(true, `Running ${name}…`);
+  if (!window.confirm("Run the selected project task?\n\n" + display + "\n\nTasks execute project code and may modify files or access the network. Review the command before proceeding.")) return;
+  setBusy(true, "Running " + (task.name || taskName) + "…");
   try {
-    const result = await callTool("workspace_run_task", { task: name, timeout: 300 }, 315000);
-    const status = result.timed_out ? "Timed out after 300 seconds" : `Exit code ${result.exit_code}`;
-    writeOutput(`Task · ${name} · ${status}`, `${command.join(" ")}\n\n${result.output || "(No output)"}`, result.exit_code === 0 ? "output" : "problems");
+    const result = await callTool("workspace_run_task", { task: taskName, timeout: 300 }, 315000);
+    const status = result.timed_out ? "Timed out after 300 seconds" : "Exit code " + result.exit_code;
+    const output = result.output || "(No output)";
+    writeOutput("Task · " + (task.name || taskName) + " · " + status, display + "\n\n" + output, result.exit_code === 0 ? "output" : "problems");
   } catch (error) {
-    errorOutput(`Task failed · ${name}`, error);
+    errorOutput("Task failed · " + (task.name || taskName), error);
   } finally {
     setBusy(false);
   }
