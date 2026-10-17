@@ -1170,16 +1170,30 @@ class MCPManager:
         if not Path(path).expanduser().is_absolute():
             raise RuntimeError("Use an absolute folder path, or open workspace_browse to choose a folder.")
         candidate = Workspace(path)
+        selected_root = str(candidate.root)
+        history = [selected_root]
+        for prior in getattr(self, "workspace_history", []):
+            if not isinstance(prior, str) or not prior.strip():
+                continue
+            try:
+                normalized_prior = str(Path(prior).expanduser().resolve())
+            except OSError:
+                continue
+            if normalized_prior != selected_root and normalized_prior not in history:
+                history.append(normalized_prior)
+            if len(history) >= 10:
+                break
+        self.workspace_history = history
         if persist:
             try:
                 temp_path = self.workspace_settings_path + ".tmp"
                 with open(temp_path, "w", encoding="utf-8") as fp:
-                    json.dump({"root": str(candidate.root)}, fp, ensure_ascii=False, indent=2)
+                    json.dump({"root": selected_root, "recent_roots": history}, fp, ensure_ascii=False, indent=2)
                 os.replace(temp_path, self.workspace_settings_path)
             except OSError as exc:
                 raise RuntimeError(f"The folder is valid, but workspace settings could not be saved: {exc}") from exc
         self.workspace = candidate
-        self.workspace_root = str(candidate.root)
+        self.workspace_root = selected_root
         self.workspace_configured = True
         self.workspace_source = source
         self.workspace_error = None
