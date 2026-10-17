@@ -1437,17 +1437,17 @@ function getSearchScope() {
     throw new Error("Folder scope must be relative to the selected workspace (for example src/ or .).");
   }
   const parts = scope.replace(/\\/g, "/").split("/");
-  let depth = 0;
+  const normalized = [];
   for (const part of parts) {
     if (!part || part === ".") continue;
     if (part === "..") {
-      depth -= 1;
-      if (depth < 0) throw new Error("Folder scope cannot escape the selected workspace.");
+      if (!normalized.length) throw new Error("Folder scope cannot escape the selected workspace.");
+      normalized.pop();
     } else {
-      depth += 1;
+      normalized.push(part);
     }
   }
-  return parts.filter(Boolean).join("/") || ".";
+  return normalized.join("/") || ".";
 }
 
 async function runSearch() {
