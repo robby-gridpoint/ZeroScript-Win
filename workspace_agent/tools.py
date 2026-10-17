@@ -619,7 +619,7 @@ class Workspace:
                 command = [manager, "run", script_name]
                 result = self._run(command, timeout=timeout)
                 return {
-                    "task": "package:" + script_name,
+                    "task": name if name == script_name else "package:" + script_name,
                     "name": script_name,
                     "script": str(scripts[script_name]),
                     "package_manager": manager,
