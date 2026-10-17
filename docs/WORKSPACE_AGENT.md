@@ -18,15 +18,18 @@ ZeroScript-Win exposes a local-first coding workspace independently from its opt
 | `workspace_set_root` | Validate and persist a folder explicitly supplied by the user. |
 | `workspace_browse` | Open the native folder picker and save the selected folder. |
 | `workspace_project_info` | Detect common manifests, project-type hints, package scripts, Git presence, and file-extension inventory. |
-| `workspace_list_files` | List project files while skipping common generated directories. |
+| `workspace_tree` | Return a depth-limited project tree while skipping generated folders and symbolic links. |
+| `workspace_list_files` | List project files while skipping common generated directories and symbolic links. |
 | `workspace_find_files` | Find paths using glob patterns. |
 | `workspace_read_file` | Read bounded UTF-8 text, optionally by 1-based line range. |
-| `workspace_search` | Case-insensitive source-text search with line references. |
+| `workspace_file_outline` | Extract import statements, headings, variables, and likely declarations with line numbers. |
+| `workspace_search` | Text search with optional case sensitivity and regular expressions; matches include line and column. |
 | `workspace_symbols` | Best-effort discovery of function, type, and variable declarations across multiple language families. |
 | `workspace_write_file` | Create or replace a UTF-8 file and return a unified diff. |
 | `workspace_apply_patch` | Apply exact source replacements; repeated matches are rejected unless the caller explicitly opts into replace-all. |
 | `workspace_git_status` | Read Git branch and working-tree status. |
 | `workspace_git_diff` | Read staged or unstaged diffs, optionally for one path. |
+| `workspace_git_branches` | List local and remote Git branches. |
 | `workspace_git_log` | Read recent commit summaries. |
 | `workspace_run_command` | Run argv-array commands from the selected root, without shell expansion and with bounded time/output. |
 
