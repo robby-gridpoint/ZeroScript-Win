@@ -6,7 +6,7 @@ The original browser provider integrations are being retained during the transit
 
 ## Current status
 
-**Early migration: workspace foundation added.**
+**Workspace-first coding agent foundation integrated (v1.6.0).**
 
 The `workspace_agent` Python package provides project-scoped tools for:
 
@@ -21,14 +21,14 @@ See [Workspace Agent Foundation](docs/WORKSPACE_AGENT.md) for implementation bou
 
 ## Select a project workspace
 
-The bridge exposes workspace tools even when Roblox Studio is closed. By default, the workspace is the ZeroScript-Win repository directory. To target another project on Windows, set `ZS_WORKSPACE_ROOT` to that project's absolute path before starting the bridge. For example, in PowerShell:
+The bridge exposes workspace tools even when Roblox Studio is closed. No MCP server is required. By default, the workspace is the ZeroScript-Win repository directory. To target another project on Windows, set `ZS_WORKSPACE_ROOT` to that project's absolute path before starting the bridge. For example, in PowerShell:
 
 ```powershell
 $env:ZS_WORKSPACE_ROOT = 'D:\Projects\MyApp'
 py -3 bridge.py
 ```
 
-The setting applies to that bridge process. Restart the bridge after changing it. Only select a directory you trust: the agent can write files and run local commands in that workspace.
+The setting applies to that bridge process. Restart the bridge after changing it. Only select a directory you trust: the agent can write files and run local commands in that workspace. Optional MCP servers are configured in config.json; Roblox Studio is no longer required or started by default.
 
 ## Run the workspace tests
 
@@ -40,7 +40,7 @@ py -3 -m unittest workspace_agent.test_tools -v
 
 ## Security notes
 
-The workspace package is an execution primitive, not a complete security sandbox. Do not expose arbitrary command execution to a model or remote client without adding an approval and policy layer. The eventual bridge should bind to loopback by default, require an explicitly selected workspace, validate tool schemas, bound execution time and output, and ask for confirmation before destructive or externally consequential operations.
+The workspace package is an execution primitive, not a complete security sandbox. Do not expose arbitrary command execution to a model or remote client without adding an approval and policy layer. The bridge binds to loopback by default and bounds execution time and output. Command execution is not a sandbox, and this iteration does not yet implement per-command approval prompts; use only trusted workspaces and add a policy/approval layer before broader distribution.
 
 ## Upstream project
 
