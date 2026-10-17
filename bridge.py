@@ -1115,6 +1115,10 @@ class MCPManager:
         tools = [
             {"name": "workspace_info", "description": f"Current workspace path: {self.workspace_root}; configured: {str(self.workspace_configured).lower()}. If configured is false, ask the user for a project folder before inspecting or editing anything.",
              "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_recent_roots", "description": "List the most recently selected project folders saved locally, including whether each still exists and which one is active. Use this before offering a recent-project switch.",
+             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_open_recent", "description": "Activate a folder only if it is present in workspace_recent_roots. This switches the active local project and persists the choice; ask the user to confirm which project they want before calling.",
+             "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"], "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_set_root", "description": "Set and persist the user's explicitly provided local project folder. Use only a path the user supplied or confirmed.",
              "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"], "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_browse", "description": "Open a native folder picker and return the selected_path without changing the active workspace. After the user chooses the folder, call workspace_set_root with that exact selected_path to activate it.",
@@ -1245,18 +1249,52 @@ class MCPManager:
         args = arguments or {}
         if name == "workspace_info":
             return self._workspace_description()
+        if name == "workspace_recent_roots":
+            history = list(getattr(self, "workspace_history", []))
+            if self.workspace_configured and self.workspace_root not in history:
+                history.insert(0, self.workspace_root)
+            roots = []
+            seen = set()
+            for item in history:
+                try:
+                    resolved = str(Path(item).expanduser().resolve())
+                except (OSError, RuntimeError):
+                    resolved = item
+                if resolved in seen:
+                    continue
+                seen.add(resolved)
+                candidate = Path(resolved)
+                roots.append({
+                    "path": resolved,
+                    "name": candidate.name or resolved,
+                    "exists": candidate.is_dir(),
+                    "current": bool(self.workspace_configured and resolved == str(Path(self.workspace_root).expanduser().resolve())),
+                })
+            return {"recent_roots": roots[:10]}
         if name == "workspace_set_root":
             return self._set_workspace(args.get("path", ""))
         if name == "workspace_browse":
             return self._browse_workspace()
+        if name == "workspace_open_recent":
+            requested = args.get("path", "")
+            if not isinstance(requested, str) or not requested.strip():
+                raise RuntimeError("A recent workspace path is required.")
+            try:
+                normalized = str(Path(requested).expanduser().resolve())
+                history_paths = {
+                    str(Path(item).expanduser().resolve())
+                    for item in getattr(self, "workspace_history", [])
+                    if isinstance(item, str) and item.strip()
+                }
+            except (OSError, RuntimeError) as exc:
+                raise RuntimeError("The requested recent workspace path is invalid.") from exc
+            if normalized not in history_paths:
+                raise RuntimeError("That path is not in the saved recent-workspace list. Ask the user to choose a folder or use workspace_set_root with their explicit path.")
+            return self._set_workspace(normalized, source="recent")
         if not self.workspace_configured:
             raise RuntimeError("No project workspace has been selected. Ask the user to choose an absolute folder path or call workspace_browse; do not inspect the default bridge directory.")
-        if not self.workspace_configured:
-            raise RuntimeError("No project workspace has been selected. Use workspace_set_root or workspace_browse first.")
         if self.workspace is None:
             raise RuntimeError(self.workspace_error or "Workspace is unavailable. Select a folder with workspace_set_root or workspace_browse.")
-        if name == "workspace_create_file":
-            return self.workspace.create_file(args["path"], args.get("content", ""))
         if name == "workspace_create_file":
             return self.workspace.create_file(args["path"], args.get("content", ""))
         if name == "workspace_create_directory":
