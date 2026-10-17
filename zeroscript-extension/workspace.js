@@ -630,7 +630,11 @@ function renderModalResults() {
     }
     button.addEventListener("mouseenter", () => {
       state.modalIndex = index;
-      renderModalResults();
+      for (const sibling of host.querySelectorAll(".modal-result")) {
+        const selected = sibling === button;
+        sibling.classList.toggle("selected", selected);
+        sibling.setAttribute("aria-selected", selected ? "true" : "false");
+      }
     });
     button.addEventListener("click", () => activateModalItem(filtered[index]));
     host.append(button);
