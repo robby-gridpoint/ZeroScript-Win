@@ -262,6 +262,25 @@ class WorkspaceTests(unittest.TestCase):
         with self.assertRaisesRegex(WorkspaceError, "Invalid search regular expression"):
             self.ws.replace_in_files("[", "x", regex=True)
 
+    def test_multi_edit_whole_file_requires_exact_current_content(self):
+        self.ws.write_file("source.txt", "ORIGINAL CONTENT\n")
+        with self.assertRaisesRegex(WorkspaceError, "changed while the edit batch was being prepared"):
+            self.ws.multi_edit([{
+                "path": "source.txt",
+                "old_string": "ORIGINAL",
+                "new_string": "REPLACED",
+                "whole_file": True,
+            }])
+        self.assertEqual(self.ws.read_file("source.txt")["content"], "ORIGINAL CONTENT\n")
+        result = self.ws.multi_edit([{
+            "path": "source.txt",
+            "old_string": "ORIGINAL CONTENT\n",
+            "new_string": "UPDATED CONTENT\n",
+            "whole_file": True,
+        }])
+        self.assertEqual(result["files_changed"], 1)
+        self.assertEqual(self.ws.read_file("source.txt")["content"], "UPDATED CONTENT\n")
+
     def test_multi_edit_updates_multiple_files_and_returns_diffs(self):
         self.ws.write_file("src/one.py", "VALUE = 1\n")
         self.ws.write_file("src/two.py", "VALUE = 2\n")
