@@ -283,15 +283,42 @@ async function refreshTree() {
   }
 }
 
+async function createFile() {
+  if (!state.workspace || !state.workspace.configured) {
+    writeOutput("Create file", "Choose a project workspace first.");
+    return;
+  }
+  const suggestion = state.folder && state.folder !== "." ? state.folder + "/new-file.txt" : "new-file.txt";
+  const path = window.prompt("New file path, relative to the selected workspace:", suggestion);
+  if (!path || !path.trim()) return;
+  if (path.startsWith("/") || /^[a-zA-Z]:[\\/]/.test(path)) {
+    writeOutput("Create file", "Enter a workspace-relative path (for example src/new-file.ts).");
+    return;
+  }
+  if (!mayReplaceEditorView()) return;
+  setBusy(true, "Creating file…");
+  try {
+    const result = await callTool("workspace_create_file", { path: path.trim(), content: "" });
+    state.folder = path.trim().split("/").slice(0, -1).join("/") || ".";
+    await refreshTree();
+    await openFile(path.trim());
+    writeOutput("File created", result);
+  } catch (error) {
+    errorOutput("Create file failed", error);
+  } finally {
+    setBusy(false);
+  }
+}
+
 async function createFolder() {
   if (!state.workspace || !state.workspace.configured) {
     writeOutput("Create folder", "Choose a project workspace first.");
     return;
   }
-  if (!mayReplaceEditorView()) return;
   const suggestion = state.folder && state.folder !== "." ? state.folder + "/new-folder" : "new-folder";
   const path = window.prompt("New folder path, relative to the selected workspace:", suggestion);
   if (!path || !path.trim()) return;
+  if (!mayReplaceEditorView()) return;
   setBusy(true, "Creating folder…");
   try {
     const result = await callTool("workspace_create_directory", { path: path.trim() });
@@ -306,10 +333,11 @@ async function createFolder() {
 }
 
 async function renameCurrentFile() {
-  if (!state.currentFile || state.busy || !mayReplaceEditorView()) return;
+  if (!state.currentFile || state.busy) return;
   const source = state.currentFile;
   const destination = window.prompt("New workspace-relative path:", source);
   if (!destination || !destination.trim() || destination.trim() === source) return;
+  if (!mayReplaceEditorView()) return;
   setBusy(true, "Moving file…");
   try {
     const result = await callTool("workspace_move_path", { source, destination: destination.trim() });
@@ -325,9 +353,10 @@ async function renameCurrentFile() {
 }
 
 async function deleteCurrentFile() {
-  if (!state.currentFile || state.busy || !mayReplaceEditorView()) return;
+  if (!state.currentFile || state.busy) return;
   const path = state.currentFile;
   if (!window.confirm(`Delete ${path}? This removes the file from disk and cannot be undone by ZeroScript.`)) return;
+  if (!mayReplaceEditorView()) return;
   setBusy(true, "Deleting file…");
   try {
     const result = await callTool("workspace_delete_file", { path });
