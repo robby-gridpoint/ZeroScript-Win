@@ -423,6 +423,59 @@ class Workspace:
         return {"pattern": pattern, "path": base.relative_to(self.root).as_posix() or ".",
                 "matches": matches, "truncated": truncated}
 
+    def _builtin_task_catalogue(self) -> list[dict[str, Any]]:
+        """Return a whitelist of predictable local tasks for common non-Node project types."""
+        root_files = {
+            item.name for item in self.root.iterdir()
+            if not item.is_symlink() and item.is_file()
+        }
+        tasks: list[dict[str, Any]] = []
+
+        def add(task: str, name: str, command: list[str], description: str) -> None:
+            tasks.append({
+                "task": task,
+                "name": name,
+                "kind": "builtin",
+                "command_label": " ".join(command),
+                "description": description,
+            })
+
+        if "pyproject.toml" in root_files or "requirements.txt" in root_files:
+            add("python.test", "Python: Run unit tests", [sys.executable, "-m", "unittest", "discover", "-v"],
+                "Discover and run standard-library unittest tests.")
+            add("python.compile", "Python: Compile source", [sys.executable, "-m", "compileall", "-q", "."],
+                "Compile Python files to detect syntax errors.")
+
+        if "Cargo.toml" in root_files:
+            add("rust.test", "Rust: Test", ["cargo", "test"], "Run Cargo tests.")
+            add("rust.check", "Rust: Check", ["cargo", "check"], "Check the Rust project without producing final binaries.")
+            add("rust.build", "Rust: Build", ["cargo", "build"], "Build the Rust project.")
+            add("rust.fmt", "Rust: Format check", ["cargo", "fmt", "--", "--check"], "Check Rust formatting without changing files.")
+
+        if "go.mod" in root_files:
+            add("go.test", "Go: Test", ["go", "test", "./..."], "Run Go tests across all packages.")
+            add("go.build", "Go: Build", ["go", "build", "./..."], "Build all Go packages.")
+            add("go.vet", "Go: Vet", ["go", "vet", "./..."], "Run Go's static analysis checks.")
+
+        if any(name.endswith((".sln", ".csproj")) for name in root_files):
+            add("dotnet.build", ".NET: Build", ["dotnet", "build"], "Build the solution or project in the workspace root.")
+            add("dotnet.test", ".NET: Test", ["dotnet", "test"], "Run discovered .NET tests.")
+            add("dotnet.format", ".NET: Format check", ["dotnet", "format", "--verify-no-changes"], "Verify formatting without rewriting files.")
+
+        if "pom.xml" in root_files:
+            add("maven.test", "Maven: Test", ["mvn", "test"], "Run Maven tests.")
+            add("maven.package", "Maven: Package", ["mvn", "package"], "Build and package the Maven project.")
+
+        if "build.gradle" in root_files or "build.gradle.kts" in root_files or "settings.gradle" in root_files or "settings.gradle.kts" in root_files:
+            add("gradle.test", "Gradle: Test", ["gradle", "test"], "Run Gradle tests.")
+            add("gradle.build", "Gradle: Build", ["gradle", "build"], "Build the Gradle project.")
+
+        if "CMakeLists.txt" in root_files:
+            add("cmake.configure", "CMake: Configure", ["cmake", "-S", ".", "-B", "build"], "Configure a CMake build directory.")
+            add("cmake.build", "CMake: Build", ["cmake", "--build", "build"], "Build the configured CMake project.")
+
+        return tasks
+
     def project_info(self) -> dict[str, Any]:
         """Summarize common project manifests, package scripts, source mix, and Git state."""
         root_files = sorted(p.name for p in self.root.iterdir() if not p.is_symlink() and p.is_file())
@@ -482,6 +535,17 @@ class Workspace:
             package_manager = "npm"
         else:
             package_manager = None
+        task_catalogue = [
+            {
+                "task": "package:" + name,
+                "name": name,
+                "kind": "package",
+                "command_label": f"{package_manager} run {name}" if package_manager else f"run {name}",
+                "description": script,
+            }
+            for name, script in scripts.items()
+        ]
+        task_catalogue.extend(self._builtin_task_catalogue())
         inventory = self.list_files(max_results=MAX_RESULTS, include_hidden=False)
         extensions: dict[str, int] = {}
         for item in inventory["files"]:
@@ -518,6 +582,7 @@ class Workspace:
             "package_manager": package_manager,
             "package_scripts": scripts,
             "framework_hints": framework_hints,
+            "task_catalogue": task_catalogue,
             "source_file_count": len(inventory["files"]),
             "file_inventory_truncated": inventory["truncated"],
             "extension_counts": dict(sorted(extensions.items(), key=lambda item: (-item[1], item[0]))[:20]),
@@ -525,38 +590,63 @@ class Workspace:
         }
 
     def run_task(self, task: str, timeout: int = 300) -> dict[str, Any]:
-        """Run a script explicitly declared in the workspace package.json."""
+        """Run a declared package.json script or a whitelisted language task."""
         if not isinstance(task, str) or not task.strip():
-            raise WorkspaceError("A package script name is required.")
-        package_path = self.root / "package.json"
-        if package_path.is_symlink() or not package_path.is_file():
-            raise WorkspaceError("This workspace has no regular root package.json.")
-        try:
-            package = json.loads(package_path.read_text(encoding="utf-8"))
-            if not isinstance(package, dict):
-                raise ValueError("package.json must contain a JSON object")
-        except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
-            raise WorkspaceError(f"Could not read package.json: {exc}") from exc
-        scripts = package.get("scripts") or {}
+            raise WorkspaceError("A task name is required.")
         name = task.strip()
-        if not isinstance(scripts, dict) or name not in scripts:
-            available = ", ".join(str(key) for key in scripts) if isinstance(scripts, dict) else ""
-            raise WorkspaceError(
-                f"Package script '{name}' is not declared in package.json."
-                + (f" Available scripts: {available}" if available else "")
-            )
-        details = self.project_info()
-        manager = details.get("package_manager")
-        if manager not in {"npm", "pnpm", "yarn", "bun"}:
-            raise WorkspaceError("No supported package manager could be detected for this project.")
-        command = [manager, "run", name]
-        result = self._run(command, timeout=max(1, min(int(timeout), 300)))
-        return {
-            "task": name,
-            "script": str(scripts[name]),
-            "package_manager": manager,
-            **result,
-        }
+        timeout = max(1, min(int(timeout), 300))
+
+        if name.startswith("package:"):
+            script_name = name[len("package:"):]
+        else:
+            script_name = name
+
+        package_path = self.root / "package.json"
+        if not package_path.is_symlink() and package_path.is_file():
+            try:
+                package = json.loads(package_path.read_text(encoding="utf-8"))
+                if not isinstance(package, dict):
+                    raise ValueError("package.json must contain a JSON object")
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+                raise WorkspaceError(f"Could not read package.json: {exc}") from exc
+            scripts = package.get("scripts") or {}
+            if isinstance(scripts, dict) and script_name in scripts and (name.startswith("package:") or name == script_name):
+                details = self.project_info()
+                manager = details.get("package_manager")
+                if manager not in {"npm", "pnpm", "yarn", "bun"}:
+                    raise WorkspaceError("No supported package manager could be detected for this project.")
+                command = [manager, "run", script_name]
+                result = self._run(command, timeout=timeout)
+                return {
+                    "task": "package:" + script_name,
+                    "name": script_name,
+                    "script": str(scripts[script_name]),
+                    "package_manager": manager,
+                    **result,
+                }
+
+        builtins = {item["task"]: item for item in self._builtin_task_catalogue()}
+        if name not in builtins:
+            available: list[str] = []
+            if not package_path.is_symlink() and package_path.is_file():
+                try:
+                    package = json.loads(package_path.read_text(encoding="utf-8"))
+                    scripts = package.get("scripts") or {} if isinstance(package, dict) else {}
+                    if isinstance(scripts, dict):
+                        available.extend("package:" + str(key) for key in scripts)
+                except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+                    pass
+            available.extend(builtins)
+            suffix = ", ".join(available[:40])
+            raise WorkspaceError(f"Task '{name}' is not available for this workspace." + (f" Available tasks: {suffix}" if suffix else ""))
+
+        selected = builtins[name]
+        command = selected["command_label"].split()
+        # Prefer the original argv from the built-in catalogue rather than
+        # parsing a display string, so paths and arguments remain unambiguous.
+        command = self._builtin_task_argv(name)
+        result = self._run(command, timeout=timeout)
+        return {**selected, **result, "timeout": timeout}
 
     def symbols(self, query: str = "", path: str = ".", max_results: int = 200) -> dict[str, Any]:
         """Find likely function/type/variable declarations using language-neutral patterns."""
