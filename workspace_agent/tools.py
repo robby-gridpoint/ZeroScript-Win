@@ -217,7 +217,7 @@ class Workspace:
 
     def project_info(self) -> dict[str, Any]:
         """Summarize common project manifests, package scripts, source mix, and Git state."""
-        root_files = sorted(p.name for p in self.root.iterdir() if p.is_file() and not p.is_symlink())
+        root_files = sorted(p.name for p in self.root.iterdir() if not p.is_symlink() and p.is_file())
         manifests = [
             "package.json", "pnpm-workspace.yaml", "yarn.lock", "pnpm-lock.yaml",
             "package-lock.json", "pyproject.toml", "requirements.txt", "Pipfile",
@@ -225,10 +225,10 @@ class Workspace:
             "build.gradle.kts", "settings.gradle", "composer.json", "Gemfile",
             "CMakeLists.txt", "Makefile", "justfile", "Dockerfile",
         ]
-        present = [name for name in manifests if (self.root / name).is_file() and not (self.root / name).is_symlink()]
+        present = [name for name in manifests if not (self.root / name).is_symlink() and (self.root / name).is_file()]
         scripts: dict[str, str] = {}
         package_path = self.root / "package.json"
-        if package_path.is_file() and not package_path.is_symlink():
+        if not package_path.is_symlink() and package_path.is_file():
             try:
                 package = json.loads(package_path.read_text(encoding="utf-8"))
                 scripts = {str(k): str(v) for k, v in (package.get("scripts") or {}).items()}
