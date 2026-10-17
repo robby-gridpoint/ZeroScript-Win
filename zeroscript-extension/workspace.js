@@ -60,6 +60,7 @@ function callTool(name, args = {}, timeout = 120000) {
 function setBusy(busy, label) {
   state.busy = busy;
   document.body.classList.toggle("is-busy", busy);
+  $("codeEditor").readOnly = busy;
   if (label) $("connectionLabel").textContent = label;
   renderDirty();
 }
@@ -126,6 +127,7 @@ function renderOpenTabs() {
     const main = document.createElement("button");
     main.type = "button";
     main.className = "editor-tab-main";
+    main.disabled = state.busy;
     main.title = "Open " + tab.path;
     const icon = document.createElement("span");
     icon.className = "file-tab-icon";
@@ -141,6 +143,7 @@ function renderOpenTabs() {
     const close = document.createElement("button");
     close.type = "button";
     close.className = "editor-tab-close";
+    close.disabled = state.busy;
     close.title = "Close " + tab.path;
     close.setAttribute("aria-label", "Close " + tab.path);
     close.textContent = "×";
@@ -252,11 +255,10 @@ async function saveAllTabs() {
     for (const tab of dirtyTabs) {
       if (tab.root !== activeRoot) continue;
       try {
-        const currentContent = tab.key === state.activeTabKey ? $("codeEditor").value : tab.content;
+        const currentContent = tab.content;
         await callTool("workspace_write_file", { path: tab.path, content: currentContent });
         tab.savedContent = currentContent;
-        tab.content = currentContent;
-        tab.dirty = false;
+        tab.dirty = tab.content !== currentContent;
         saved.push(tab.path);
       } catch (error) {
         failed.push(tab.path + ": " + error.message);
@@ -510,10 +512,11 @@ async function saveFile() {
   try {
     const result = await callTool("workspace_write_file", { path: tab.path, content });
     tab.savedContent = content;
-    tab.content = $("codeEditor").value;
-    tab.dirty = tab.content !== tab.savedContent;
-    state.savedContent = tab.savedContent;
-    state.dirty = tab.dirty;
+    tab.dirty = tab.content !== content;
+    if (state.activeTabKey === tab.key) {
+      state.savedContent = tab.savedContent;
+      state.dirty = tab.dirty;
+    }
     renderDirty();
     renderOpenTabs();
     writeOutput("File saved", result);
