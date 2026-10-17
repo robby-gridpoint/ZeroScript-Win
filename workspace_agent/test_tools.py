@@ -41,7 +41,7 @@ class WorkspaceTests(unittest.TestCase):
         try:
             outside.mkdir()
             (outside / "secret.txt").write_text("secret", encoding="utf-8")
-            (outside / "leak.py").write_text("def leaked_symbol():\\n    return 'outside'\\n", encoding="utf-8")
+            (outside / "leak.py").write_text("def leaked_symbol():\n    return 'outside'\n", encoding="utf-8")
             link = self.root / "escape"
             try:
                 link.symlink_to(outside, target_is_directory=True)
