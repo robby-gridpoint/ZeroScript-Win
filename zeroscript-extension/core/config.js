@@ -166,7 +166,9 @@ const ZS = (() => {
   // every other provider is untouched by definition.
   function buildSystemPrompt(opts = {}) {
     if (typeof opts === "string") opts = { siteName: opts };
-    const { siteName = "this AI site", customPrompt = "", providerNotes = "" } = opts;
+    const { siteName = "this AI site", customPrompt = "", providerNotes = "", tools = [] } = opts;
+
+    const toolsString = compactTools(tools);
 
     const prompt = `You are operating as a general-purpose local software development agent through ZeroScript-Win.
 
@@ -181,7 +183,10 @@ ${BT}json
   "params": {"argument": "value"}
 }
 ${BT}
-Use exact tool names and schema keys from the live catalogue. One tool call per reply. Wait for its result before deciding the next action. Do not emit multiple calls in one reply. Do not use special syntax from another tool protocol.
+Use exact tool names and schema keys from the live catalogue below. One tool call per reply. Wait for its result before deciding the next action. Do not emit multiple calls in one reply. Do not use special syntax from another tool protocol.
+
+AVAILABLE TOOLS
+${toolsString || "No tools are currently available."}
 
 DEVELOPMENT WORKFLOW
 For implementation requests, do the work directly rather than merely explaining how the user could do it.
@@ -309,7 +314,7 @@ On the first task, inspect the selected workspace and available tools before mak
   // ZeroScript reminder (NOT a user message and NOT a new command to run).
   function toolsReminder(tools) {
     return (
-      "\\n\\n────────────────────────────────\\n" +
+      "\n\n────────────────────────────────\n" +
       "(Automatic ZeroScript-Win tool reminder, not a user request. Do not reply to this note.)\\n" +
       "Use only these currently available tools and exact parameter names:\\n" +
       compactTools(tools)
