@@ -76,6 +76,14 @@
           <button class="panel-action" id="loadGitDiff">Show unstaged diff</button>
           <button class="panel-action" id="loadStagedDiff">Show staged diff</button>
           <button class="panel-action" id="loadGitBranches">List branches</button>
+          <div class="section-caption">SELECTED FILE</div>
+          <button class="panel-action" id="stageCurrentFile">＋ Stage Current File</button>
+          <button class="panel-action" id="unstageCurrentFile">− Unstage Current File</button>
+          <div class="section-caption">COMMIT STAGED CHANGES</div>
+          <label class="field-label" for="commitMessage">Commit message</label>
+          <input id="commitMessage" placeholder="Describe the staged change…" maxlength="500" />
+          <button class="small-primary" id="commitStaged">Create Local Commit</button>
+          <p class="subtle">Commit writes to the local repository only. It does not push to a remote.</p>
           <div id="gitSummary" class="git-summary">No Git status loaded.</div>
         </section>
 
