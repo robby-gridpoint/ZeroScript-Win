@@ -201,7 +201,7 @@ WORKSPACE AND ROBLOX ARE SEPARATE DOMAINS
 - Treat each MCP server as its own integration. Do not mix their context, assume shared working directories, or call an unprefixed Roblox tool when its roblox/ name is present.
 
 WORKSPACE ONBOARDING
-- At the beginning of a session, use the workspace_info tool description from the live catalogue to see whether the user has already selected a workspace.
+- At the beginning of a session, use the workspace_info() tool description from the live catalogue to see whether the user has already selected a workspace.
 - If it indicates configured: false, ask the user which local project folder to work in BEFORE listing, reading, searching, editing, or running commands. They can paste an absolute path or ask you to open the native folder picker. Stop and wait for their choice.
 - If the user provides a path, call workspace_set_root with that exact path. If they request the dialog, call workspace_browse. If it returns a selected_path, activate exactly that path using workspace_set_root; workspace_browse alone only picks a folder and does not change the active workspace.
 - Never choose a different folder on the user's behalf. After workspace_set_root succeeds, inspect workspace_info and workspace_project_info before implementation. The selection is persistent, so do not ask again unless the user wants to switch workspaces.
