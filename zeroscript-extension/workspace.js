@@ -1314,14 +1314,64 @@ async function commitStagedChanges() {
   }
 }
 
+function renderGitChanges(files) {
+  const host = $("gitChanges");
+  host.replaceChildren();
+  state.gitChanges = files || [];
+  if (!state.gitChanges.length) {
+    const empty = document.createElement("div");
+    empty.className = "empty-state";
+    empty.textContent = "No changed files. Your Git working tree is clean.";
+    host.append(empty);
+    return;
+  }
+  for (const entry of state.gitChanges) {
+    const row = document.createElement("div");
+    row.className = "git-change-row";
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "git-change-open";
+    const badge = document.createElement("span");
+    badge.className = "git-change-code " + (entry.untracked ? "untracked" : entry.kind || "changed");
+    badge.textContent = entry.status || "??";
+    const copy = document.createElement("span");
+    copy.className = "git-change-copy";
+    const path = document.createElement("span");
+    path.className = "git-change-path";
+    path.textContent = entry.path;
+    path.title = entry.path;
+    const status = document.createElement("span");
+    status.className = "git-change-status";
+    status.textContent = [
+      entry.staged ? "Staged" : "",
+      entry.unstaged ? "Working tree" : "",
+      entry.untracked ? "Untracked" : "",
+    ].filter(Boolean).join(" · ") || entry.kind || "Changed";
+    copy.append(path, status);
+    open.append(badge, copy);
+    open.title = "Open " + entry.path;
+    open.addEventListener("click", () => {
+      if (entry.kind === "deleted") loadGitDiff(entry.staged && !entry.unstaged, entry.path);
+      else openFile(entry.path);
+    });
+    row.append(open);
+    host.append(row);
+  }
+}
+
 async function loadGitStatus() {
   setBusy(true, "Reading Git status…");
   try {
-    const result = await callTool("workspace_git_status", {});
+    const [result, changed] = await Promise.all([
+      callTool("workspace_git_status", {}),
+      callTool("workspace_git_changed_files", {}),
+    ]);
     $("gitSummary").textContent = result.output || "(No Git output)";
+    renderGitChanges(changed.files || []);
     writeOutput("Git status", result.output || result);
   } catch (error) {
     $("gitSummary").textContent = error.message;
+    renderGitChanges([]);
     errorOutput("Git status failed", error);
   } finally { setBusy(false); }
 }
@@ -1333,12 +1383,13 @@ function mayReplaceEditorView() {
   return true;
 }
 
-async function loadGitDiff(staged = false) {
+async function loadGitDiff(staged = false, path = ".") {
   if (!mayReplaceEditorView()) return;
   setBusy(true, staged ? "Reading staged changes…" : "Reading unstaged changes…");
   try {
-    const result = await callTool("workspace_git_diff", { staged });
-    setInfoMode(staged ? "Staged diff" : "Unstaged diff", result.output || "(No diff)", "Source Control");
+    const result = await callTool("workspace_git_diff", { staged, path });
+    const title = (staged ? "Staged diff" : "Unstaged diff") + (path !== "." ? " · " + path : "");
+    setInfoMode(title, result.output || "(No diff)", "Source Control");
     writeOutput("Git diff", result.output || "(No diff)");
   } catch (error) { errorOutput("Git diff failed", error); }
   finally { setBusy(false); }
