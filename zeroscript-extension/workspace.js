@@ -547,6 +547,7 @@ $("welcomeSearch").addEventListener("click", () => { setView("search"); $("searc
 $("welcomeGit").addEventListener("click", () => setView("source"));
 $("newFile").addEventListener("click", createFile);
 $("collapseTree").addEventListener("click", () => { state.folder = "."; refreshTree(); });
+$("rootRow").addEventListener("click", () => { state.folder = "."; refreshTree(); });
 $("treeReload").addEventListener("click", refreshTree);
 $("treeUp").addEventListener("click", () => {
   if (state.folder === "." || !state.folder) return;
@@ -625,6 +626,7 @@ chrome.runtime.onMessage.addListener((message) => {
     updateWorkspaceHeader();
     if (previousRoot && previousRoot !== nextRoot && !state.dirty) {
       state.currentFile = null;
+      state.fileWorkspaceRoot = null;
       state.folder = ".";
       showWelcome();
       loadWorkspaceDetails();
