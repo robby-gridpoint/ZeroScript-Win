@@ -13,6 +13,10 @@
 
 (() => {
   "use strict";
+  // Resolve the shared config export explicitly. Avoid relying on a global-object
+  // property being visible as an unqualified identifier in every content-script context.
+  const ZS = globalThis.ZS;
+  if (!ZS) throw new Error("ZeroScript config failed to load before core/main.js");
   const P = ZSProvider;
   const T = P.timings;
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
