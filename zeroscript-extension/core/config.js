@@ -25,7 +25,7 @@ var ZS = (() => {
     if (rawName.startsWith("roblox/")) return "roblox";
     const n = rawName.includes("/") ? rawName.split("/").pop() : rawName;
     if (/^(workspace_info|workspace_project_info|workspace_tree|workspace_file_outline|workspace_list_files|workspace_read_file|workspace_search|workspace_find_files|workspace_symbols|workspace_git_status|workspace_git_diff|workspace_git_branches|workspace_git_log|list_tools|list_commands)$/.test(n)) return "read";
-    if (/^(workspace_write_file|workspace_apply_patch|workspace_create_file|workspace_create_directory|workspace_move_path|workspace_delete_file|multi_edit|insert_from_creator_store|store_image)$/.test(n)) return "edit";
+    if (/^(workspace_write_file|workspace_apply_patch|workspace_multi_edit|workspace_create_file|workspace_create_directory|workspace_move_path|workspace_delete_file|multi_edit|insert_from_creator_store|store_image)$/.test(n)) return "edit";
     if (/^(workspace_run_command|execute_luau)$/.test(n)) return "edit";
     if (/capture|screenshot|screen/i.test(n)) return "screen";
     if (/^(generate_|create_)/i.test(n)) return "generate";
@@ -235,6 +235,7 @@ WORKSPACE TOOL GUIDANCE
 - workspace_read_file reads bounded UTF-8 text and can return a specific 1-based line range.
 - workspace_search supports case-insensitive text, optional case-sensitive matching, and regular expressions, with line and column references.
 - workspace_apply_patch is the preferred focused edit when an exact match exists; it refuses ambiguous replacements unless replace_all is explicitly true.
+- workspace_multi_edit applies a validated batch of exact replacements across multiple files, validates the entire batch before writing, refuses ambiguous replacements, and returns per-file diffs. Prefer it for coordinated multi-file edits.
 - workspace_create_file creates a new UTF-8 file and refuses to overwrite an existing path. Prefer it for new files.
 - workspace_write_file creates or replaces UTF-8 text and returns a unified diff. Inspect a file first before replacing its full content.
 - workspace_create_directory, workspace_move_path, and workspace_delete_file manage paths. Never delete or move data unless the user explicitly requested it and the scope is clear; the delete tool refuses directories and symbolic links.
