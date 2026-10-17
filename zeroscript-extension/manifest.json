@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ZeroScript-Win — Local Coding Agent",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "description": "Turn supported AI chat sites into a local-first coding agent for Windows projects, with optional MCP and Roblox Studio integrations.",
   "permissions": ["storage"],
   "host_permissions": [
