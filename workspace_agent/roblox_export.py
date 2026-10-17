@@ -12,7 +12,7 @@ import re
 from pathlib import PurePosixPath
 from typing import Any
 
-MAX_PAGE_SCRIPTS = 40
+MAX_PAGE_SCRIPTS = 10
 MAX_FILES_PER_WRITE = 200
 MAX_BYTES_PER_WRITE = 9 * 1024 * 1024
 
