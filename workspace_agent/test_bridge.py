@@ -28,6 +28,8 @@ class WorkspaceBridgeTests(unittest.TestCase):
         by_name = {item["name"]: item for item in catalogue}
         self.assertIn("workspace_tree", by_name)
         self.assertIn("workspace_search", by_name)
+        self.assertIn("workspace_multi_edit", by_name)
+        self.assertIn("workspace_create_file", by_name)
         self.assertIs(by_name["workspace_tree"]["inputSchema"]["properties"]["include_hidden"]["default"], False)
         self.assertIs(by_name["workspace_search"]["inputSchema"]["properties"]["regex"]["default"], False)
         self.assertIn("configured: false", by_name["workspace_info"]["description"])
@@ -39,6 +41,20 @@ class WorkspaceBridgeTests(unittest.TestCase):
             self.manager._call_workspace("workspace_list_files", {})
         with self.assertRaisesRegex(RuntimeError, "No project workspace has been selected"):
             self.manager._call_workspace("workspace_run_command", {"command": ["python", "--version"]})
+
+    def test_bridge_routes_multi_edit_to_selected_workspace(self):
+        self.manager.workspace_configured = True
+        self.manager.workspace.write_file("one.py", "VALUE = 1\n")
+        self.manager.workspace.write_file("two.py", "VALUE = 2\n")
+        result = self.manager._call_workspace("workspace_multi_edit", {
+            "edits": [
+                {"path": "one.py", "old_string": "VALUE = 1", "new_string": "VALUE = 10"},
+                {"path": "two.py", "old_string": "VALUE = 2", "new_string": "VALUE = 20"},
+            ]
+        })
+        self.assertEqual(result["files_changed"], 2)
+        self.assertEqual(self.manager.workspace.read_file("one.py")["content"], "VALUE = 10\n")
+        self.assertEqual(self.manager.workspace.read_file("two.py")["content"], "VALUE = 20\n")
 
     def test_explicit_workspace_selection_persists_and_unlocks_tools(self):
         project = self.root / "project"
