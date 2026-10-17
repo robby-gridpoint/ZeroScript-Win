@@ -140,9 +140,15 @@ const ZS = (() => {
       .map((t) => {
         const name = t.name || "?";
         const desc = (t.description || "").split("\n")[0].trim();
-        const props = (t.inputSchema && t.inputSchema.properties) || {};
-        const args = Object.keys(props).join(", ");
-        return `  ${name}(${args}) - ${desc}`;
+        const schema = t.inputSchema || {};
+        const props = schema.properties || {};
+        const required = new Set(schema.required || []);
+        const args = Object.entries(props).map(([key, value]) => {
+          const type = value && value.type ? `: ${value.type}` : "";
+          return `${key}${type}${required.has(key) ? " (required)" : ""}`;
+        }).join(", ");
+        const server = t.server ? ` [${t.server}]` : "";
+        return `  ${name}(${args})${server} - ${desc}`;
       })
       .join("\n");
   }
