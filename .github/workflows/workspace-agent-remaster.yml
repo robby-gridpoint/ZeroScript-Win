@@ -1,0 +1,43 @@
+name: Workspace agent remaster checks
+
+on:
+  push:
+    branches:
+      - agent/full-remaster-workspace-first
+  pull_request:
+    branches:
+      - agent/workspace-foundation
+
+jobs:
+  workspace-agent:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile Python sources
+        run: python -m py_compile bridge.py workspace_agent/tools.py workspace_agent/test_tools.py
+
+      - name: Run workspace unit tests
+        run: python -m unittest workspace_agent.test_tools -v
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Check extension JavaScript syntax
+        run: |
+          node --check zeroscript-extension/core/config.js
+          node --check zeroscript-extension/core/parser.js
+          node --check zeroscript-extension/core/main.js
+          node --check zeroscript-extension/background.js
+          node --check zeroscript-extension/popup.js
+
+      - name: Validate extension manifest
+        run: node -e "JSON.parse(require('fs').readFileSync('zeroscript-extension/manifest.json', 'utf8'))"
