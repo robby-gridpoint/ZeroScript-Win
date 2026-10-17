@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const vm = require("node:vm");
 
 const source = fs.readFileSync("zeroscript-extension/core/config.js", "utf8");
-const ZS = vm.runInNewContext(source + "\nZS", {});
+const ZS = vm.runInNewContext(source + "\nglobalThis.ZS", {});
 
 const tools = [
   {
