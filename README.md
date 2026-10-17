@@ -4,9 +4,11 @@ ZeroScript-Win is a GPL-3.0-or-later fork of ZeroScript Free evolving into a loc
 
 The extension preserves the existing browser-provider integrations and Roblox Studio capabilities. General project editing and Roblox Studio automation are separate domains: the local workspace layer works with Studio closed, while live Roblox tools use the explicit `roblox/` namespace.
 
+**ChatGPT compatibility hotfix (1.11.1):** recognizes the updated composer, modern message-turn attributes, and current Stop control. The provider falls back to a non-invasive anchored status bar if the new composer no longer exposes a safe grid slot.
+
 ## Current status
 
-**Workspace-first IDE remaster in progress (v1.11.0).**
+**Workspace-first IDE remaster in progress (v1.11.1).**
 
 The bridge exposes an expanded, project-scoped toolset:
 
