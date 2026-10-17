@@ -107,7 +107,7 @@ function activeTab() {
 
 function syncActiveTabFromEditor() {
   const tab = activeTab();
-  if (!tab || tab.root !== ((state.workspace && state.workspace.root) || null)) return;
+  if (!tab) return;
   tab.content = $("codeEditor").value;
   tab.dirty = tab.content !== tab.savedContent;
   state.currentFile = tab.path;
@@ -154,6 +154,7 @@ function renderOpenTabs() {
 }
 
 function switchToTab(key) {
+  if (state.activeTabKey && state.activeTabKey !== key) syncActiveTabFromEditor();
   const tab = state.openTabs.find((item) => item.key === key);
   if (!tab) return;
   state.activeTabKey = tab.key;
@@ -177,6 +178,7 @@ function switchToTab(key) {
 }
 
 function closeTab(key) {
+  syncActiveTabFromEditor();
   const index = state.openTabs.findIndex((tab) => tab.key === key);
   if (index < 0) return;
   const tab = state.openTabs[index];
@@ -566,17 +568,29 @@ async function createFolder() {
 }
 
 async function renameCurrentFile() {
-  if (!state.currentFile || state.busy) return;
-  const source = state.currentFile;
+  const tab = activeTab();
+  if (!tab || state.busy) return;
+  const source = tab.path;
   const destination = window.prompt("New workspace-relative path:", source);
   if (!destination || !destination.trim() || destination.trim() === source) return;
   if (!mayReplaceEditorView()) return;
   setBusy(true, "Moving file…");
   try {
     const result = await callTool("workspace_move_path", { source, destination: destination.trim() });
-    state.folder = destination.trim().split("/").slice(0, -1).join("/") || ".";
+    const oldKey = tab.key;
+    tab.path = destination.trim().replace(/\\/g, "/");
+    tab.key = tabKey(tab.path, tab.root);
+    state.activeTabKey = tab.key;
+    state.currentFile = tab.path;
+    state.fileWorkspaceRoot = tab.root;
+    state.folder = tab.path.split("/").slice(0, -1).join("/") || ".";
+    $("activeFileName").textContent = tab.path.split("/").pop();
+    $("breadcrumb").textContent = "ZeroScript / " + tab.path;
+    $("statusFile").textContent = tab.path;
+    $("languageStatus").textContent = languageForPath(tab.path);
+    renderOpenTabs();
+    updateHighlight();
     await refreshTree();
-    await openFile(destination.trim());
     writeOutput("File moved", result);
   } catch (error) {
     errorOutput("Rename / move failed", error);
@@ -586,20 +600,33 @@ async function renameCurrentFile() {
 }
 
 async function deleteCurrentFile() {
-  if (!state.currentFile || state.busy) return;
-  const path = state.currentFile;
-  if (!window.confirm(`Delete ${path}? This removes the file from disk and cannot be undone by ZeroScript.`)) return;
-  if (!mayReplaceEditorView()) return;
+  const tab = activeTab();
+  if (!tab || state.busy) return;
+  syncActiveTabFromEditor();
+  const path = tab.path;
+  const dirtyWarning = tab.dirty ? "\\n\\nThe unsaved buffer for this file will also be discarded." : "";
+  if (!window.confirm(`Delete ${path}? This removes the file from disk and cannot be undone by ZeroScript.${dirtyWarning}`)) return;
   setBusy(true, "Deleting file…");
   try {
     const result = await callTool("workspace_delete_file", { path });
-    state.currentFile = null;
-    state.fileWorkspaceRoot = null;
-    state.savedContent = "";
-    state.dirty = false;
-    $("codeEditor").value = "";
-    showWelcome();
-    renderDirty();
+    const index = state.openTabs.findIndex((item) => item.key === tab.key);
+    state.openTabs = state.openTabs.filter((item) => item.key !== tab.key);
+    if (state.activeTabKey === tab.key) {
+      state.activeTabKey = null;
+      if (state.openTabs.length) {
+        const next = state.openTabs[Math.min(Math.max(index, 0), state.openTabs.length - 1)];
+        switchToTab(next.key);
+      } else {
+        state.currentFile = null;
+        state.fileWorkspaceRoot = null;
+        state.savedContent = "";
+        state.dirty = false;
+        $("codeEditor").value = "";
+        showWelcome();
+        renderDirty();
+      }
+    }
+    renderOpenTabs();
     await refreshTree();
     writeOutput("File deleted", result);
   } catch (error) {
