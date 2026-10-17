@@ -201,6 +201,96 @@ class Workspace:
             "diff": diff[:MAX_OUTPUT_CHARS],
         }
 
+
+    def write_files(self, files: list[dict[str, Any]], overwrite: bool = False) -> dict[str, Any]:
+        """Write a batch of workspace-relative text files with validation and rollback.
+
+        Intended for importing source collected from a live tool such as Roblox
+        Studio MCP. All paths and payloads are validated before any write occurs.
+        Existing files are protected unless overwrite=True is explicitly supplied.
+        """
+        if not isinstance(files, list) or not files:
+            raise WorkspaceError("files must be a non-empty list.")
+        if len(files) > 200:
+            raise WorkspaceError("A bulk write is limited to 200 files.")
+        if not isinstance(overwrite, bool):
+            raise WorkspaceError("overwrite must be a boolean.")
+
+        pending: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        total_bytes = 0
+        for index, item in enumerate(files):
+            if not isinstance(item, dict):
+                raise WorkspaceError(f"File {index + 1} must be an object.")
+            path = item.get("path")
+            content = item.get("content")
+            if not isinstance(path, str) or not path.strip():
+                raise WorkspaceError(f"File {index + 1} requires a non-empty path.")
+            if not isinstance(content, str):
+                raise WorkspaceError(f"File {index + 1} content must be a string.")
+            raw_path = Path(path).expanduser()
+            if raw_path.is_absolute():
+                raise WorkspaceError(f"File {index + 1} must use a workspace-relative path.")
+            # Reject explicit traversal segments instead of silently normalizing them.
+            if any(part == ".." for part in raw_path.parts):
+                raise WorkspaceError(f"File {index + 1} path cannot contain '..'.")
+            target = self._resolve(path)
+            if target == self.root:
+                raise WorkspaceError(f"File {index + 1} cannot target the workspace root.")
+            relative = target.relative_to(self.root).as_posix()
+            if relative in seen:
+                raise WorkspaceError(f"Duplicate target path in bulk write: {relative}")
+            seen.add(relative)
+            if raw_path.is_symlink() or target.is_symlink():
+                raise WorkspaceError(f"Symbolic-link targets are not supported: {relative}")
+            encoded = content.encode("utf-8")
+            if len(encoded) > MAX_READ_BYTES:
+                raise WorkspaceError(f"{relative} exceeds the {MAX_READ_BYTES}-byte per-file limit.")
+            total_bytes += len(encoded)
+            if total_bytes > 10 * MAX_READ_BYTES:
+                raise WorkspaceError("Bulk write payload is limited to 10 MB total.")
+            if target.exists() and not target.is_file():
+                raise WorkspaceError(f"Target exists and is not a regular file: {relative}")
+            if target.exists() and not overwrite:
+                raise WorkspaceError(f"{relative} already exists. Set overwrite=true to replace existing files.")
+            previous = None
+            if target.exists():
+                try:
+                    previous = self._read_text_exact(target)
+                except UnicodeDecodeError as exc:
+                    raise WorkspaceError(f"Refusing to overwrite non-UTF-8 file: {relative}") from exc
+            pending.append({
+                "target": target, "path": relative, "content": content,
+                "previous": previous, "bytes": len(encoded),
+            })
+
+        applied: list[dict[str, Any]] = []
+        try:
+            for item in pending:
+                target = item["target"]
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(item["content"], encoding="utf-8", newline="")
+                applied.append(item)
+        except Exception as exc:
+            rollback_errors: list[str] = []
+            for item in reversed(applied):
+                try:
+                    if item["previous"] is None:
+                        item["target"].unlink(missing_ok=True)
+                    else:
+                        item["target"].write_text(item["previous"], encoding="utf-8", newline="")
+                except OSError as rollback_exc:
+                    rollback_errors.append(f"{item['path']}: {rollback_exc}")
+            suffix = f" Rollback errors: {'; '.join(rollback_errors)}" if rollback_errors else ""
+            raise WorkspaceError(f"Bulk write failed; applied writes were rolled back where possible: {exc}.{suffix}") from exc
+
+        return {
+            "files_written": len(pending),
+            "bytes_written": total_bytes,
+            "overwritten": sum(1 for item in pending if item["previous"] is not None),
+            "files": [{"path": item["path"], "bytes_written": item["bytes"]} for item in pending],
+        }
+
     def multi_edit(self, edits: list[dict[str, Any]]) -> dict[str, Any]:
         """Apply a validated batch of exact text replacements across existing files."""
         if not isinstance(edits, list) or not edits:
