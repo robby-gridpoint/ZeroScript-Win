@@ -727,6 +727,52 @@ class Workspace:
         return {"path": target.relative_to(self.root).as_posix(), "total_lines": len(lines),
                 "outline": outline, "truncated": len(outline) >= limit}
 
+    def git_changed_files(self) -> dict[str, Any]:
+        """List changed paths from Git porcelain output, including staged and untracked state."""
+        result = self._run(["git", "status", "--porcelain=v1", "-z", "--untracked-files=all"], timeout=20)
+        if result["exit_code"] != 0:
+            return {"exit_code": result["exit_code"], "output": result["output"], "files": []}
+        fields = result["output"].split("\\x00")
+        files: list[dict[str, Any]] = []
+        index = 0
+        while index < len(fields):
+            record = fields[index]
+            index += 1
+            if not record or len(record) < 4:
+                continue
+            x, y = record[0], record[1]
+            path = record[3:]
+            if not path:
+                continue
+            original_path = None
+            if "R" in (x, y) or "C" in (x, y):
+                if index < len(fields):
+                    original_path = fields[index] or None
+                    index += 1
+            code = x + y
+            if code == "??":
+                kind = "untracked"
+            elif "D" in code:
+                kind = "deleted"
+            elif "R" in code or "C" in code:
+                kind = "renamed"
+            elif "A" in code:
+                kind = "added"
+            elif "M" in code:
+                kind = "modified"
+            else:
+                kind = "changed"
+            files.append({
+                "path": path,
+                "status": code,
+                "kind": kind,
+                "staged": x not in (" ", "?"),
+                "unstaged": y != " ",
+                "untracked": code == "??",
+                "original_path": original_path,
+            })
+        return {"exit_code": 0, "files": files, "count": len(files)}
+
     def git_stage_file(self, path: str) -> dict[str, Any]:
         """Stage one workspace-relative file in Git without executing a shell."""
         if not isinstance(path, str) or not path.strip() or path.strip() in (".", "./"):
