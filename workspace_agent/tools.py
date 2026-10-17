@@ -436,6 +436,7 @@ class Workspace:
                 "task": task,
                 "name": name,
                 "kind": "builtin",
+                "command": command,
                 "command_label": " ".join(command),
                 "description": description,
             })
@@ -641,10 +642,7 @@ class Workspace:
             raise WorkspaceError(f"Task '{name}' is not available for this workspace." + (f" Available tasks: {suffix}" if suffix else ""))
 
         selected = builtins[name]
-        command = selected["command_label"].split()
-        # Prefer the original argv from the built-in catalogue rather than
-        # parsing a display string, so paths and arguments remain unambiguous.
-        command = self._builtin_task_argv(name)
+        command = selected["command"]
         result = self._run(command, timeout=timeout)
         return {**selected, **result, "timeout": timeout}
 
