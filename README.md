@@ -15,7 +15,7 @@ The bridge exposes an expanded, project-scoped toolset:
 - Bounded file reads, a depth-limited project tree, recursive file listing, glob search, regex/case-sensitive text search, and line/column matches.
 - Source-file outlines for imports, headings, variables, and declarations, plus cross-language declaration/symbol discovery.
 - Exact-match patch edits that reject ambiguous replacements, plus complete-file writes that return unified diffs.
-- Safe create-directory, rename/move, and single-file delete operations. Directory deletion and symbolic-link mutation are refused.
+- Safe no-overwrite file/directory creation, rename/move, and single-file delete operations. Directory deletion and symbolic-link mutation are refused.
 - Git status, staged/unstaged diffs, branch listing, and recent commit history.
 - A dedicated Workspace Explorer page with file tree, editor and save state, search, outline, project metadata, source-control views, output/problems panes, and argv-based command runner.
 - Bounded command execution from the selected project directory using an argument array and `shell=False`.
