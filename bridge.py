@@ -1169,6 +1169,8 @@ class MCPManager:
              "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_git_log", "description": "Read recent Git commit summaries without modifying the repository.",
              "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 30, "default": 10}}, "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_run_task", "description": "Run a one-shot script already declared in the selected project's root package.json, using its detected npm/pnpm/yarn/bun package manager. Package scripts are executable project code and may modify files or access networks; only run relevant tasks requested by the user.",
+             "inputSchema": {"type": "object", "properties": {"task": {"type": "string", "minLength": 1}, "timeout": {"type": "integer", "minimum": 1, "maximum": 300, "default": 300}}, "required": ["task"], "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_run_command", "description": "Run a command as an argument array from the selected project directory. Shell expansion is disabled. Use only commands required for the requested development task.",
              "inputSchema": {"type": "object", "properties": {"command": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 100}, "timeout": {"type": "integer", "minimum": 1, "maximum": 300}}, "required": ["command"], "additionalProperties": False}, "server": "workspace"},
         ]
@@ -1359,6 +1361,8 @@ class MCPManager:
             return self.workspace.git_branches()
         if name == "workspace_git_log":
             return self.workspace.git_log(args.get("limit", 10))
+        if name == "workspace_run_task":
+            return self.workspace.run_task(args["task"], args.get("timeout", 300))
         if name == "workspace_run_command":
             return self.workspace.run_command(args["command"], args.get("timeout", 60))
         raise RuntimeError(f"unknown workspace tool '{name}'")
