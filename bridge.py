@@ -1106,7 +1106,7 @@ class MCPManager:
              "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_set_root", "description": "Set and persist the user's explicitly provided local project folder. Use only a path the user supplied or confirmed.",
              "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"], "additionalProperties": False}, "server": "workspace"},
-            {"name": "workspace_browse", "description": "Open a native local folder picker so the user can select the coding workspace. This opens a dialog on the user's computer.",
+            {"name": "workspace_browse", "description": "Open a native folder picker and return the selected_path without changing the active workspace. After the user chooses the folder, call workspace_set_root with that exact selected_path to activate it.",
              "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_project_info", "description": "Inspect common project manifests, framework/language hints, Git presence, source-file counts, and package scripts.",
              "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}, "server": "workspace"},
