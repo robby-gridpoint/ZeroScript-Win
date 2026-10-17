@@ -1274,13 +1274,35 @@ async function activateModalItem(item) {
   }
 }
 
+function getSearchScope() {
+  const scope = ($("searchPath").value || ".").trim() || ".";
+  if (scope.startsWith("/") || /^[a-zA-Z]:[\\/]/.test(scope) || scope.startsWith("\\\\")) {
+    throw new Error("Folder scope must be relative to the selected workspace (for example src/ or .).");
+  }
+  const parts = scope.replace(/\\/g, "/").split("/");
+  let depth = 0;
+  for (const part of parts) {
+    if (!part || part === ".") continue;
+    if (part === "..") {
+      depth -= 1;
+      if (depth < 0) throw new Error("Folder scope cannot escape the selected workspace.");
+    } else {
+      depth += 1;
+    }
+  }
+  return parts.filter(Boolean).join("/") || ".";
+}
+
 async function runSearch() {
   const query = $("searchQuery").value.trim();
   if (!query) return;
-  setBusy(true, "Searching project…");
+  let scope;
+  try { scope = getSearchScope(); }
+  catch (error) { errorOutput("Search scope", error); return; }
+  setBusy(true, "Searching " + scope + "…");
   try {
     const result = await callTool("workspace_search", {
-      query, path: ".", max_results: 250,
+      query, path: scope, max_results: 250,
       case_sensitive: $("searchCase").checked, regex: $("searchRegex").checked,
     });
     const list = $("searchResults");
@@ -1305,7 +1327,7 @@ async function runSearch() {
         list.append(button);
       }
     }
-    writeOutput("Search completed", `${result.matches ? result.matches.length : 0} match(es) across ${result.files_scanned || 0} scanned file(s)${result.truncated ? " (results truncated)" : ""}`);
+    writeOutput("Search completed", `${result.matches ? result.matches.length : 0} match(es) in ${scope} across ${result.files_scanned || 0} scanned file(s)${result.truncated ? " (results truncated)" : ""}`);
   } catch (error) {
     errorOutput("Search failed", error);
   } finally {
@@ -1373,6 +1395,9 @@ async function previewReplaceInFiles() {
   if (state.busy) return;
   const query = $("searchQuery").value;
   const replacement = $("replaceQuery").value;
+  let scope;
+  try { scope = getSearchScope(); }
+  catch (error) { errorOutput("Replace scope", error); return; }
   if (!query) {
     errorOutput("Replace in Files", "Enter text or a regular expression in the Search in project field first.");
     $("searchQuery").focus();
@@ -1388,7 +1413,7 @@ async function previewReplaceInFiles() {
     const options = {
       query,
       replacement,
-      path: ".",
+      path: scope,
       max_files: 100,
       case_sensitive: $("searchCase").checked,
       regex: $("searchRegex").checked,
@@ -1398,6 +1423,7 @@ async function previewReplaceInFiles() {
     state.replacePreview = {
       query,
       replacement,
+      path: scope,
       caseSensitive: options.case_sensitive,
       regex: options.regex,
       previewHash: result.preview_hash,
@@ -1418,8 +1444,16 @@ async function previewReplaceInFiles() {
 async function applyReplacePreview() {
   if (state.busy || !state.replacePreview) return;
   const preview = state.replacePreview;
+  let currentScope;
+  try { currentScope = getSearchScope(); }
+  catch (error) {
+    clearReplacePreview();
+    errorOutput("Replace scope", error);
+    return;
+  }
   if (preview.query !== $("searchQuery").value ||
       preview.replacement !== $("replaceQuery").value ||
+      preview.path !== currentScope ||
       preview.caseSensitive !== $("searchCase").checked ||
       preview.regex !== $("searchRegex").checked) {
     clearReplacePreview();
@@ -1440,7 +1474,7 @@ async function applyReplacePreview() {
     const result = await callTool("workspace_replace_in_files", {
       query: preview.query,
       replacement: preview.replacement,
-      path: ".",
+      path: preview.path,
       max_files: 100,
       case_sensitive: preview.caseSensitive,
       regex: preview.regex,
@@ -2082,6 +2116,7 @@ $("runSearch").addEventListener("click", runSearch);
 $("previewReplace").addEventListener("click", previewReplaceInFiles);
 $("applyReplace").addEventListener("click", applyReplacePreview);
 $("clearReplacePreview").addEventListener("click", clearReplacePreview);
+$("searchPath").addEventListener("input", clearReplacePreview);
 $("searchQuery").addEventListener("input", clearReplacePreview);
 $("replaceQuery").addEventListener("input", clearReplacePreview);
 $("searchRegex").addEventListener("change", clearReplacePreview);
