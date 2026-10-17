@@ -34,6 +34,9 @@ assert.match(prompt, /bootstrap only, your first response MUST be one list_tools
 assert.doesNotMatch(prompt, /Roblox Studio place.*always connected/i);
 assert.equal(ZS.toolCategory("workspace_read_file"), "read");
 assert.equal(ZS.toolCategory("workspace_write_file"), "edit");
+assert.equal(ZS.toolCategory("workspace_multi_edit"), "edit");
+assert.equal(ZS.toolCategory("roblox/execute_luau"), "roblox");
+assert.equal(ZS.toolCategory("roblox/screen_capture"), "screen");
 assert.match(ZS.toolsReminder(tools), /workspace_info/);
 assert.match(ZS.toolsReminder(tools), /\n\n/);
 
