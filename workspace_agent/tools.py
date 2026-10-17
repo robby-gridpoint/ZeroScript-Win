@@ -732,7 +732,7 @@ class Workspace:
         result = self._run(["git", "status", "--porcelain=v1", "-z", "--untracked-files=all"], timeout=20)
         if result["exit_code"] != 0:
             return {"exit_code": result["exit_code"], "output": result["output"], "files": []}
-        fields = result["output"].split("\\x00")
+        fields = result["output"].split("\x00")
         files: list[dict[str, Any]] = []
         index = 0
         while index < len(fields):
