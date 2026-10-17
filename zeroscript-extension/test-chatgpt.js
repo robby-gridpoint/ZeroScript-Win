@@ -74,10 +74,12 @@ const ok = (name, cond) => { console.log((cond ? "PASS" : "FAIL") + "  " + name)
 const modernUser = {
   getAttribute: (name) => name === "data-content-search-unit-key" ? "turn-abc:user" : null,
   querySelector: () => null,
+  querySelectorAll: () => [],
 };
 const modernAssistant = {
   getAttribute: (name) => name === "data-content-search-unit-key" ? "turn-abc:assistant" : null,
   querySelector: () => null,
+  querySelectorAll: () => [],
 };
 ok("new user content unit is classified as a user turn", P.isUserItem(modernUser));
 ok("new assistant content unit is classified as an assistant turn", P.isAssistantItem(modernAssistant));
