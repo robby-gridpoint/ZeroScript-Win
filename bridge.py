@@ -1092,6 +1092,8 @@ class MCPManager:
         self.workspace_root = env_root or saved_root or HERE
         self.workspace_configured = bool(env_root or saved_root)
         self.workspace_source = "environment" if env_root else ("saved" if saved_root else "default")
+        if self.workspace_configured and self.workspace_root not in self.workspace_history:
+            self.workspace_history.insert(0, self.workspace_root)
         self.workspace = None
         self.workspace_error = None
         self._load_workspace()
@@ -1286,6 +1288,8 @@ class MCPManager:
                     for item in getattr(self, "workspace_history", [])
                     if isinstance(item, str) and item.strip()
                 }
+                if self.workspace_configured and self.workspace_root:
+                    history_paths.add(str(Path(self.workspace_root).expanduser().resolve()))
             except (OSError, RuntimeError) as exc:
                 raise RuntimeError("The requested recent workspace path is invalid.") from exc
             if normalized not in history_paths:
