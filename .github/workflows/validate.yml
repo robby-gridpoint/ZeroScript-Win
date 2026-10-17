@@ -16,7 +16,7 @@ jobs:
       - name: Install bridge dependency
         run: python -m pip install websockets
       - name: Test workspace tools
-        run: python -m unittest workspace_agent.test_tools -v
+        run: python -m unittest workspace_agent.test_tools workspace_agent.test_bridge -v
       - name: Compile Python
         run: python -m compileall -q bridge.py workspace_agent
   extension-syntax:
