@@ -15,12 +15,14 @@ The bridge exposes an expanded, project-scoped toolset:
 - Bounded file reads, a depth-limited project tree, recursive file listing, glob search, regex/case-sensitive text search, and line/column matches.
 - Source-file outlines for imports, headings, variables, and declarations, plus cross-language declaration/symbol discovery.
 - Exact-match patch edits that reject ambiguous replacements, plus complete-file writes that return unified diffs.
+- Safe create-directory, rename/move, and single-file delete operations. Directory deletion and symbolic-link mutation are refused.
 - Git status, staged/unstaged diffs, branch listing, and recent commit history.
+- A dedicated Workspace Explorer page with file tree, editor and save state, search, outline, project metadata, source-control views, output/problems panes, and argv-based command runner.
 - Bounded command execution from the selected project directory using an argument array and `shell=False`.
 
 ## Choose a workspace
 
-On a fresh install, the agent asks which project folder to use before inspecting or changing files. Reply with the absolute folder path, or use **Choose workspace folder** in the extension popup to open the native folder picker. The choice is saved in a private local `.zs-workspace.json` file and reused on subsequent starts.
+On a fresh install, the agent asks which project folder to use before inspecting or changing files. Reply with the absolute folder path, or use **Choose workspace folder** in the extension popup to open the native folder picker. The picker only proposes a folder; ZeroScript activates and saves it after the selection is confirmed. The choice is saved in a private local `.zs-workspace.json` file and reused on subsequent starts.
 
 An optional environment override is also supported:
 
