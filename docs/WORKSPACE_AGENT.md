@@ -7,7 +7,7 @@ ZeroScript-Win exposes a local-first coding workspace independently from its opt
 - The first-run workspace falls back to the bridge directory for compatibility, but it is marked unconfigured.
 - The bootstrap tool catalogue includes the current workspace path and its configured state in the `workspace_info` description. The agent uses that state to ask for a project folder before performing inspection or edits.
 - The user can provide a full path through chat (`workspace_set_root`) or open the native operating-system folder dialog (`workspace_browse`). The picker returns a proposed path only; `workspace_set_root` activates and persists that exact path. The extension popup opens a persistent Workspace Explorer tab before launching the picker so losing popup focus cannot interrupt activation.
-- The selected folder is persisted in `.zs-workspace.json` beside the bridge. This file is ignored by Git because it contains a machine-specific path.
+- The selected folder is persisted in `.zs-workspace.json` beside the bridge together with the last 10 recent project roots. This file is ignored by Git because it contains machine-specific paths.
 - `ZS_WORKSPACE_ROOT`, when set, takes precedence over the saved folder.
 
 ## Workspace tool catalogue
@@ -15,6 +15,8 @@ ZeroScript-Win exposes a local-first coding workspace independently from its opt
 | Tool | Purpose |
 | --- | --- |
 | `workspace_info` | Current root and explicit-selection status. |
+| `workspace_recent_roots` | List the last 10 locally saved project roots and whether each folder still exists. |
+| `workspace_open_recent` | Activate one saved recent root, only after the user explicitly selects it. |
 | `workspace_set_root` | Validate and persist a folder explicitly supplied by the user. |
 | `workspace_browse` | Open the native folder picker and return a candidate path without activating it. |
 | `workspace_project_info` | Detect common manifests, project-type hints, package scripts, Git presence, and file-extension inventory. |
