@@ -153,3 +153,31 @@ input[type=checkbox] { margin: 0; accent-color: var(--accent); }
 .is-busy .connection-dot { animation: zs-pulse 1.1s ease-in-out infinite; }
 @keyframes zs-pulse { 50% { opacity: .35; } }
 .output-text.error-text { color: #f19a9a; }
+
+.task-list { display: flex; flex-direction: column; gap: 5px; }
+.task-action { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 8px; border: 1px solid #2a3548; border-radius: 6px; background: #141c28; color: #c7d4e8; text-align: left; font-size: 10px; }
+.task-action:hover { border-color: #506ca5; background: #1a2940; }
+.task-icon { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 5px; background: #202d42; color: #a7beff; font-size: 11px; }
+.task-name { flex: 1; min-width: 0; }
+.task-command { margin-top: 2px; color: #75849b; font-family: Consolas, monospace; font-size: 9px; overflow-wrap: anywhere; }
+.modal-backdrop { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: flex-start; justify-content: center; padding: min(13vh, 100px) 20px 20px; background: rgba(3, 6, 11, .72); backdrop-filter: blur(7px); }
+.command-modal { display: flex; flex-direction: column; width: min(680px, 100%); max-height: min(72vh, 650px); overflow: hidden; border: 1px solid #394861; border-radius: 12px; background: #111925; box-shadow: 0 28px 90px rgba(0,0,0,.55); }
+.modal-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 15px 17px 12px; }
+.modal-title { color: #e3ebf8; font-size: 13px; font-weight: 700; }
+.modal-subtitle { margin-top: 4px; color: #7e8da5; font-size: 10px; }
+.modal-header kbd { padding: 3px 6px; border: 1px solid #334159; border-radius: 5px; color: #90a0b8; font-size: 9px; }
+.modal-input { min-height: 40px !important; margin: 0 12px 10px; width: calc(100% - 24px) !important; padding: 10px 12px !important; font-size: 12px !important; border-radius: 7px !important; border-color: #4563a0 !important; background: #0c121b !important; }
+.modal-results { min-height: 45px; padding: 0 8px 8px; overflow: auto; }
+.modal-result { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: #cad6e8; text-align: left; }
+.modal-result:hover, .modal-result.selected { border-color: #2d456d; background: #1c2b41; }
+.modal-result-icon { display: grid; place-items: center; width: 25px; height: 25px; flex: 0 0 25px; border: 1px solid #334662; border-radius: 6px; background: #1b2a3f; color: #a6c0ff; font-size: 12px; }
+.modal-result-copy { min-width: 0; flex: 1; }
+.modal-result-title { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.modal-result-detail { margin-top: 3px; color: #7f90a9; font-size: 9px; overflow-wrap: anywhere; }
+.modal-result-shortcut { color: #71839c; font-size: 9px; white-space: nowrap; }
+.modal-empty { padding: 19px 12px 22px; color: #7f8ea5; font-size: 11px; text-align: center; }
+.modal-footer { display: flex; justify-content: flex-end; gap: 16px; padding: 10px 14px; border-top: 1px solid #273247; color: #75839a; background: #0f151f; font-size: 9px; }
+@media (max-width: 850px) {
+  .modal-backdrop { padding: 8vh 12px 12px; }
+  .command-modal { max-height: 82vh; }
+}
