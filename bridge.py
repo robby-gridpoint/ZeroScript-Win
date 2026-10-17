@@ -1149,6 +1149,8 @@ class MCPManager:
              "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}, "start_line": {"type": "integer", "minimum": 1}, "end_line": {"type": "integer", "minimum": 1}}, "required": ["path"], "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_search", "description": "Search source text inside the selected project. Supports optional case-sensitive matching and regular expressions; results include line and column.",
              "inputSchema": {"type": "object", "properties": {"query": {"type": "string"}, "path": {"type": "string", "default": "."}, "max_results": {"type": "integer", "minimum": 1, "maximum": 500}, "case_sensitive": {"type": "boolean", "default": False}, "regex": {"type": "boolean", "default": False}}, "required": ["query"], "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_replace_in_files", "description": "Preview or apply literal/regex replacements across project files. First call with apply=false to inspect affected files/diffs; only apply after user confirmation by passing the returned preview_hash as expected_hash. Stale previews are rejected.",
+             "inputSchema": {"type": "object", "properties": {"query": {"type": "string", "minLength": 1}, "replacement": {"type": "string"}, "path": {"type": "string", "default": "."}, "max_files": {"type": "integer", "minimum": 1, "maximum": 100, "default": 100}, "case_sensitive": {"type": "boolean", "default": False}, "regex": {"type": "boolean", "default": False}, "apply": {"type": "boolean", "default": False}, "expected_hash": {"type": "string", "default": ""}}, "required": ["query", "replacement"], "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_multi_edit", "description": "Apply a batch of exact-match replacements across existing files. All edits are validated before writing any file; ambiguous matches are rejected. Returns a per-file unified diff. Prefer this for coordinated multi-file code changes.",
              "inputSchema": {"type": "object", "properties": {"edits": {"type": "array", "minItems": 1, "maxItems": 200, "items": {"type": "object", "properties": {"path": {"type": "string"}, "old_string": {"type": "string"}, "new_string": {"type": "string"}, "replace_all": {"type": "boolean", "default": False}}, "required": ["path", "old_string", "new_string"], "additionalProperties": False}}}, "required": ["edits"], "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_apply_patch", "description": "Apply an exact old_string to new_string edit to an existing UTF-8 file. Ambiguous matches are rejected unless replace_all is true. Prefer this to replacing whole files for targeted edits.",
@@ -1343,6 +1345,12 @@ class MCPManager:
         if name == "workspace_search":
             return self.workspace.search(args["query"], args.get("path", "."), args.get("max_results", 100),
                                          args.get("case_sensitive", False), args.get("regex", False))
+        if name == "workspace_replace_in_files":
+            return self.workspace.replace_in_files(
+                args["query"], args["replacement"], args.get("path", "."),
+                args.get("max_files", 100), args.get("case_sensitive", False),
+                args.get("regex", False), args.get("apply", False), args.get("expected_hash", ""),
+            )
         if name == "workspace_multi_edit":
             return self.workspace.multi_edit(args["edits"])
         if name == "workspace_apply_patch":
