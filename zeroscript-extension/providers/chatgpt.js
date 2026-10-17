@@ -226,9 +226,22 @@ const ZSProvider = (() => {
   function replyNodes(item) {
     if (!item || !item.querySelectorAll) return [];
     const markdown = [...item.querySelectorAll(S.reply)];
-    if (markdown.length) return markdown;
+    // October's ChatGPT renderer can place a fenced code block in a sibling
+    // content surface rather than inside .markdown. If any prose markdown
+    // exists, the old early return omitted that sibling entirely: the core
+    // never saw {"command": ...}, and the raw JSON stayed visible without a
+    // tool dispatch. Include code blocks not already covered by a selected root.
+    const codeBlocks = [...item.querySelectorAll(S.codeWrap)];
+    const uncoveredBy = (roots, node) => !roots.some((root) =>
+      root === node || (root.contains && root.contains(node))
+    );
+    if (markdown.length) {
+      return [...markdown, ...codeBlocks.filter((pre) => uncoveredBy(markdown, pre))];
+    }
     const semantic = [...item.querySelectorAll('[data-conversation-role="assistant"]')];
-    if (semantic.length) return semantic;
+    if (semantic.length) {
+      return [...semantic, ...codeBlocks.filter((pre) => uncoveredBy(semantic, pre))];
+    }
     return [item];
   }
 
@@ -968,10 +981,15 @@ const ZSProvider = (() => {
       hidAny = hidAny || { parent: el.parentElement, ref: el };
     };
     for (const mc of replies) {
-      // 1. Fenced code blocks carrying a command.
-      mc.querySelectorAll(S.codeWrap).forEach((pre) => {
+      // 1. Fenced code blocks carrying a command. A recovered reply root may
+      // itself be an orphaned <pre> outside .markdown, so test the root too.
+      const codeBlocks = [
+        ...(mc.matches && mc.matches(S.codeWrap) ? [mc] : []),
+        ...mc.querySelectorAll(S.codeWrap),
+      ];
+      codeBlocks.forEach((pre) => {
         if (pre.closest(".zs-chip")) return;
-        if (CMD_SHAPE.test(pre.textContent || "")) hide(pre, mc);
+        if (CMD_SHAPE.test(pre.textContent || "")) hide(pre, pre === mc ? null : mc);
       });
       // 2. Bare top-level blocks with an inline command (no <pre> inside).
       const kids = [...mc.children];
