@@ -105,6 +105,18 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(result["package_name"], "web-app")
         self.assertEqual(result["framework_hints"], ["Next.js", "React", "Tailwind CSS", "Playwright Test"])
 
+    def test_project_info_gracefully_handles_malformed_package_json(self):
+        (self.root / "package.json").write_text("[]", encoding="utf-8")
+        result = self.ws.project_info()
+        self.assertEqual(result["package_scripts"], {})
+        self.assertIsNone(result["package_name"])
+        self.assertEqual(result["framework_hints"], [])
+
+    def test_run_task_rejects_malformed_package_json(self):
+        (self.root / "package.json").write_text("[]", encoding="utf-8")
+        with self.assertRaisesRegex(WorkspaceError, "Could not read package.json"):
+            self.ws.run_task("test")
+
     def test_project_info_uses_declared_package_manager(self):
         (self.root / "package.json").write_text(
             '{"name":"sample-project","packageManager":"pnpm@9.0.0","scripts":{"test":"vitest run"}}',
@@ -248,6 +260,17 @@ class WorkspaceTests(unittest.TestCase):
         mocked.assert_called_once_with(["git", "add", "--", "src/main.py"], timeout=30)
         with self.assertRaises(WorkspaceError):
             self.ws.git_stage_file(".")
+
+    def test_git_stage_refuses_symbolic_links(self):
+        target = self.root / "target.txt"
+        target.write_text("source\n", encoding="utf-8")
+        link = self.root / "link.txt"
+        try:
+            link.symlink_to(target)
+        except OSError:
+            self.skipTest("Symlink creation is not available")
+        with self.assertRaisesRegex(WorkspaceError, "symbolic links"):
+            self.ws.git_stage_file("link.txt")
 
     def test_git_unstage_does_not_touch_working_tree(self):
         with mock.patch.object(self.ws, "_run", return_value={"exit_code": 0, "output": ""}) as mocked:
