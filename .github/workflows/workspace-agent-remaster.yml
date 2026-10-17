@@ -35,6 +35,7 @@ jobs:
       - name: Check extension JavaScript syntax
         run: |
           node --check zeroscript-extension/core/config.js
+          node zeroscript-extension/core/config.test.cjs
           node --check zeroscript-extension/core/parser.js
           node --check zeroscript-extension/core/main.js
           node --check zeroscript-extension/background.js
