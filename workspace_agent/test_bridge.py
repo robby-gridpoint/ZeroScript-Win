@@ -2,6 +2,7 @@
 import json
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 from bridge import MCPManager
@@ -85,10 +86,10 @@ class WorkspaceBridgeTests(unittest.TestCase):
         with mock.patch.object(self.manager.workspace, "git_stage_file", return_value={"exit_code": 0}) as stage:
             self.assertEqual(self.manager._call_workspace("workspace_git_stage_file", {"path": "main.py"})["exit_code"], 0)
             stage.assert_called_once_with("main.py")
-        with unittest.mock.patch.object(self.manager.workspace, "git_unstage_file", return_value={"exit_code": 0}) as unstage:
+        with mock.patch.object(self.manager.workspace, "git_unstage_file", return_value={"exit_code": 0}) as unstage:
             self.assertEqual(self.manager._call_workspace("workspace_git_unstage_file", {"path": "main.py"})["exit_code"], 0)
             unstage.assert_called_once_with("main.py")
-        with unittest.mock.patch.object(self.manager.workspace, "git_commit", return_value={"exit_code": 0}) as commit:
+        with mock.patch.object(self.manager.workspace, "git_commit", return_value={"exit_code": 0}) as commit:
             self.assertEqual(self.manager._call_workspace("workspace_git_commit", {"message": "test"})["exit_code"], 0)
             commit.assert_called_once_with("test")
 
