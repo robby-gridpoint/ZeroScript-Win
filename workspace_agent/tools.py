@@ -416,14 +416,17 @@ class Workspace:
         if not package_path.is_symlink() and package_path.is_file():
             try:
                 package = json.loads(package_path.read_text(encoding="utf-8"))
-                scripts = {str(k): str(v) for k, v in (package.get("scripts") or {}).items()}
+                if not isinstance(package, dict):
+                    raise ValueError("package.json must contain a JSON object")
+                raw_scripts = package.get("scripts") or {}
+                scripts = {str(k): str(v) for k, v in raw_scripts.items()} if isinstance(raw_scripts, dict) else {}
                 package_name = str(package.get("name") or "").strip() or None
                 declared_package_manager = str(package.get("packageManager") or "").split("@", 1)[0].strip().lower()
                 for dependency_group in ("dependencies", "devDependencies", "peerDependencies", "optionalDependencies"):
                     values = package.get(dependency_group) or {}
                     if isinstance(values, dict):
                         dependency_names.update(str(name).lower() for name in values)
-            except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError):
                 scripts = {}
                 package_name = None
                 dependency_names = set()
@@ -504,7 +507,9 @@ class Workspace:
             raise WorkspaceError("This workspace has no regular root package.json.")
         try:
             package = json.loads(package_path.read_text(encoding="utf-8"))
-        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            if not isinstance(package, dict):
+                raise ValueError("package.json must contain a JSON object")
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
             raise WorkspaceError(f"Could not read package.json: {exc}") from exc
         scripts = package.get("scripts") or {}
         name = task.strip()
