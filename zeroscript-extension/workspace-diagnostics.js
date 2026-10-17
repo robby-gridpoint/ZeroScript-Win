@@ -67,11 +67,17 @@ function parseTaskDiagnostics(rawOutput, workspaceRoot = "") {
   ];
 
   for (const rawLine of lines) {
-    const line = rawLine.replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, "");
-    const severityContext = line.match(/^\s*(error(?:\[[^\]]+\])?|warning|note)\s*:\s*(.*)$/i);
+    let line = rawLine.replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, "");
+    const severityContext = line.match(/^\s*(error(?:\[[^\]]+\])?|warning|warn|note|info|fatal error)\s*:\s*(.*)$/i);
     if (severityContext) {
-      previousSeverity = /warning/i.test(severityContext[1]) ? "warning" : /note/i.test(severityContext[1]) ? "info" : "error";
+      previousSeverity = /warning|warn/i.test(severityContext[1]) ? "warning" : /note|info/i.test(severityContext[1]) ? "info" : "error";
       previousDiagnosticMessage = severityContext[2] || severityContext[1];
+    }
+    let prefixSeverity = "";
+    const prefixedDiagnostic = line.match(/^\s*(fatal error|error|warning|warn|info|note)\s*:\s*(.+)$/i);
+    if (prefixedDiagnostic) {
+      prefixSeverity = /warning|warn/i.test(prefixedDiagnostic[1]) ? "warning" : /note|info/i.test(prefixedDiagnostic[1]) ? "info" : "error";
+      line = prefixedDiagnostic[2];
     }
 
     const rustLocation = line.match(/^\s*-->\s+(.+):(\d+):(\d+)\s*$/);
@@ -107,7 +113,7 @@ function parseTaskDiagnostics(rawOutput, workspaceRoot = "") {
       else if (pattern === patterns[1]) add(match[1], match[2], match[3], match[4], match[5], rawLine);
       else if (pattern === patterns[2]) add(match[1], match[2], match[3], match[4], match[5], rawLine);
       else if (pattern === patterns[3]) add(match[1], match[2], "1", match[3], match[4], rawLine);
-      else add(match[1], match[2], "1", "error", match[3], rawLine);
+      else add(match[1], match[2], "1", prefixSeverity || "error", match[3], rawLine);
       break;
     }
   }
