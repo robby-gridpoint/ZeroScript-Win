@@ -941,14 +941,14 @@
     // if the model explicitly asks via {"server": "<id>"} (see list_mcp_servers).
     if (name === "list_commands" || name === "list_tools") {
       await ensureTools();
-      const requested = (args.server || "roblox").trim();
+      const requested = (args.server || (name === "list_tools" ? "all" : "roblox")).trim();
       // The MCP proxy keeps advertising Roblox's catalogue even with no Studio
       // attached, so list_commands would hand back the full command list and read
       // as "Roblox is fine" - then every command silently fails. When Roblox is
       // actually unusable, short-circuit the DEFAULT (roblox) listing into a plain
       // "Roblox is down" note that points the model at the other server(s), so it
       // can keep working in degraded mode instead of firing dead Roblox commands.
-      if (requested === "roblox") {
+      if (name === "list_commands" && requested === "roblox") {
         const s = A.bridge || {};
         const srv = s.servers || [];
         const rbx = srv.find((x) => x.id === "roblox");
@@ -966,7 +966,9 @@
       // Tools from a bridge that doesn't tag "server" yet (old version) have no
       // .server field at all - treat those as the primary server rather than
       // hiding everything.
-      const scoped = A.toolList.filter((t) => (t.server || "roblox") === requested);
+      const scoped = name === "list_tools" && !args.server
+        ? A.toolList
+        : A.toolList.filter((t) => (t.server || "roblox") === requested);
       if (!A.toolList.length) return `Output of '${name}':\nNo commands available - the bridge or Roblox Studio may be offline.`;
       if (!scoped.length) {
         return `Output of '${name}':\nERROR: no server named "${requested}" is connected. Connected servers: ${[...known].join(", ") || "roblox"}. Call list_mcp_servers to check.`;
@@ -1863,7 +1865,7 @@
       const firstName = startRes.calls && startRes.calls[0] && startRes.calls[0].tool;
       if (startRes.kind === "tool" && startRes.calls && startRes.calls.length === 1 &&
           (firstName === "list_commands" || firstName === "list_tools")) {
-        decorate.toolBox(startRes.item, "Loading commands", "run", "", true);
+        decorate.toolBox(startRes.item, "Loading tools", "run", "", true);
         const toolFeedback = await runTool(startRes.calls[0]);
         // Roblox down short-circuits list_commands into a plain "offline" note
         // (main.js, list_commands handler) instead of the real catalogue - detect
@@ -1872,15 +1874,15 @@
         // attached, so A.toolList still has 25+ entries that were never actually
         // usable this boot).
         if (/Roblox Studio is currently OFFLINE/.test(toolFeedback)) {
-          decorate.toolBox(startRes.item, "Loading commands", "err", "Roblox offline", true);
+          decorate.toolBox(startRes.item, "Loading tools", "err", "Roblox offline", true);
         } else {
           // Count what the model ACTUALLY received: list_commands is scoped to the
           // primary Roblox server (main.js ~629), so showing A.toolList.length (every
           // connected server merged - Roblox + Blender + addons) overstated the boot
           // count and made it look like all servers were loaded at once. Count the
           // Roblox-scoped tools instead, matching the real result.
-          const robloxCount = A.toolList.filter((t) => (t.server || "roblox") === "roblox").length;
-          decorate.toolBox(startRes.item, "Loading commands", "done", `${robloxCount} commands`, true);
+          const listedCount = firstName === "list_tools" ? A.toolList.length : A.toolList.filter((t) => (t.server || "roblox") === "roblox").length;
+          decorate.toolBox(startRes.item, "Loading tools", "done", `${listedCount} tools`, true);
         }
         const base2 = await submitAndGetBase(toolFeedback);
         const readyRes = await waitForResponse(base2); // wait for "I'm ready" reply
@@ -1890,7 +1892,7 @@
       A.started = true;
       rememberSession(P.conversationKey()); // survives virtualization AND reloads
       ui.setStarted(true);
-      ui.toast(`Agent ready. Ask ${P.displayName} to build something in Roblox.`);
+      ui.toast(`Agent ready. Ask ${P.displayName} to work on your project.`);
     } catch (e) {
       if (alive()) ui.banner("warn", "Startup failed", String((e && e.message) || e));
     } finally {
