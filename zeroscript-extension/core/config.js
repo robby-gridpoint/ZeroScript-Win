@@ -22,8 +22,8 @@ var ZS = (() => {
   //   read | edit | screen | generate | roblox | tool
   function toolCategory(name) {
     const n = (name || "").includes("/") ? name.split("/").pop() : (name || "");
-    if (/^(workspace_info|workspace_list_files|workspace_read_file|workspace_search|workspace_git_status|list_tools|list_commands)$/.test(n)) return "read";
-    if (/^(workspace_write_file|multi_edit|insert_from_creator_store|store_image)$/.test(n)) return "edit";
+    if (/^(workspace_info|workspace_project_info|workspace_list_files|workspace_read_file|workspace_search|workspace_find_files|workspace_symbols|workspace_git_status|workspace_git_diff|workspace_git_log|list_tools|list_commands)$/.test(n)) return "read";
+    if (/^(workspace_write_file|workspace_apply_patch|multi_edit|insert_from_creator_store|store_image)$/.test(n)) return "edit";
     if (/^(workspace_run_command|execute_luau)$/.test(n)) return "edit";
     if (/capture|screenshot|screen/i.test(n)) return "screen";
     if (/^(generate_|create_)/i.test(n)) return "generate";
@@ -194,12 +194,25 @@ Use exact tool names and schema keys from the live catalogue below. One tool cal
 AVAILABLE TOOLS
 ${toolsString || "No tools are currently available."}
 
+WORKSPACE AND ROBLOX ARE SEPARATE DOMAINS
+- General coding, source files, project metadata, builds, and Git belong to the local workspace domain. Use the workspace_* tools for these tasks.
+- Roblox Studio tools are exposed with an explicit roblox/ prefix and operate against a live Studio/DataModel through the Roblox MCP adapter. They are NOT filesystem tools, and the local project folder is NOT the same thing as the open Studio place.
+- Never substitute one domain for the other because a tool name looks similar. Use Roblox Studio tools only when the task requires live Studio state, Instances, playtesting, or Studio automation. Use workspace tools for on-disk source files. A task may use both domains only when its requirements genuinely need both.
+- Treat each MCP server as its own integration. Do not mix their context, assume shared working directories, or call an unprefixed Roblox tool when its roblox/ name is present.
+
+WORKSPACE ONBOARDING
+- At the beginning of a session, use the workspace_info tool description from the live catalogue to see whether the user has already selected a workspace.
+- If it indicates configured: false, ask the user which local project folder to work in BEFORE listing, reading, searching, editing, or running commands. They can paste an absolute path or ask you to open the native folder picker. Stop and wait for their choice.
+- If the user provides a path, call workspace_set_root with that exact path. If they request the dialog, call workspace_browse. Never choose a different folder on the user's behalf.
+- After selection succeeds, inspect workspace_info and workspace_project_info before implementation. The selection is persistent, so do not ask again unless the user wants to switch workspaces.
+- Never treat the ZeroScript installation/bridge directory as the user's project simply because it is the default fallback.
+
 DEVELOPMENT WORKFLOW
 For implementation requests, do the work directly rather than merely explaining how the user could do it.
-1. Orient: use workspace_info, workspace_list_files, workspace_git_status, and targeted reads/searches as needed. Identify the actual framework, conventions, scripts, and existing tests before editing.
+1. Orient: use workspace_info, workspace_project_info, workspace_list_files, workspace_git_status, workspace_find_files, workspace_symbols, and targeted reads/searches as useful. Identify the actual framework, conventions, scripts, and existing tests before editing.
 2. Plan briefly internally. Keep scope aligned with the user's request; avoid unrelated rewrites.
-3. Implement the smallest complete change. Prefer focused edits that preserve established architecture. Use workspace_write_file only when you have the complete intended file content; inspect existing content first before replacing it.
-4. Verify: run relevant tests, type checks, lint, builds, or a focused reproduction using workspace_run_command. Prefer the project's existing scripts. Fix failures caused by your change and rerun relevant checks.
+3. Implement focused changes that preserve established architecture. Prefer workspace_apply_patch for exact, unambiguous edits; it rejects ambiguous matches by default. Use workspace_write_file only when you have inspected the existing content and have the complete intended file.
+4. Verify: run relevant tests, type checks, lint, builds, or a focused reproduction using workspace_run_command. Use workspace_git_diff and workspace_git_status to review changes. Prefer existing project scripts. Fix failures caused by your change and rerun relevant checks.
 5. Recover: read tool errors, adjust based on evidence, and retry sensibly. Do not repeatedly issue the same failing call without changing the approach.
 6. Report: state what changed and the exact verification performed. Clearly distinguish passing checks from checks not run. Never claim a build, test, deployment, or command succeeded unless its result proves it.
 
@@ -224,8 +237,8 @@ WORKSPACE TOOL GUIDANCE
 The available tools may include additional MCP integrations. Use the live catalogue and their descriptions for those.
 
 STARTUP
-The extension performs a bootstrap turn before the user gives the task. For that bootstrap only, your first response MUST be one list_tools call with no parameters. After receiving its result, respond with one short readiness sentence and do not call another tool; wait for the user's actual request. Do not attempt workspace inspection during bootstrap.
-For the first actual task, inspect the selected workspace and available tools before making assumptions. Do not run a tool merely to announce that you are going to use it. If the user asks a question rather than a code change, answer directly unless inspection is needed for accuracy. If no workspace tools are available, report that constraint instead of pretending to edit the project.`;
+The extension performs a bootstrap turn before the user gives the task. For that bootstrap only, your first response MUST be one list_tools call with no parameters. After receiving its result, inspect the workspace_info tool description in the returned live catalogue. If it says configured: false, the one-sentence readiness response MUST ask which local project folder to use and offer either an absolute path or the native folder picker. If it says configured: true, give one short readiness sentence naming the selected workspace. Do not call another tool during bootstrap; wait for the user's response.
+For a configured workspace, inspect it before making implementation assumptions. For an unconfigured workspace, do not inspect any files or run commands before the user picks a folder. Do not run a tool merely to announce that you are going to use it. If the user asks a question rather than a code change, answer directly unless inspection is needed for accuracy. If no workspace tools are available, report that constraint instead of pretending to edit the project.`;
 
     // Site-specific rules from the active provider, inserted ABOVE the user's
     // custom prompt (they are part of the system layer, not the user's).
