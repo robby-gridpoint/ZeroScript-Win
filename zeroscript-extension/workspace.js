@@ -262,8 +262,9 @@ function renderDirty() {
   const tab = activeTab();
   $("saveFile").disabled = !tab || !tab.dirty || state.busy ||
     !state.workspace || state.workspace.root !== tab.root;
-  $("renamePath").disabled = !tab || state.busy;
-  $("deleteFile").disabled = !tab || state.busy;
+  const tabWorkspaceActive = !!tab && !!state.workspace && state.workspace.root === tab.root;
+  $("renamePath").disabled = !tabWorkspaceActive || state.busy;
+  $("deleteFile").disabled = !tabWorkspaceActive || state.busy;
   $("activeFileName").textContent = state.currentFile
     ? state.currentFile.split("/").pop() + (state.dirty ? " •" : "")
     : "Welcome";
@@ -438,11 +439,11 @@ async function saveFile() {
   setBusy(true, `Saving ${tab.path}…`);
   try {
     const result = await callTool("workspace_write_file", { path: tab.path, content });
-    tab.content = content;
     tab.savedContent = content;
-    tab.dirty = false;
-    state.savedContent = content;
-    state.dirty = false;
+    tab.content = $("codeEditor").value;
+    tab.dirty = tab.content !== tab.savedContent;
+    state.savedContent = tab.savedContent;
+    state.dirty = tab.dirty;
     renderDirty();
     renderOpenTabs();
     writeOutput("File saved", result);
@@ -570,6 +571,11 @@ async function createFolder() {
 async function renameCurrentFile() {
   const tab = activeTab();
   if (!tab || state.busy) return;
+  if (!state.workspace || state.workspace.root !== tab.root) {
+    errorOutput("Rename blocked", "Switch back to the workspace that owns this tab before renaming the file.");
+    return;
+  }
+  syncActiveTabFromEditor();
   const source = tab.path;
   const destination = window.prompt("New workspace-relative path:", source);
   if (!destination || !destination.trim() || destination.trim() === source) return;
@@ -602,9 +608,13 @@ async function renameCurrentFile() {
 async function deleteCurrentFile() {
   const tab = activeTab();
   if (!tab || state.busy) return;
+  if (!state.workspace || state.workspace.root !== tab.root) {
+    errorOutput("Delete blocked", "Switch back to the workspace that owns this tab before deleting the file.");
+    return;
+  }
   syncActiveTabFromEditor();
   const path = tab.path;
-  const dirtyWarning = tab.dirty ? "\\n\\nThe unsaved buffer for this file will also be discarded." : "";
+  const dirtyWarning = tab.dirty ? "\n\nThe unsaved buffer for this file will also be discarded." : "";
   if (!window.confirm(`Delete ${path}? This removes the file from disk and cannot be undone by ZeroScript.${dirtyWarning}`)) return;
   setBusy(true, "Deleting file…");
   try {
