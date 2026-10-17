@@ -210,6 +210,32 @@ class WorkspaceTests(unittest.TestCase):
         with self.assertRaises(WorkspaceError):
             self.ws.move_path(".", "backup")
 
+    def test_git_stage_file_scopes_to_one_path(self):
+        (self.root / "src").mkdir()
+        (self.root / "src" / "main.py").write_text("print('ok')\n", encoding="utf-8")
+        with mock.patch.object(self.ws, "_run", return_value={"exit_code": 0, "output": ""}) as mocked:
+            result = self.ws.git_stage_file("src/main.py")
+        self.assertEqual(result["exit_code"], 0)
+        mocked.assert_called_once_with(["git", "add", "--", "src/main.py"], timeout=30)
+        with self.assertRaises(WorkspaceError):
+            self.ws.git_stage_file(".")
+
+    def test_git_unstage_does_not_touch_working_tree(self):
+        with unittest.mock.patch.object(self.ws, "_run", return_value={"exit_code": 0, "output": ""}) as mocked:
+            result = self.ws.git_unstage_file("src/main.py")
+        self.assertEqual(result["exit_code"], 0)
+        mocked.assert_called_once_with(["git", "restore", "--staged", "--", "src/main.py"], timeout=30)
+
+    def test_git_commit_validates_message_and_does_not_use_shell(self):
+        with unittest.mock.patch.object(self.ws, "_run", return_value={"exit_code": 0, "output": "[main abc] test"}) as mocked:
+            result = self.ws.git_commit("  test commit  ")
+        self.assertEqual(result["exit_code"], 0)
+        mocked.assert_called_once_with(["git", "commit", "-m", "test commit"], timeout=60)
+        with self.assertRaises(WorkspaceError):
+            self.ws.git_commit(" ")
+        with self.assertRaises(WorkspaceError):
+            self.ws.git_commit("x" * 501)
+
     def test_run_command_without_shell(self):
         result = self.ws.run_command([sys.executable, "-c", "print('workspace-ok')"])
         self.assertEqual(result["exit_code"], 0)
