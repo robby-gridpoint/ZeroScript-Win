@@ -96,6 +96,31 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(result["replacements"], 2)
         self.assertEqual(self.ws.read_file("src/main.txt")["content"], "changed\nchanged\n")
 
+    def test_tree_respects_depth_and_ignored_folders(self):
+        (self.root / "src" / "nested").mkdir(parents=True)
+        (self.root / "src" / "main.py").write_text("print('ok')\n", encoding="utf-8")
+        (self.root / "src" / "nested" / "detail.py").write_text("pass\n", encoding="utf-8")
+        (self.root / "node_modules").mkdir()
+        (self.root / "node_modules" / "ignored.js").write_text("ignored\n", encoding="utf-8")
+        result = self.ws.tree(max_depth=2)
+        paths = {item["path"] for item in result["entries"]}
+        self.assertIn("src", paths)
+        self.assertIn("src/main.py", paths)
+        self.assertIn("src/nested", paths)
+        self.assertNotIn("node_modules", paths)
+        self.assertNotIn("node_modules/ignored.js", paths)
+
+    def test_file_outline_extracts_imports_and_declarations(self):
+        self.ws.write_file(
+            "src/app.py",
+            "from pathlib import Path\n\nclass App:\n    def run(self):\n        return Path('.')\n",
+        )
+        result = self.ws.file_outline("src/app.py")
+        kinds = {item["kind"] for item in result["outline"]}
+        self.assertIn("import", kinds)
+        self.assertIn("declaration", kinds)
+        self.assertEqual(result["path"], "src/app.py")
+
     def test_run_command_without_shell(self):
         result = self.ws.run_command([sys.executable, "-c", "print('workspace-ok')"])
         self.assertEqual(result["exit_code"], 0)
