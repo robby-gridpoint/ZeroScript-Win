@@ -97,3 +97,13 @@ The bridge exposes `roblox_export_tree` when the Roblox integration is configure
 Example arguments: `{"root_path":"RobloxExport","overwrite":false}`.
 
 The export is text-source mirroring, not a full place-file backup. It does not include instances, properties, assets, packages, or other non-script state.
+
+
+Export options:
+
+- `root_path`: workspace-relative output directory (default `RobloxExport`).
+- `overwrite`: replace existing files only when explicitly true.
+- `max_script_bytes`: maximum source size per script in UTF-8 bytes (default 1,048,576; accepted range 1 through 1,048,576). Oversized scripts are skipped before their source is included in the MCP response, then reported with hierarchy path, measured byte count, and limit. They do not abort the export.
+- `exclude`: up to 100 case-insensitive substrings matched against slash-separated DataModel hierarchy paths. Matching scripts are excluded before source is read. For example, `["ServerStorage/Legacy", "Packages/"]`.
+
+The result includes `skipped_oversized_count` and `skipped_oversized`, plus `skipped_excluded_count` and `skipped_excluded`, so skipped items are explicit rather than silently lost. Studio responses are paged in groups of 10 scripts to reduce transport-size failures.
