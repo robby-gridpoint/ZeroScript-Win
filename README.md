@@ -12,10 +12,10 @@ The bridge exposes an expanded, project-scoped toolset:
 
 - Persistent local workspace selection, including a native folder picker.
 - Project metadata, manifest/framework hints, package scripts, and source inventory.
-- Bounded file reads, recursive file listing, glob search, and case-insensitive text search.
-- Cross-language declaration/symbol discovery.
+- Bounded file reads, a depth-limited project tree, recursive file listing, glob search, regex/case-sensitive text search, and line/column matches.
+- Source-file outlines for imports, headings, variables, and declarations, plus cross-language declaration/symbol discovery.
 - Exact-match patch edits that reject ambiguous replacements, plus complete-file writes that return unified diffs.
-- Git status, staged/unstaged diffs, and recent commit history.
+- Git status, staged/unstaged diffs, branch listing, and recent commit history.
 - Bounded command execution from the selected project directory using an argument array and `shell=False`.
 
 ## Choose a workspace
