@@ -66,6 +66,9 @@ global.getComputedStyle = () => ({});
 const P = new Function(
   fs.readFileSync(__dirname + "/providers/chatgpt.js", "utf8") + "; return ZSProvider;"
 )();
+const Parse = new Function(
+  fs.readFileSync(__dirname + "/core/parser.js", "utf8") + "; return ZSParse;"
+)();
 
 const ok = (name, cond) => { console.log((cond ? "PASS" : "FAIL") + "  " + name); if (!cond) process.exitCode = 1; };
 
@@ -100,6 +103,9 @@ ok("orphaned fenced command outside markdown is included in reply nodes",
   P.replyNodes(splitReply).includes(siblingCommand));
 ok("orphaned fenced command text reaches the parser",
   P.itemText(splitReply).includes('"command":"list_tools"'));
+ok("orphaned fenced list_tools call parses as a tool dispatch",
+  Parse.parseToolCalls(P.itemText(splitReply)).some((call) =>
+    call.tool === "list_tools" && Object.keys(call.arguments).length === 0));
 const stopIconPath = "M4.5 5.75C4.5 5.05964 5.05964 4.5 5.75 4.5H14.25C14.9404 4.5 15.5 5.05964 15.5 5.75V14.25C15.5 14.9404 14.9404 15.5 14.25 15.5H5.75C5.05964 15.5 4.5 14.9404 4.5 14.25V5.75Z";
 const modernStopButton = {
   getAttribute: () => null,
