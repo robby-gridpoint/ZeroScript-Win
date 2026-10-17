@@ -11,6 +11,11 @@ const state = {
   currentView: "explorer",
   busy: false,
   fileWorkspaceRoot: null,
+  treeEntries: [],
+  projectInfo: null,
+  modalMode: null,
+  modalItems: [],
+  modalIndex: 0,
   outputs: {
     output: "ZeroScript local workspace ready. Select a folder to begin.",
     problems: "No reported problems.",
@@ -306,6 +311,7 @@ async function refreshTree() {
     const result = await callTool("workspace_tree", {
       path: state.folder, max_depth: 6, max_results: 400, include_hidden: false,
     });
+    state.treeEntries = result.entries || [];
     const tree = $("fileTree");
     tree.replaceChildren();
     if (!result.entries || result.entries.length === 0) {
@@ -626,6 +632,8 @@ async function loadProjectInfo() {
   setBusy(true, "Inspecting project…");
   try {
     const result = await callTool("workspace_project_info", {});
+    state.projectInfo = result;
+    renderProjectTasks(result);
     $("projectSummary").textContent = [
       result.project_type || "Type: undetected",
       `${result.source_file_count || 0} source files`,
