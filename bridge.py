@@ -1099,45 +1099,141 @@ class MCPManager:
             log(f"workspace unavailable: {exc}", "yl")
 
     def _workspace_tools(self):
-        if self.workspace is None:
-            return []
-        return [
-            {"name": "workspace_info", "description": "Get the selected project root and name.",
+        tools = [
+            {"name": "workspace_info", "description": "Get the current workspace path and whether the user explicitly selected it. If configured is false, ask the user for a project folder before inspecting or editing anything.",
              "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_set_root", "description": "Set and persist the user's explicitly provided local project folder. Use only a path the user supplied or confirmed.",
+             "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"], "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_browse", "description": "Open a native local folder picker so the user can select the coding workspace. This opens a dialog on the user's computer.",
+             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_project_info", "description": "Inspect common project manifests, framework/language hints, Git presence, source-file counts, and package scripts.",
+             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_find_files", "description": "Find project files by glob pattern (for example **/*.luau, *.json, or src/*.ts). Generated directories are skipped.",
+             "inputSchema": {"type": "object", "properties": {"pattern": {"type": "string"}, "path": {"type": "string", "default": "."}, "max_results": {"type": "integer", "minimum": 1, "maximum": 500}, "include_hidden": {"type": "boolean"}}, "required": ["pattern"], "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_symbols", "description": "Find likely function, class, type, and variable declarations across source files. Optional query filters symbol names or declaration text.",
+             "inputSchema": {"type": "object", "properties": {"query": {"type": "string", "default": ""}, "path": {"type": "string", "default": "."}, "max_results": {"type": "integer", "minimum": 1, "maximum": 500}}, "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_list_files", "description": "List source files in the selected project. Generated directories are skipped.",
              "inputSchema": {"type": "object", "properties": {"path": {"type": "string", "default": "."}, "max_results": {"type": "integer", "minimum": 1, "maximum": 500}, "include_hidden": {"type": "boolean"}}, "additionalProperties": False}, "server": "workspace"},
-            {"name": "workspace_read_file", "description": "Read a UTF-8 text file inside the selected project (maximum 1 MB).",
-             "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"], "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_read_file", "description": "Read a UTF-8 text file inside the selected project (maximum 1 MB). Optional 1-based start_line/end_line bounds the read.",
+             "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}, "start_line": {"type": "integer", "minimum": 1}, "end_line": {"type": "integer", "minimum": 1}}, "required": ["path"], "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_search", "description": "Search source text case-insensitively inside the selected project.",
              "inputSchema": {"type": "object", "properties": {"query": {"type": "string"}, "path": {"type": "string", "default": "."}, "max_results": {"type": "integer", "minimum": 1, "maximum": 500}}, "required": ["query"], "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_apply_patch", "description": "Apply an exact old_string to new_string edit to an existing UTF-8 file. Ambiguous matches are rejected unless replace_all is true. Prefer this to replacing whole files for targeted edits.",
+             "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}, "old_string": {"type": "string"}, "new_string": {"type": "string"}, "replace_all": {"type": "boolean", "default": false}}, "required": ["path", "old_string", "new_string"], "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_write_file", "description": "Create or replace a UTF-8 text file inside the selected project. Returns a unified diff. This modifies files.",
              "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"], "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_git_status", "description": "Get Git working-tree status for the selected project.",
              "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_git_diff", "description": "Read staged or unstaged Git changes, optionally limited to a workspace-relative path.",
+             "inputSchema": {"type": "object", "properties": {"staged": {"type": "boolean", "default": false}, "path": {"type": "string", "default": "."}}, "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_git_log", "description": "Read recent Git commit summaries without modifying the repository.",
+             "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 30, "default": 10}}, "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_run_command", "description": "Run a command as an argument array from the selected project directory. Shell expansion is disabled. Use only commands required for the requested development task.",
              "inputSchema": {"type": "object", "properties": {"command": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 100}, "timeout": {"type": "integer", "minimum": 1, "maximum": 300}}, "required": ["command"], "additionalProperties": False}, "server": "workspace"},
         ]
+        return tools
+
+    def _set_workspace(self, path, source="selected", persist=True):
+        if not isinstance(path, str) or not path.strip():
+            raise RuntimeError("A local folder path is required.")
+        candidate = Workspace(path)
+        if persist:
+            try:
+                temp_path = self.workspace_settings_path + ".tmp"
+                with open(temp_path, "w", encoding="utf-8") as fp:
+                    json.dump({"root": str(candidate.root)}, fp, ensure_ascii=False, indent=2)
+                os.replace(temp_path, self.workspace_settings_path)
+            except OSError as exc:
+                raise RuntimeError(f"The folder is valid, but workspace settings could not be saved: {exc}") from exc
+        self.workspace = candidate
+        self.workspace_root = str(candidate.root)
+        self.workspace_configured = True
+        self.workspace_source = source
+        self.workspace_error = None
+        log(f"workspace selected: {self.workspace_root}", "cy")
+        return self._workspace_description()
+
+    def _workspace_description(self):
+        if self.workspace is None:
+            return {"root": self.workspace_root, "name": os.path.basename(self.workspace_root), "exists": False,
+                    "configured": self.workspace_configured, "source": self.workspace_source, "error": self.workspace_error}
+        data = self.workspace.describe()
+        data.update({"configured": self.workspace_configured, "source": self.workspace_source})
+        return data
+
+    def _browse_workspace(self):
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+        except Exception as exc:
+            raise RuntimeError("The native folder picker is unavailable in this Python install. Use workspace_set_root with the full folder path instead.") from exc
+        root = None
+        try:
+            root = tk.Tk()
+            root.withdraw()
+            try:
+                root.attributes("-topmost", True)
+            except Exception:
+                pass
+            chosen = filedialog.askdirectory(parent=root, title="Choose a ZeroScript coding workspace",
+                                            initialdir=self.workspace_root if os.path.isdir(self.workspace_root) else HERE,
+                                            mustexist=True)
+        except Exception as exc:
+            raise RuntimeError(f"Could not open the native folder picker: {exc}. Use workspace_set_root with the full folder path.") from exc
+        finally:
+            if root is not None:
+                try:
+                    root.destroy()
+                except Exception:
+                    pass
+        if not chosen:
+            return {"cancelled": True, "message": "Folder selection cancelled; the active workspace was not changed.", **self._workspace_description()}
+        return self._set_workspace(chosen, source="folder-picker", persist=True)
 
     def _call_workspace(self, name, arguments):
-        if self.workspace is None:
-            raise RuntimeError(self.workspace_error or "Workspace is unavailable.")
         args = arguments or {}
         if name == "workspace_info":
-            return self.workspace.describe()
+            return self._workspace_description()
+        if name == "workspace_set_root":
+            return self._set_workspace(args.get("path", ""))
+        if name == "workspace_browse":
+            return self._browse_workspace()
+        if self.workspace is None:
+            raise RuntimeError(self.workspace_error or "Workspace is unavailable. Select a folder with workspace_set_root or workspace_browse.")
+        if name == "workspace_project_info":
+            return self.workspace.project_info()
+        if name == "workspace_find_files":
+            return self.workspace.find_files(args.get("pattern", "*"), args.get("path", "."), args.get("max_results", 200), args.get("include_hidden", False))
+        if name == "workspace_symbols":
+            return self.workspace.symbols(args.get("query", ""), args.get("path", "."), args.get("max_results", 200))
         if name == "workspace_list_files":
             return self.workspace.list_files(args.get("path", "."), args.get("max_results", 200), args.get("include_hidden", False))
         if name == "workspace_read_file":
-            return self.workspace.read_file(args["path"])
+            result = self.workspace.read_file(args["path"])
+            if "start_line" in args or "end_line" in args:
+                lines = result["content"].splitlines(keepends=True)
+                start_line = max(1, int(args.get("start_line", 1)))
+                end_line = max(start_line, int(args.get("end_line", len(lines) or 1)))
+                result["content"] = "".join(lines[start_line - 1:end_line])
+                result["start_line"] = start_line
+                result["end_line"] = min(end_line, len(lines))
+                result["total_lines"] = len(lines)
+            return result
         if name == "workspace_search":
             return self.workspace.search(args["query"], args.get("path", "."), args.get("max_results", 100))
+        if name == "workspace_apply_patch":
+            return self.workspace.apply_patch(args["path"], args["old_string"], args["new_string"], args.get("replace_all", False))
         if name == "workspace_write_file":
             return self.workspace.write_file(args["path"], args["content"])
         if name == "workspace_git_status":
             return self.workspace.git_status()
+        if name == "workspace_git_diff":
+            return self.workspace.git_diff(args.get("staged", False), args.get("path", "."))
+        if name == "workspace_git_log":
+            return self.workspace.git_log(args.get("limit", 10))
         if name == "workspace_run_command":
             return self.workspace.run_command(args["command"], args.get("timeout", 60))
         raise RuntimeError(f"unknown workspace tool '{name}'")
-
     def load_config(self):
         servers = _read_config().get("mcpServers", {}) or {}
         for sid, spec in servers.items():
@@ -1178,7 +1274,17 @@ class MCPManager:
                     name = t.get("name")
                     if not name:
                         continue
-                    advertised = name if name not in self.index else f"{sid}/{name}"
+                    # Keep Roblox as a distinct tool namespace. Workspace and
+                    # other MCP tools remain independently addressable, even when
+                    # a third-party server advertises the same bare name.
+                    advertised = f"{sid}/{name}" if sid == PRIMARY_SERVER_ID else name
+                    if advertised in self.index:
+                        advertised = f"{sid}/{name}"
+                    base = advertised
+                    suffix = 2
+                    while advertised in self.index:
+                        advertised = f"{base}#{suffix}"
+                        suffix += 1
                     self.index[advertised] = (client, name)
 
     def list_tools(self, refresh=False):
@@ -1216,11 +1322,23 @@ class MCPManager:
             return {"text": json.dumps(result, ensure_ascii=False, indent=2), "images": []}
         with self.index_lock:
             entry = self.index.get(name)
+            # Backward compatibility for old conversations that call a Roblox
+            # command without its required roblox/ namespace.
+            if entry is None and "/" not in name:
+                candidates = [(key, value) for key, value in self.index.items()
+                              if value[0].id == PRIMARY_SERVER_ID and value[1] == name]
+                if len(candidates) == 1:
+                    entry = candidates[0][1]
         if entry is None:
             # Maybe a freshly added tool - rebuild once and retry.
             self.rebuild_index()
             with self.index_lock:
                 entry = self.index.get(name)
+                if entry is None and "/" not in name:
+                    candidates = [(key, value) for key, value in self.index.items()
+                                  if value[0].id == PRIMARY_SERVER_ID and value[1] == name]
+                    if len(candidates) == 1:
+                        entry = candidates[0][1]
         if entry is None:
             raise RuntimeError(f"unknown tool '{name}'")
         holder, real_name = entry
