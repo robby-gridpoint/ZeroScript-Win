@@ -1114,6 +1114,10 @@ class MCPManager:
              "inputSchema": {"type": "object", "properties": {"pattern": {"type": "string"}, "path": {"type": "string", "default": "."}, "max_results": {"type": "integer", "minimum": 1, "maximum": 500}, "include_hidden": {"type": "boolean"}}, "required": ["pattern"], "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_symbols", "description": "Find likely function, class, type, and variable declarations across source files. Optional query filters symbol names or declaration text.",
              "inputSchema": {"type": "object", "properties": {"query": {"type": "string", "default": ""}, "path": {"type": "string", "default": "."}, "max_results": {"type": "integer", "minimum": 1, "maximum": 500}}, "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_tree", "description": "Return a bounded directory tree with file sizes, skipping generated folders and symbolic links.", 
+             "inputSchema": {"type": "object", "properties": {"path": {"type": "string", "default": "."}, "max_depth": {"type": "integer", "minimum": 0, "maximum": 12, "default": 4}, "max_results": {"type": "integer", "minimum": 1, "maximum": 500, "default": 300}, "include_hidden": {"type": "boolean", "default": false}}, "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_file_outline", "description": "Show imports, headings, variables, and likely declarations with line numbers for one source file.", 
+             "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}, "max_results": {"type": "integer", "minimum": 1, "maximum": 500, "default": 300}}, "required": ["path"], "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_list_files", "description": "List source files in the selected project. Generated directories are skipped.",
              "inputSchema": {"type": "object", "properties": {"path": {"type": "string", "default": "."}, "max_results": {"type": "integer", "minimum": 1, "maximum": 500}, "include_hidden": {"type": "boolean"}}, "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_read_file", "description": "Read a UTF-8 text file inside the selected project (maximum 1 MB). Optional 1-based start_line/end_line bounds the read.",
@@ -1128,6 +1132,8 @@ class MCPManager:
              "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_git_diff", "description": "Read staged or unstaged Git changes, optionally limited to a workspace-relative path.",
              "inputSchema": {"type": "object", "properties": {"staged": {"type": "boolean", "default": false}, "path": {"type": "string", "default": "."}}, "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_git_branches", "description": "List local and remote Git branches without changing repository state.", 
+             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_git_log", "description": "Read recent Git commit summaries without modifying the repository.",
              "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 30, "default": 10}}, "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_run_command", "description": "Run a command as an argument array from the selected project directory. Shell expansion is disabled. Use only commands required for the requested development task.",
@@ -1208,6 +1214,10 @@ class MCPManager:
             return self.workspace.find_files(args.get("pattern", "*"), args.get("path", "."), args.get("max_results", 200), args.get("include_hidden", False))
         if name == "workspace_symbols":
             return self.workspace.symbols(args.get("query", ""), args.get("path", "."), args.get("max_results", 200))
+        if name == "workspace_tree":
+            return self.workspace.tree(args.get("path", "."), args.get("max_depth", 4), args.get("max_results", 300), args.get("include_hidden", False))
+        if name == "workspace_file_outline":
+            return self.workspace.file_outline(args["path"], args.get("max_results", 300))
         if name == "workspace_list_files":
             return self.workspace.list_files(args.get("path", "."), args.get("max_results", 200), args.get("include_hidden", False))
         if name == "workspace_read_file":
@@ -1231,6 +1241,8 @@ class MCPManager:
             return self.workspace.git_status()
         if name == "workspace_git_diff":
             return self.workspace.git_diff(args.get("staged", False), args.get("path", "."))
+        if name == "workspace_git_branches":
+            return self.workspace.git_branches()
         if name == "workspace_git_log":
             return self.workspace.git_log(args.get("limit", 10))
         if name == "workspace_run_command":
