@@ -238,10 +238,12 @@ class Workspace:
             if target == self.root:
                 raise WorkspaceError(f"File {index + 1} cannot target the workspace root.")
             relative = target.relative_to(self.root).as_posix()
-            if relative in seen:
+            normalized_key = relative.casefold()
+            if normalized_key in seen:
                 raise WorkspaceError(f"Duplicate target path in bulk write: {relative}")
-            seen.add(relative)
-            if raw_path.is_symlink() or target.is_symlink():
+            seen.add(normalized_key)
+            unresolved_target = self.root / raw_path
+            if unresolved_target.is_symlink() or target.is_symlink():
                 raise WorkspaceError(f"Symbolic-link targets are not supported: {relative}")
             encoded = content.encode("utf-8")
             if len(encoded) > MAX_READ_BYTES:
