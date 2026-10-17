@@ -235,3 +235,18 @@ input[type=checkbox] { margin: 0; accent-color: var(--accent); }
 .problem-message { color: #d1dced; font-size: 10px; line-height: 1.45; overflow-wrap: anywhere; }
 .problem-location { color: #8293ad; font-family: Consolas, monospace; font-size: 9px; overflow-wrap: anywhere; }
 .problem-source { color: #63748e; font-size: 9px; }
+
+.replace-section { display: flex; flex-direction: column; gap: 7px; margin: 14px 0 16px; padding: 10px; border: 1px solid var(--border-soft); border-radius: 8px; background: rgba(13, 19, 29, .58); }
+.replace-section .section-caption { margin-top: 0; padding: 0; }
+.replace-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px; }
+.replace-actions .panel-action { margin: 0; min-width: 0; }
+.replace-preview { display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow: auto; padding-top: 2px; }
+.replace-preview.hidden { display: none; }
+.replace-preview-summary { padding: 8px; border: 1px solid #31425c; border-radius: 6px; background: #131e2d; color: #becce1; font-size: 10px; line-height: 1.5; }
+.replace-preview-summary.warning { color: #e3bd79; border-color: #665331; }
+.replace-diff-card { min-width: 0; border: 1px solid #2a3547; border-radius: 6px; overflow: hidden; }
+.replace-diff-heading { display: flex; justify-content: space-between; gap: 8px; padding: 7px 8px; color: #d4deef; background: #192334; font-size: 10px; overflow-wrap: anywhere; }
+.replace-diff-count { color: #91b89b; white-space: nowrap; }
+.replace-diff { margin: 0; padding: 8px; max-height: 180px; overflow: auto; color: #aebdd2; background: #0d121a; font-family: Consolas, monospace; font-size: 9px; line-height: 1.5; white-space: pre; }
+.replace-preview .empty-state { padding: 10px 6px; }
+#applyReplace:disabled { cursor: not-allowed; opacity: .45; }
