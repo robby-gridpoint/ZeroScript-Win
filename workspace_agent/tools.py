@@ -446,11 +446,11 @@ class Workspace:
         ))
         if declared_package_manager in {"pnpm", "yarn", "bun", "npm"}:
             package_manager = declared_package_manager
-        elif (self.root / "pnpm-lock.yaml").is_file() and not (self.root / "pnpm-lock.yaml").is_symlink():
+        elif not (self.root / "pnpm-lock.yaml").is_symlink() and (self.root / "pnpm-lock.yaml").is_file():
             package_manager = "pnpm"
-        elif (self.root / "yarn.lock").is_file() and not (self.root / "yarn.lock").is_symlink():
+        elif not (self.root / "yarn.lock").is_symlink() and (self.root / "yarn.lock").is_file():
             package_manager = "yarn"
-        elif ((self.root / "bun.lock").is_file() and not (self.root / "bun.lock").is_symlink()) or ((self.root / "bun.lockb").is_file() and not (self.root / "bun.lockb").is_symlink()):
+        elif (not (self.root / "bun.lock").is_symlink() and (self.root / "bun.lock").is_file()) or (not (self.root / "bun.lockb").is_symlink() and (self.root / "bun.lockb").is_file()):
             package_manager = "bun"
         elif not package_path.is_symlink() and package_path.is_file():
             package_manager = "npm"
