@@ -1423,6 +1423,69 @@ async function loadProjectInfo() {
   } finally { setBusy(false); }
 }
 
+function setNavigationList(title, items, defaultPath = "", emptyMessage = "No results found.", summary = "") {
+  $("welcomeScreen").classList.add("hidden");
+  $("codeSurface").classList.add("hidden");
+  const info = $("infoView");
+  info.replaceChildren();
+
+  const heading = document.createElement("h2");
+  heading.textContent = title;
+  info.append(heading);
+
+  const description = document.createElement("p");
+  description.className = "navigation-summary";
+  description.textContent = summary || (items.length ? items.length + " result(s). Select an item to open its source location." : emptyMessage);
+  info.append(description);
+
+  if (!items.length) {
+    const empty = document.createElement("div");
+    empty.className = "empty-state navigation-empty";
+    empty.textContent = emptyMessage;
+    info.append(empty);
+  } else {
+    const list = document.createElement("div");
+    list.className = "navigation-list";
+    items.forEach((entry) => {
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "navigation-item";
+      const icon = document.createElement("span");
+      icon.className = "navigation-item-icon";
+      icon.textContent = entry.kind === "function" ? "ƒ" : entry.kind === "type" ? "◇" : entry.kind === "variable" ? "x" : entry.kind === "import" ? "⇢" : "§";
+      const content = document.createElement("span");
+      content.className = "navigation-item-content";
+      const top = document.createElement("span");
+      top.className = "navigation-item-title";
+      top.textContent = entry.name || entry.text || entry.kind || "Source location";
+      const detail = document.createElement("span");
+      detail.className = "navigation-item-detail";
+      const path = entry.path || defaultPath;
+      const location = entry.line ? "Line " + entry.line : "";
+      detail.textContent = [path, location, entry.kind].filter(Boolean).join(" · ");
+      const excerpt = document.createElement("span");
+      excerpt.className = "navigation-item-excerpt";
+      excerpt.textContent = entry.text || "";
+      content.append(top, detail);
+      if (excerpt.textContent && excerpt.textContent !== top.textContent) content.append(excerpt);
+      row.append(icon, content);
+      row.title = (path || "") + (entry.line ? ":" + entry.line : "") + (entry.text ? "
+" + entry.text : "");
+      row.addEventListener("click", () => {
+        if (path) openFile(path, entry.line || 1);
+      });
+      list.append(row);
+    });
+    info.append(list);
+  }
+
+  info.classList.remove("hidden");
+  $("activeFileName").textContent = title;
+  $("breadcrumb").textContent = "ZeroScript / " + title;
+  $("statusFile").textContent = summary || title;
+  renderDirty();
+}
+
 async function searchSymbols() {
   if (!state.workspace || !state.workspace.configured) {
     writeOutput("Search Symbols", "Choose a project workspace first.");
@@ -1435,7 +1498,8 @@ async function searchSymbols() {
     const result = await callTool("workspace_symbols", {
       query: query.trim(), path: ".", max_results: 300,
     });
-    setInfoMode("Symbol Search", result, "Search");
+    setNavigationList("Symbol Search", result.symbols || [], "", "No declarations matched that query.",
+      (result.symbols || []).length + " symbol(s) found across " + (result.files_scanned || 0) + " scanned file(s)" + (result.truncated ? " · results truncated" : ""));
     writeOutput("Symbol Search", result);
   } catch (error) {
     errorOutput("Symbol search failed", error);
@@ -1475,8 +1539,11 @@ async function loadOutline() {
   }
   setBusy(true, "Building file outline…");
   try {
-    const result = await callTool("workspace_file_outline", { path: state.currentFile });
-    setInfoMode("Outline · " + state.currentFile, result, state.currentFile);
+    const path = state.currentFile;
+    const result = await callTool("workspace_file_outline", { path });
+    setNavigationList("Outline · " + path, result.outline || [], path,
+      "No imports, headings, variables, or declarations were detected.",
+      (result.outline || []).length + " outline item(s) · " + (result.total_lines || 0) + " lines");
     writeOutput("File outline", result);
   } catch (error) { errorOutput("Outline failed", error); }
   finally { setBusy(false); }
