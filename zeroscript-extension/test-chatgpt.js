@@ -52,9 +52,10 @@ let querySelectorAllHandler = () => [];
 global.document = {
   querySelector: () => null,
   querySelectorAll: (selector) => querySelectorAllHandler(selector),
+  getElementById: () => null,
   addEventListener: () => {},
   dispatchEvent: () => {},
-  documentElement: { classList: { contains: () => false } },
+  documentElement: { classList: { contains: () => false }, setAttribute: () => {} },
   body: null,
 };
 global.window = { location: { pathname: "/" }, addEventListener: () => {} };
@@ -93,6 +94,30 @@ querySelectorAllHandler = (selector) => {
 const modernItems = P.allItems();
 ok("new content-search units are enumerated as turns", modernItems.length === 2 &&
   modernItems[0] === modernUser && modernItems[1] === modernAssistant);
+const modernComposerForm = {};
+const modernComposerEditor = {
+  tagName: "DIV",
+  id: "",
+  offsetParent: {},
+  textContent: "",
+  getClientRects: () => [],
+  getAttribute: () => null,
+  setAttribute: () => {},
+  removeAttribute: () => {},
+  closest: (selector) => {
+    if (selector === "form[data-chatgpt-composer]" || selector === "form") return modernComposerForm;
+    return null;
+  },
+};
+querySelectorAllHandler = (selector) => {
+  if (selector.includes("data-composer-markdown") || selector.includes('data-testid="prompt-textarea"') || selector.includes("#prompt-textarea")) {
+    return [modernComposerEditor];
+  }
+  return [];
+};
+ok("new composer contenteditable is found", P.getEditor() === modernComposerEditor);
+ok("new composer uses anchored fallback when no safe grid surface exists", P.barMount() === null);
+ok("new composer anchor targets its React form", P.barAnchor() === modernComposerForm);
 querySelectorAllHandler = () => [];
 
 // ── The CodeMirror line collapse (the 1.5.1 headline bug) ───────────────────
