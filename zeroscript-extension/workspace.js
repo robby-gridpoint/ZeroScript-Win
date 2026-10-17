@@ -1349,6 +1349,9 @@ async function loadProjectInfo() {
     renderProjectTasks(result);
     $("projectSummary").textContent = [
       result.project_type || "Type: undetected",
+      result.package_name ? "Package: " + result.package_name : "Package name: not declared",
+      result.package_manager ? "Package manager: " + result.package_manager : "Package manager: not detected",
+      `Frameworks/tools: ${(result.framework_hints || []).join(", ") || "none detected"}`,
       `${result.source_file_count || 0} source files`,
       result.is_git_repository ? "Git repository" : "No Git repository at the root",
       `Manifests: ${(result.manifest_files || []).join(", ") || "none detected"}`,
