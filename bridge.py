@@ -1,12 +1,12 @@
 # # SPDX-License-Identifier: GPL-3.0-or-later
 # bridge.py
 # ──────────────────────────────────────────────────────────────────────────
-#  ZeroScript Bridge
-#  Local WebSocket <-> Roblox Studio MCP server.
+#  ZeroScript-Win Bridge
+#  Local WebSocket <-> workspace tools and optional MCP integrations.
 #  The browser extension talks to this over ws://127.0.0.1:<PORT>.
 #
-#  What this bridge exposes to Kimi (aggregated into one tools/list):
-#    - Every MCP server declared in config.json (by default: roblox), each
+#  What this bridge exposes to the extension (aggregated into one tool catalogue):
+#    - Workspace tools plus every MCP server declared in config.json, each
 #      spawned as a stdio child and routed by tool name.
 #
 #  Design goals (robustness first):
@@ -85,8 +85,8 @@ PORT = int(os.environ.get("ZS_BRIDGE_PORT", "17613"))
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(HERE, "config.json")
 
-# The primary server. It is always present, added by the installer, and can
-# never be edited/removed through the extension (it is what ZeroScript is FOR).
+# Conventional ID for the optional Roblox Studio adapter. Workspace tools work
+# independently, even when this server is absent or Studio is closed.
 PRIMARY_SERVER_ID = "roblox"
 
 if _enable_ansi_colors():
@@ -659,7 +659,7 @@ def _read_config():
                 return cfg
         except Exception as e:
             log(f"config.json unreadable ({e}) - starting from a fresh one", "yl")
-    return {"mcpServers": {PRIMARY_SERVER_ID: {"command": "launch_studio_mcp.py", "args": []}}}
+    return {"mcpServers": {}}
 
 
 def _write_config(cfg):
@@ -671,13 +671,10 @@ def _write_config(cfg):
 
 
 def config_add_server(server_id, command, args=None, env=None):
-    """Add/replace an addon server in config.json. Refuses to touch the primary
-    (roblox) server. Returns (ok, error)."""
+    """Add or replace a configured MCP server. Returns (ok, error)."""
     sid = (server_id or "").strip()
     if not sid:
         return False, "server id is required"
-    if sid == PRIMARY_SERVER_ID:
-        return False, f"'{PRIMARY_SERVER_ID}' is the primary server and cannot be edited"
     if not (command or "").strip():
         return False, "a command is required"
     cfg = _read_config()
@@ -693,10 +690,8 @@ def config_add_server(server_id, command, args=None, env=None):
 
 
 def config_remove_server(server_id):
-    """Remove an addon server from config.json. Refuses the primary server."""
+    """Remove a configured MCP server from config.json."""
     sid = (server_id or "").strip()
-    if sid == PRIMARY_SERVER_ID:
-        return False, f"'{PRIMARY_SERVER_ID}' is the primary server and cannot be removed"
     cfg = _read_config()
     if sid not in cfg.get("mcpServers", {}):
         return False, f"server '{sid}' is not in the config"
