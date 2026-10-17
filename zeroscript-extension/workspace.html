@@ -119,7 +119,13 @@
             </div>
             <p class="subtle domain-note">Roblox Studio remains a separate adapter. This editor manages on-disk project files, not the live Studio DataModel.</p>
           </div>
-          <textarea id="codeEditor" class="code-editor hidden" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-label="Source editor"></textarea>
+          <div id="codeSurface" class="editor-surface hidden">
+            <div id="lineNumbers" class="line-numbers" aria-hidden="true">1</div>
+            <div class="code-pane">
+              <pre id="syntaxHighlight" class="syntax-highlight" aria-hidden="true"><code id="highlightCode"></code></pre>
+              <textarea id="codeEditor" class="code-editor" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" wrap="off" aria-label="Source editor"></textarea>
+            </div>
+          </div>
           <div id="infoView" class="info-view hidden"></div>
         </div>
         <section class="output-drawer" id="outputDrawer">
