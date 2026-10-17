@@ -176,6 +176,106 @@ class Workspace:
             "diff": diff[:MAX_OUTPUT_CHARS],
         }
 
+    def multi_edit(self, edits: list[dict[str, Any]]) -> dict[str, Any]:
+        """Apply a validated batch of exact text replacements across existing files."""
+        if not isinstance(edits, list) or not edits:
+            raise WorkspaceError("edits must be a non-empty list.")
+        if len(edits) > 200:
+            raise WorkspaceError("A multi-edit batch is limited to 200 replacements.")
+
+        pending: dict[Path, dict[str, Any]] = {}
+        for index, edit in enumerate(edits):
+            if not isinstance(edit, dict):
+                raise WorkspaceError(f"Edit {index + 1} must be an object.")
+            path = edit.get("path")
+            old_string = edit.get("old_string")
+            new_string = edit.get("new_string")
+            replace_all = edit.get("replace_all", False)
+            if not isinstance(path, str) or not path.strip():
+                raise WorkspaceError(f"Edit {index + 1} requires a path.")
+            if not isinstance(old_string, str) or not old_string:
+                raise WorkspaceError(f"Edit {index + 1} requires a non-empty old_string.")
+            if not isinstance(new_string, str):
+                raise WorkspaceError(f"Edit {index + 1} requires new_string to be a string.")
+            if not isinstance(replace_all, bool):
+                raise WorkspaceError(f"Edit {index + 1} replace_all must be a boolean.")
+
+            raw_path = Path(path).expanduser()
+            raw_path = raw_path if raw_path.is_absolute() else self.root / raw_path
+            if raw_path.is_symlink():
+                raise WorkspaceError(f"Edit {index + 1} targets a symbolic link, which is not supported.")
+            target = self._resolve(path)
+            if target == self.root or not target.is_file():
+                raise WorkspaceError(f"Edit {index + 1} target is not an existing regular file: {path}")
+            if target.stat().st_size > MAX_READ_BYTES:
+                raise WorkspaceError(f"Edit {index + 1} target exceeds the {MAX_READ_BYTES}-byte edit limit.")
+
+            if target not in pending:
+                try:
+                    original = target.read_text(encoding="utf-8")
+                except UnicodeDecodeError as exc:
+                    raise WorkspaceError(f"Refusing to edit non-UTF-8 file: {path}") from exc
+                pending[target] = {
+                    "path": target.relative_to(self.root).as_posix(),
+                    "original": original,
+                    "content": original,
+                    "replacements": 0,
+                    "operations": 0,
+                }
+            current = pending[target]["content"]
+            occurrences = current.count(old_string)
+            if occurrences == 0:
+                raise WorkspaceError(
+                    f"Edit {index + 1}: old_string was not found in {path}; no files were changed."
+                )
+            if occurrences > 1 and not replace_all:
+                raise WorkspaceError(
+                    f"Edit {index + 1}: old_string appears {occurrences} times in {path}; "
+                    "add more context or set replace_all=true. No files were changed."
+                )
+            if replace_all:
+                updated = current.replace(old_string, new_string)
+                pending[target]["replacements"] += occurrences
+            else:
+                updated = current.replace(old_string, new_string, 1)
+                pending[target]["replacements"] += 1
+            pending[target]["content"] = updated
+            pending[target]["operations"] += 1
+
+        applied: list[Path] = []
+        try:
+            for target, item in pending.items():
+                self.write_file(item["path"], item["content"])
+                applied.append(target)
+        except Exception as exc:
+            rollback_errors: list[str] = []
+            for target in reversed(applied):
+                try:
+                    target.write_text(pending[target]["original"], encoding="utf-8", newline="")
+                except OSError as rollback_exc:
+                    rollback_errors.append(f"{pending[target]['path']}: {rollback_exc}")
+            suffix = f" Rollback errors: {'; '.join(rollback_errors)}" if rollback_errors else ""
+            raise WorkspaceError(f"Multi-edit failed while writing files: {exc}.{suffix}") from exc
+
+        return {
+            "files_changed": len(pending),
+            "operations_applied": len(edits),
+            "files": [
+                {
+                    "path": item["path"],
+                    "operations": item["operations"],
+                    "replacements": item["replacements"],
+                    "diff": "".join(difflib.unified_diff(
+                        item["original"].splitlines(keepends=True),
+                        item["content"].splitlines(keepends=True),
+                        fromfile=f"a/{item['path']}",
+                        tofile=f"b/{item['path']}",
+                    ))[:MAX_OUTPUT_CHARS],
+                }
+                for item in pending.values()
+            ],
+        }
+
     def create_file(self, path: str, content: str = "") -> dict[str, Any]:
         """Create a new UTF-8 file, refusing to overwrite any existing path."""
         if not isinstance(path, str) or not path.strip() or path.strip() in (".", "./"):
