@@ -128,7 +128,8 @@ function setInfoMode(title, data, path = "") {
 
 function renderDirty() {
   $("dirtyDot").classList.toggle("hidden", !state.dirty);
-  $("saveFile").disabled = !state.currentFile || !state.dirty || state.busy;
+  $("saveFile").disabled = !state.currentFile || !state.dirty || state.busy ||
+    !state.workspace || state.workspace.root !== state.fileWorkspaceRoot;
   $("renamePath").disabled = !state.currentFile || state.busy;
   $("deleteFile").disabled = !state.currentFile || state.busy;
   $("activeFileName").textContent = state.currentFile
@@ -708,7 +709,7 @@ async function createFile() {
 
 $("chooseWorkspace").addEventListener("click", chooseWorkspace);
 $("welcomeOpen").addEventListener("click", chooseWorkspace);
-$("refreshWorkspace").addEventListener("click", loadWorkspaceDetails);
+$("refreshWorkspace").addEventListener("click", initialize);
 $("welcomeSearch").addEventListener("click", () => { setView("search"); $("searchQuery").focus(); });
 $("welcomeGit").addEventListener("click", () => setView("source"));
 $("newFile").addEventListener("click", createFile);
@@ -853,12 +854,15 @@ chrome.runtime.onMessage.addListener((message) => {
     const nextRoot = message.workspace.root;
     state.workspace = { ...(state.workspace || {}), ...message.workspace };
     updateWorkspaceHeader();
-    if (previousRoot && previousRoot !== nextRoot && !state.dirty) {
+    if ((!previousRoot || previousRoot !== nextRoot) && !state.dirty && message.workspace.configured) {
       state.currentFile = null;
       state.fileWorkspaceRoot = null;
       state.folder = ".";
       showWelcome();
       loadWorkspaceDetails();
+    } else if (previousRoot && previousRoot !== nextRoot && state.dirty) {
+      errorOutput("Workspace changed", "The active folder changed in another ZeroScript window. Your unsaved buffer is preserved, but saving it into the new workspace is blocked. Copy it elsewhere or reopen the original project before continuing.");
+      renderDirty();
     }
   }
 });
