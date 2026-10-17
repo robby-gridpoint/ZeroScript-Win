@@ -84,7 +84,7 @@ class WorkspaceTests(unittest.TestCase):
 
     def test_project_info_detects_node_scripts(self):
         (self.root / "package.json").write_text(
-            '{"name":"sample-project","scripts":{"test":"vitest run","build":"tsc"}}',
+            '{"name":"sample-project","scripts":{"test":"vitest run","build":"tsc"},"devDependencies":{"vitest":"3.0.0"}}',
             encoding="utf-8",
         )
         result = self.ws.project_info()
