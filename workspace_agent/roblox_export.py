@@ -163,7 +163,14 @@ local limit = __LIMIT__
 local page = {}
 for i = first, math.min(#items, first + limit - 1) do
     local item = items[i]
-    table.insert(page, {index = i, segments = item.segments, className = item.className, source = item.instance.Source})
+    local ok, source = pcall(function() return item.instance.Source end)
+    table.insert(page, {
+        index = i,
+        segments = item.segments,
+        className = item.className,
+        source = ok and source or "",
+        sourceError = ok and nil or tostring(source)
+    })
 end
 return HttpService:JSONEncode({total = #items, first = first, files = page})
 '''
@@ -201,6 +208,9 @@ return HttpService:JSONEncode({total = #items, first = first, files = page})
         class_name = entry.get("className", "LuaSourceContainer")
         if not isinstance(segments, list) or not segments or not all(isinstance(part, str) for part in segments):
             raise RuntimeError("Studio returned a script with invalid hierarchy metadata.")
+        if entry.get("sourceError"):
+            hierarchy = ".".join(segments)
+            raise RuntimeError(f"Studio could not read source for {hierarchy}: {entry['sourceError']}")
         if not isinstance(source, str):
             raise RuntimeError(f"Studio did not return source text for script index {entry.get('index')}.")
         safe_segments = [_safe_segment(part) for part in segments]
