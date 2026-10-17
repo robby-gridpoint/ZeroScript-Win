@@ -1096,6 +1096,8 @@ class MCPManager:
             log(f"workspace selected: {self.workspace.root}", "cy")
         except Exception as exc:
             self.workspace_error = str(exc)
+            self.workspace_configured = False
+            self.workspace_source = "invalid"
             log(f"workspace unavailable: {exc}", "yl")
 
     def _workspace_tools(self):
