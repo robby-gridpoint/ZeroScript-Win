@@ -143,6 +143,23 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(result["package_manager"], "pnpm")
         self.assertEqual(result["package_scripts"]["test"], "vitest run")
 
+    def test_project_info_catalogues_python_tasks(self):
+        (self.root / "pyproject.toml").write_text("[project]\nname='sample'\n", encoding="utf-8")
+        result = self.ws.project_info()
+        tasks = {item["task"]: item for item in result["task_catalogue"]}
+        self.assertIn("python.test", tasks)
+        self.assertIn("python.compile", tasks)
+        self.assertEqual(tasks["python.test"]["command"][-3:], ["unittest", "discover", "-v"])
+
+    def test_run_task_executes_whitelisted_rust_task(self):
+        (self.root / "Cargo.toml").write_text("[package]\nname='sample'\nversion='0.1.0'\n", encoding="utf-8")
+        with mock.patch.object(self.ws, "_run", return_value={"exit_code": 0, "output": "ok"}) as mocked:
+            result = self.ws.run_task("rust.test", timeout=90)
+        self.assertEqual(result["task"], "rust.test")
+        mocked.assert_called_once_with(["cargo", "test"], timeout=90)
+        with self.assertRaisesRegex(WorkspaceError, "not available"):
+            self.ws.run_task("rust.publish")
+
     def test_run_task_uses_only_declared_package_scripts(self):
         (self.root / "package.json").write_text(
             '{"name":"sample","packageManager":"pnpm@9.0.0","scripts":{"test":"vitest run","build":"vite build"}}',
