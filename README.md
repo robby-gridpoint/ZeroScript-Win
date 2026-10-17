@@ -18,7 +18,7 @@ The bridge exposes an expanded, project-scoped toolset:
 - Exact-match patch edits, validated multi-file edit batches, preview-first Replace in Files for literal or regex replacements, stale-preview protection, and complete-file writes that return unified diffs.
 - Safe no-overwrite file/directory creation, rename/move, and single-file delete operations. Directory deletion and symbolic-link mutation are refused.
 - Git status, structured changed-file listing, staged/unstaged diffs, branch listing, recent history, single-file stage/unstage, and confirmed local commits (no automatic push).
-- A dedicated Workspace Explorer page with file tree, multi-tab text editor with independent unsaved buffers, lightweight syntax coloring and line numbers, keyboard indentation, Save All, close-tab controls, fuzzy Quick Open, a searchable Command Palette, search/replace/outline/project panes, Git views, output/problems panes, clickable build/test diagnostics, and argv-based command runner.
+- A dedicated Workspace Explorer page with file tree, multi-tab text editor with independent unsaved buffers, lightweight syntax coloring and line numbers, keyboard indentation, Save All, close-tab controls, fuzzy Quick Open, a searchable Command Palette, folder-scoped search and preview-first replace, outline/project panes, per-file Git diff/stage/unstage actions, output/problems panes, clickable build/test diagnostics, and argv-based command runner.
 - One-click project Test/Build/Lint/Check tasks discovered from package.json and package manager metadata, each with an explicit confirmation.
 - Bounded command execution from the selected project directory using an argument array and `shell=False`.
 
