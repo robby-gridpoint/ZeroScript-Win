@@ -10,6 +10,12 @@ const state = {
   dirty: false,
   currentView: "explorer",
   busy: false,
+  fileWorkspaceRoot: null,
+  outputs: {
+    output: "ZeroScript local workspace ready. Select a folder to begin.",
+    problems: "No reported problems.",
+  },
+  activeOutput: "output",
 };
 const VIEW_TITLES = {
   explorer: "EXPLORER",
@@ -49,13 +55,20 @@ function setBusy(busy, label) {
   if (label) $("connectionLabel").textContent = label;
 }
 
+function renderOutputBuffer() {
+  for (const tab of document.querySelectorAll(".output-tab")) {
+    tab.classList.toggle("active", tab.dataset.output === state.activeOutput);
+  }
+  $("outputText").textContent = state.outputs[state.activeOutput] || "";
+}
+
 function writeOutput(title, value, type = "output") {
   $("outputDrawer").classList.remove("hidden");
-  for (const tab of document.querySelectorAll(".output-tab")) {
-    tab.classList.toggle("active", tab.dataset.output === type);
-  }
   const text = typeof value === "string" ? value : JSON.stringify(value, null, 2);
-  $("outputText").textContent = title ? `[${title}]\n${text}` : text;
+  state.outputs[type] = title ? `[${title}]\n${text}` : text;
+  state.activeOutput = type;
+  $("outputText").classList.remove("error-text");
+  renderOutputBuffer();
 }
 
 function errorOutput(title, error) {
@@ -152,6 +165,7 @@ async function openFile(path, jumpLine = 1) {
   try {
     const result = await callTool("workspace_read_file", { path });
     state.currentFile = result.path || path;
+    state.fileWorkspaceRoot = state.workspace && state.workspace.root;
     state.savedContent = result.content || "";
     state.dirty = false;
     $("codeEditor").value = state.savedContent;
@@ -183,6 +197,10 @@ async function openFile(path, jumpLine = 1) {
 
 async function saveFile() {
   if (!state.currentFile || !state.dirty || state.busy) return;
+  if (!state.workspace || state.workspace.root !== state.fileWorkspaceRoot) {
+    errorOutput("Save blocked", "The selected workspace changed after this file was opened. Reopen the file from the current workspace before saving to avoid writing the wrong project.");
+    return;
+  }
   const content = $("codeEditor").value;
   setBusy(true, `Saving ${state.currentFile}…`);
   try {
@@ -271,6 +289,7 @@ async function chooseWorkspace() {
       state.workspace = result;
       state.folder = ".";
       state.currentFile = null;
+      state.fileWorkspaceRoot = null;
       state.savedContent = "";
       state.dirty = false;
       $("codeEditor").value = "";
@@ -404,7 +423,17 @@ async function loadGitStatus() {
   } finally { setBusy(false); }
 }
 
+function mayReplaceEditorView() {
+  if (!state.dirty) return true;
+  if (!window.confirm("Discard unsaved changes to the open file?")) return false;
+  state.dirty = false;
+  $("codeEditor").value = state.savedContent;
+  renderDirty();
+  return true;
+}
+
 async function loadGitDiff(staged = false) {
+  if (!mayReplaceEditorView()) return;
   setBusy(true, staged ? "Reading staged changes…" : "Reading unstaged changes…");
   try {
     const result = await callTool("workspace_git_diff", { staged });
@@ -427,6 +456,7 @@ async function loadGitBranches() {
 }
 
 async function loadProjectInfo() {
+  if (!mayReplaceEditorView()) return;
   setBusy(true, "Inspecting project…");
   try {
     const result = await callTool("workspace_project_info", {});
@@ -446,6 +476,7 @@ async function loadProjectInfo() {
 }
 
 async function loadOutline() {
+  if (!mayReplaceEditorView()) return;
   if (!state.currentFile) {
     writeOutput("Outline", "Open a source file first.");
     return;
@@ -492,6 +523,7 @@ async function createFile() {
     writeOutput("Create file", "Choose a project workspace first.");
     return;
   }
+  if (!mayReplaceEditorView()) return;
   const path = window.prompt("New file path, relative to the selected workspace:");
   if (!path || !path.trim()) return;
   if (path.startsWith("/") || /^[a-zA-Z]:[\\/]/.test(path)) {
@@ -553,13 +585,17 @@ $("loadStagedDiff").addEventListener("click", () => loadGitDiff(true));
 $("loadGitBranches").addEventListener("click", loadGitBranches);
 $("loadProjectInfo").addEventListener("click", loadProjectInfo);
 $("runCommand").addEventListener("click", runCommand);
-$("clearOutput").addEventListener("click", () => { $("outputText").textContent = ""; });
+$("clearOutput").addEventListener("click", () => {
+  state.outputs[state.activeOutput] = "";
+  renderOutputBuffer();
+});
 for (const button of document.querySelectorAll(".activity-button")) {
   button.addEventListener("click", () => setView(button.dataset.view));
 }
 for (const tab of document.querySelectorAll(".output-tab")) {
   tab.addEventListener("click", () => {
-    for (const candidate of document.querySelectorAll(".output-tab")) candidate.classList.toggle("active", candidate === tab);
+    state.activeOutput = tab.dataset.output;
+    renderOutputBuffer();
   });
 }
 document.addEventListener("keydown", (event) => {
