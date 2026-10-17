@@ -410,12 +410,26 @@ class Workspace:
         present = [name for name in manifests if not (self.root / name).is_symlink() and (self.root / name).is_file()]
         scripts: dict[str, str] = {}
         package_path = self.root / "package.json"
+        declared_package_manager = ""
         if not package_path.is_symlink() and package_path.is_file():
             try:
                 package = json.loads(package_path.read_text(encoding="utf-8"))
                 scripts = {str(k): str(v) for k, v in (package.get("scripts") or {}).items()}
+                declared_package_manager = str(package.get("packageManager") or "").split("@", 1)[0].strip().lower()
             except (OSError, UnicodeDecodeError, json.JSONDecodeError):
                 scripts = {}
+        if declared_package_manager in {"pnpm", "yarn", "bun", "npm"}:
+            package_manager = declared_package_manager
+        elif (self.root / "pnpm-lock.yaml").is_file() and not (self.root / "pnpm-lock.yaml").is_symlink():
+            package_manager = "pnpm"
+        elif (self.root / "yarn.lock").is_file() and not (self.root / "yarn.lock").is_symlink():
+            package_manager = "yarn"
+        elif ((self.root / "bun.lock").is_file() and not (self.root / "bun.lock").is_symlink()) or ((self.root / "bun.lockb").is_file() and not (self.root / "bun.lockb").is_symlink()):
+            package_manager = "bun"
+        elif not package_path.is_symlink() and package_path.is_file():
+            package_manager = "npm"
+        else:
+            package_manager = None
         inventory = self.list_files(max_results=MAX_RESULTS, include_hidden=False)
         extensions: dict[str, int] = {}
         for item in inventory["files"]:
@@ -443,6 +457,7 @@ class Workspace:
             "project_type": project_type,
             "is_git_repository": (self.root / ".git").exists(),
             "manifest_files": present,
+            "package_manager": package_manager,
             "package_scripts": scripts,
             "source_file_count": len(inventory["files"]),
             "file_inventory_truncated": inventory["truncated"],
