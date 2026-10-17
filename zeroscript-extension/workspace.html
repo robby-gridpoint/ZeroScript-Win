@@ -150,6 +150,20 @@
       </main>
     </div>
   </div>
+  <div id="modalBackdrop" class="modal-backdrop hidden">
+    <section class="command-modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <header class="modal-header">
+        <div>
+          <div id="modalTitle" class="modal-title">Quick Open</div>
+          <div id="modalSubtitle" class="modal-subtitle">Search files in the selected workspace</div>
+        </div>
+        <kbd>ESC</kbd>
+      </header>
+      <input id="modalInput" class="modal-input" placeholder="Type a file path or command…" autocomplete="off" spellcheck="false" />
+      <div id="modalResults" class="modal-results" role="listbox"></div>
+      <footer class="modal-footer"><span>↑ ↓ Navigate</span><span>Enter Open</span><span>Esc Close</span></footer>
+    </section>
+  </div>
   <script src="workspace.js"></script>
 </body>
 </html>
