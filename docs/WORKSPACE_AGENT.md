@@ -1,35 +1,56 @@
-# Workspace agent foundation
+# Workspace agent remaster
 
-ZeroScript-Win is a workspace-first, local coding agent. The extension retains its existing browser provider adapters, while the bridge exposes workspace tools independently of optional MCP integrations such as Roblox Studio.
+ZeroScript-Win exposes a local-first coding workspace independently from its optional MCP integrations. The browser extension remains the agent UI and the loopback bridge owns local filesystem and process operations.
 
-## Initial workspace tools
+## First-run selection
 
-The `workspace_agent` Python package currently exposes a workspace root and
-safe, project-relative tools:
+- The first-run workspace falls back to the bridge directory for compatibility, but it is marked unconfigured.
+- The bootstrap tool catalogue includes the current workspace path and its configured state in the `workspace_info` description. The agent uses that state to ask for a project folder before performing inspection or edits.
+- The user can provide a full path through chat (`workspace_set_root`) or open the native operating-system folder dialog (`workspace_browse`).
+- The selected folder is persisted in `.zs-workspace.json` beside the bridge. This file is ignored by Git because it contains a machine-specific path.
+- `ZS_WORKSPACE_ROOT`, when set, takes precedence over the saved folder.
 
-- `describe()`: report the selected workspace.
-- `list_files(path, max_results, include_hidden)`: enumerate project files
-  while skipping common generated directories.
-- `read_file(path)`: read a bounded UTF-8 source file.
-- `search(query, path, max_results)`: case-insensitive source search.
-- `write_file(path, content)`: create or replace a UTF-8 text file and return
-  a unified diff.
-- `git_status()`: show repository status.
-- `run_command(argv, timeout)`: run an argument-array command without a shell
-  from the selected project directory.
+## Workspace tool catalogue
 
-## Safety boundaries
+| Tool | Purpose |
+| --- | --- |
+| `workspace_info` | Current root and explicit-selection status. |
+| `workspace_set_root` | Validate and persist a folder explicitly supplied by the user. |
+| `workspace_browse` | Open the native folder picker and save the selected folder. |
+| `workspace_project_info` | Detect common manifests, project-type hints, package scripts, Git presence, and file-extension inventory. |
+| `workspace_list_files` | List project files while skipping common generated directories. |
+| `workspace_find_files` | Find paths using glob patterns. |
+| `workspace_read_file` | Read bounded UTF-8 text, optionally by 1-based line range. |
+| `workspace_search` | Case-insensitive source-text search with line references. |
+| `workspace_symbols` | Best-effort discovery of function, type, and variable declarations across multiple language families. |
+| `workspace_write_file` | Create or replace a UTF-8 file and return a unified diff. |
+| `workspace_apply_patch` | Apply exact source replacements; repeated matches are rejected unless the caller explicitly opts into replace-all. |
+| `workspace_git_status` | Read Git branch and working-tree status. |
+| `workspace_git_diff` | Read staged or unstaged diffs, optionally for one path. |
+| `workspace_git_log` | Read recent commit summaries. |
+| `workspace_run_command` | Run argv-array commands from the selected root, without shell expansion and with bounded time/output. |
 
-- Paths are resolved and checked against the selected root, including resolved
-  symlinks.
-- Text reads and writes are bounded to avoid unexpectedly loading large files.
-- Command execution accepts argv arrays and uses `shell=False`; this reduces
-  shell-injection risk but does not make an arbitrary program harmless.
-- The workspace layer itself does not ask for permission. A UI/bridge integration
-  must add explicit approval and policy checks before exposing command execution.
-- Do not bind any future local service to a public interface by default.
+## Separate Roblox Studio domain
 
-## Run tests
+Roblox MCP tools are advertised under the `roblox/` namespace, while on-disk project operations use `workspace_*` names. This is a deliberate capability boundary:
+
+- Roblox tools act on the live Studio/DataModel and may need an open place.
+- Workspace tools act on local files and the selected folder, regardless of whether Studio is running.
+- Tool names, working roots, output, and assumptions must not be mixed just because a task relates to Roblox.
+- A Roblox project may use both domains, but the agent must decide explicitly whether it needs an on-disk edit, a live Studio operation, or both.
+
+Legacy conversations calling bare Roblox tool names are routed to the matching Roblox server when the name is unambiguous. New prompts should always use the namespaced `roblox/` form.
+
+## Safety and operational boundaries
+
+- Workspace paths are resolved and checked against the selected root, including resolved symlinks.
+- Text reads/writes and search results are bounded. Common generated directories are excluded by default.
+- Targeted patches require a non-empty exact fragment. Ambiguous matches are refused by default.
+- Command execution uses argv arrays and `shell=False`, which avoids shell expansion but does not sandbox the selected executable.
+- The current foundation does not yet provide a per-command approval dialog. Treat command execution as powerful: select trusted workspaces and never expose the loopback bridge on a public interface.
+- The native folder picker can depend on the local Python install having Tk support. If unavailable, the agent can use a folder path explicitly provided by the user.
+
+## Tests
 
 From the repository root:
 
@@ -37,6 +58,4 @@ From the repository root:
 py -3 -m unittest workspace_agent.test_tools -v
 ```
 
-This module is intentionally independent of Roblox MCP. The next integration
-step is to add a configurable workspace tool provider to the bridge, then let
-the extension present its tools through the same validated tool-call flow.
+This tool layer remains independent from the Roblox MCP package.
