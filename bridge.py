@@ -1100,7 +1100,7 @@ class MCPManager:
 
     def _workspace_tools(self):
         tools = [
-            {"name": "workspace_info", "description": "Get the current workspace path and whether the user explicitly selected it. If configured is false, ask the user for a project folder before inspecting or editing anything.",
+            {"name": "workspace_info", "description": f"Current workspace path: {self.workspace_root}; configured: {str(self.workspace_configured).lower()}. If configured is false, ask the user for a project folder before inspecting or editing anything.",
              "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_set_root", "description": "Set and persist the user's explicitly provided local project folder. Use only a path the user supplied or confirmed.",
              "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"], "additionalProperties": False}, "server": "workspace"},
