@@ -926,10 +926,10 @@
       const servers = (A.bridge && A.bridge.servers) || [];
       const lines = servers.length
         ? servers.map((sv) => {
-            const label = sv.id === "roblox" ? "Roblox Studio (primary)" : `${sv.id} (addon)`;
+            const label = sv.id === "roblox" ? "Roblox Studio (optional)" : `${sv.id} (MCP integration)`;
             return `- ${sv.id}: ${label} - ${sv.alive ? `${sv.tools || 0} commands available` : "offline (no tools)"}`;
           })
-        : ["- roblox: Roblox Studio (primary) - unknown (bridge did not report server health)"];
+        : ["- No MCP integrations configured; workspace tools remain available."];
       return (
         `Output of 'list_mcp_servers':\n` +
         `Connected MCP servers (${lines.length}):\n${lines.join("\n")}\n` +
@@ -1460,8 +1460,7 @@
               // what the model gets when it lists commands itself. Anti-drift only
               // needs the primary Roblox set; addon commands were listed on demand
               // and the bridge routes by name regardless.
-              const roblox = A.toolList.filter((t) => (t.server || "roblox") === "roblox");
-              toSend += ZS.toolsReminder(roblox) + "\n" + ZS.memoryNudge();
+              toSend += ZS.toolsReminder(A.toolList) + "\n" + ZS.memoryNudge();
               diag("tools.reminder", { after: REMIND_TOOLS_EVERY });
             }
           }
@@ -1639,6 +1638,7 @@
       siteName: P.displayName,
       customPrompt: ui.getCustomPrompt(),
       providerNotes: P.promptExtra || "",
+      tools: A.toolList || [],
     });
   }
 
@@ -1836,8 +1836,8 @@
                                // the model makes seconds later)
       if (!alive()) return;
       if (!A.toolList.length) {
-        ui.banner("warn", "Bridge or Studio offline",
-          "Could not fetch Roblox tools. Run start.bat and make sure Roblox Studio is open, then try again.");
+        ui.banner("warn", "No tools available",
+          "Could not fetch workspace or MCP tools. Run start.bat, check the bridge connection, and try again.");
         return;
       }
       const modeState = await P.ensureComposerReady("startup");
