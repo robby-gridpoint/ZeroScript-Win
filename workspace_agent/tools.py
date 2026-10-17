@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import difflib
 import fnmatch
+import hashlib
 import json
 import os
 import re
@@ -615,6 +616,143 @@ class Workspace:
             "file_inventory_truncated": inventory["truncated"],
             "extension_counts": dict(sorted(extensions.items(), key=lambda item: (-item[1], item[0]))[:20]),
             "top_level_files": root_files[:100],
+        }
+
+    def replace_in_files(
+        self,
+        query: str,
+        replacement: str,
+        path: str = ".",
+        max_files: int = 100,
+        case_sensitive: bool = False,
+        regex: bool = False,
+        apply: bool = False,
+        expected_hash: str = "",
+    ) -> dict[str, Any]:
+        """Preview or apply a bounded multi-file replacement within the workspace."""
+        if not isinstance(query, str) or not query:
+            raise WorkspaceError("Replacement search text must not be empty.")
+        if not isinstance(replacement, str):
+            raise WorkspaceError("Replacement text must be a string.")
+        if not isinstance(case_sensitive, bool) or not isinstance(regex, bool) or not isinstance(apply, bool):
+            raise WorkspaceError("case_sensitive, regex, and apply must be booleans.")
+        if not isinstance(expected_hash, str):
+            raise WorkspaceError("expected_hash must be a string.")
+        base = self._resolve(path)
+        if not base.is_dir():
+            raise WorkspaceError(f"Not a directory: {path}")
+        file_limit = max(1, min(int(max_files), 100))
+        try:
+            expression = re.compile(query if regex else re.escape(query), 0 if case_sensitive else re.IGNORECASE)
+        except re.error as exc:
+            raise WorkspaceError(f"Invalid replacement regular expression: {exc}") from exc
+
+        listing = self.list_files(path, max_results=MAX_RESULTS, include_hidden=False)
+        if apply and listing["truncated"]:
+            raise WorkspaceError("The workspace scan exceeded the file listing limit. Narrow the replacement path and preview again.")
+        pending: list[dict[str, Any]] = []
+        skipped_large = 0
+        scanned = 0
+        total_occurrences = 0
+        for entry in listing["files"]:
+            target = self.root / entry["path"]
+            if target.is_symlink():
+                continue
+            if entry.get("size", 0) > MAX_READ_BYTES:
+                skipped_large += 1
+                continue
+            try:
+                original = self._read_text_exact(target)
+            except (OSError, UnicodeDecodeError):
+                continue
+            scanned += 1
+            if regex:
+                try:
+                    updated, count = expression.subn(replacement, original)
+                except re.error as exc:
+                    raise WorkspaceError(f"Invalid regex replacement: {exc}") from exc
+            else:
+                count = len(list(expression.finditer(original)))
+                updated = expression.sub(lambda _match: replacement, original)
+            if count == 0:
+                continue
+            if len(pending) >= file_limit:
+                if apply:
+                    raise WorkspaceError(
+                        f"More than {file_limit} files would change. Narrow the path or increase max_files, then preview again."
+                    )
+                break
+            line_ending = self._preferred_line_ending(original)
+            updated = self._convert_line_endings(updated, line_ending)
+            pending.append({
+                "path": entry["path"],
+                "original": original,
+                "updated": updated,
+                "replacements": count,
+                "diff": "".join(difflib.unified_diff(
+                    original.splitlines(keepends=True),
+                    updated.splitlines(keepends=True),
+                    fromfile=f"a/{entry['path']}",
+                    tofile=f"b/{entry['path']}",
+                ))[:MAX_OUTPUT_CHARS],
+            })
+            total_occurrences += count
+
+        # Bind the confirmation token to the exact matching file contents and
+        # replacement parameters. Applying a stale preview is refused.
+        digest = hashlib.sha256()
+        digest.update(query.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(replacement.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(str((path, case_sensitive, regex, file_limit)).encode("utf-8"))
+        for item in pending:
+            digest.update(b"\0")
+            digest.update(item["path"].encode("utf-8"))
+            digest.update(b"\0")
+            digest.update(item["original"].encode("utf-8"))
+            digest.update(b"\0")
+            digest.update(item["updated"].encode("utf-8"))
+        token = digest.hexdigest()
+
+        if apply:
+            if not expected_hash:
+                raise WorkspaceError("Applying a replacement requires the expected_hash from a preview.")
+            if expected_hash != token:
+                raise WorkspaceError("Project files changed after the preview. Run Preview Replace All again before applying.")
+            if not pending:
+                return {
+                    "applied": True, "files_changed": 0, "replacements": 0,
+                    "files_scanned": scanned, "skipped_large_files": skipped_large,
+                    "message": "No matching text remains; no files were changed.",
+                }
+            edits = [
+                {"path": item["path"], "old_string": item["original"], "new_string": item["updated"]}
+                for item in pending
+            ]
+            changed = self.multi_edit(edits)
+            return {
+                "applied": True,
+                "files_changed": changed["files_changed"],
+                "replacements": total_occurrences,
+                "files_scanned": scanned,
+                "skipped_large_files": skipped_large,
+                "files": changed["files"],
+                "message": f"Replaced {total_occurrences} occurrence(s) across {changed['files_changed']} file(s).",
+            }
+
+        return {
+            "applied": False,
+            "preview_hash": token,
+            "files_changed": len(pending),
+            "replacements": total_occurrences,
+            "files_scanned": scanned,
+            "skipped_large_files": skipped_large,
+            "truncated": bool(listing["truncated"] or len(pending) >= file_limit),
+            "files": [
+                {"path": item["path"], "replacements": item["replacements"], "diff": item["diff"]}
+                for item in pending
+            ],
         }
 
     def run_task(self, task: str, timeout: int = 300) -> dict[str, Any]:
