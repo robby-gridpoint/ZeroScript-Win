@@ -129,6 +129,7 @@
           <div id="openTabs" class="open-tabs"></div>
           <div class="file-tab hidden" id="fileTab"><span class="file-tab-icon">◇</span><span id="activeFileName">Welcome</span><span class="dirty-dot hidden" id="dirtyDot"></span></div>
           <div class="tab-strip-spacer"></div>
+          <button class="toolbar-button" id="findFileButton" title="Find or replace in the current file">Find <kbd>Ctrl+F</kbd></button>
           <button class="toolbar-button" id="showOutline">Outline</button>
           <button class="toolbar-button" id="showProjectInfo">Project Info</button>
           <button class="toolbar-button" id="reloadFile" disabled>Reload</button>
@@ -137,6 +138,21 @@
           <button class="toolbar-button" id="saveFile" disabled>Save <kbd>Ctrl+S</kbd></button>
         </div>
         <div class="breadcrumb" id="breadcrumb">ZeroScript / Workspace</div>
+        <section id="findBar" class="find-bar hidden" aria-label="Find and replace in current file">
+          <div class="find-line">
+            <input id="findText" placeholder="Find in current file" autocomplete="off" spellcheck="false" />
+            <label class="find-case" title="Match case"><input id="findMatchCase" type="checkbox" /> Aa</label>
+            <span id="findCount" class="find-count">0 / 0</span>
+            <button class="find-button" id="findPrevious" title="Previous match (Shift+Enter)">↑</button>
+            <button class="find-button" id="findNext" title="Next match (Enter)">↓</button>
+            <button class="find-button find-close" id="closeFind" title="Close find">×</button>
+          </div>
+          <div class="find-line find-replace-line">
+            <input id="replaceCurrentText" placeholder="Replace with" autocomplete="off" spellcheck="false" />
+            <button class="find-button" id="replaceCurrent" title="Replace selected match">Replace</button>
+            <button class="find-button" id="replaceAllCurrent" title="Replace all matches in this open buffer">All</button>
+          </div>
+        </section>
         <div class="editor-host" id="editorHost">
           <div class="welcome-screen" id="welcomeScreen">
             <div class="welcome-symbol">Z</div>
