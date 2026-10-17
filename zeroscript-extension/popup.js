@@ -89,6 +89,38 @@ document.getElementById("chooseWorkspace").addEventListener("click", (event) => 
   button.disabled = true;
   button.textContent = "Opening folder picker…";
   document.getElementById("workspaceHint").textContent = "Select the local project folder in the Windows dialog.";
+
+  const finish = () => {
+    button.disabled = false;
+    button.textContent = original;
+    refresh();
+  };
+  const activate = (path) => {
+    document.getElementById("workspaceHint").textContent = "Saving selected workspace…";
+    chrome.runtime.sendMessage({
+      type: "call_tool",
+      name: "workspace_set_root",
+      arguments: { path },
+      timeout: 120000,
+    }, (savedResponse) => {
+      if (chrome.runtime.lastError || !savedResponse || !savedResponse.ok) {
+        document.getElementById("workspaceHint").textContent =
+          savedResponse && savedResponse.error ? savedResponse.error : "The folder was picked but could not be saved as the active workspace.";
+      } else {
+        const saved = parseToolText(savedResponse);
+        if (saved && saved.root && saved.configured) {
+          document.getElementById("workspaceRoot").textContent = saved.root;
+          document.getElementById("workspaceBadge").textContent = "Selected";
+          document.getElementById("workspaceBadge").className = "badge ready";
+          document.getElementById("workspaceHint").textContent = "Folder saved locally. New agent sessions will use this workspace.";
+        } else {
+          document.getElementById("workspaceHint").textContent = "Workspace activation returned an unexpected response. Refreshing status…";
+        }
+      }
+      finish();
+    });
+  };
+
   chrome.runtime.sendMessage({
     type: "call_tool",
     name: "workspace_browse",
@@ -97,26 +129,25 @@ document.getElementById("chooseWorkspace").addEventListener("click", (event) => 
   }, (response) => {
     if (chrome.runtime.lastError) {
       document.getElementById("workspaceHint").textContent = "Could not reach the bridge. Start it, then try again.";
-    } else if (!response || !response.ok) {
+      finish();
+      return;
+    }
+    if (!response || !response.ok) {
       document.getElementById("workspaceHint").textContent =
         response && response.error ? response.error : "Folder picker failed. You can still paste an absolute path into the AI conversation.";
-    } else {
-      const selected = parseToolText(response);
-      if (selected && selected.cancelled) {
-        document.getElementById("workspaceHint").textContent = "Selection cancelled. The active workspace was not changed.";
-      } else if (selected && selected.root) {
-        document.getElementById("workspaceRoot").textContent = selected.root;
-        document.getElementById("workspaceBadge").textContent = "Selected";
-        document.getElementById("workspaceBadge").className = "badge ready";
-        document.getElementById("workspaceHint").textContent = "Folder saved locally. New agent sessions will use this workspace.";
-      } else {
-        document.getElementById("workspaceHint").textContent = "The bridge returned an unreadable workspace response. Refreshing status…";
-      }
-      setTimeout(refresh, 250);
+      finish();
+      return;
     }
-    button.disabled = false;
-    button.textContent = original;
-    refresh();
+    const selected = parseToolText(response);
+    if (selected && selected.cancelled) {
+      document.getElementById("workspaceHint").textContent = "Selection cancelled. The active workspace was not changed.";
+      finish();
+    } else if (selected && selected.selected_path) {
+      activate(selected.selected_path);
+    } else {
+      document.getElementById("workspaceHint").textContent = "The bridge returned an unreadable folder selection.";
+      finish();
+    }
   });
 });
 
