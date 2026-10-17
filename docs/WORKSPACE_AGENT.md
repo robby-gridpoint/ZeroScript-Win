@@ -32,6 +32,7 @@ ZeroScript-Win exposes a local-first coding workspace independently from its opt
 | `workspace_search` | Folder-scoped text search with optional case sensitivity and regular expressions; matches include line and column. The Explorer defaults to the workspace root and accepts workspace-relative folder paths. |
 | `workspace_symbols` | Best-effort discovery of function, type, and variable declarations across multiple language families. |
 | `workspace_write_file` | Create or replace a UTF-8 file and return a unified diff. |
+| `workspace_write_files` | Import up to 200 UTF-8 source files from another tool domain (such as Roblox Studio MCP) into workspace-relative paths in one batch. Validates all files before writing, protects existing files by default, supports explicit overwrite, and caps the payload at 10 MB. |
 | `workspace_apply_patch` | Apply one exact source replacement; repeated matches are rejected unless the caller explicitly opts into replace-all. |
 | `workspace_multi_edit` | Validate and apply a batch of exact replacements across multiple files, refusing ambiguous/missing matches before writes and returning per-file diffs. |
 | `workspace_replace_in_files` | Preview literal/regex replacements across project files; apply only with the preview hash and after user confirmation, rejecting stale previews. |
