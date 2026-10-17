@@ -111,8 +111,22 @@ input[type=checkbox] { margin: 0; accent-color: var(--accent); }
 .welcome-card span { flex: 1; color: #8d9bb0; font-size: 10px; line-height: 1.5; }
 .welcome-card kbd { margin-top: 6px; }
 .domain-note { margin-top: 23px; max-width: 600px; }
-.code-editor { display: block; width: 100%; height: 100%; flex: 1; padding: 20px 24px 28px; border: 0; outline: none; resize: none; background: #0d121a; color: #d7e2f3; font-family: Consolas, "Cascadia Code", "SFMono-Regular", monospace; font-size: 12px; line-height: 1.65; tab-size: 4; white-space: pre; overflow: auto; }
+.editor-surface { display: flex; flex: 1; min-width: 0; min-height: 0; overflow: hidden; background: #0d121a; }
+.line-numbers { width: 52px; flex: 0 0 52px; padding: 20px 11px 28px 0; overflow: hidden; border-right: 1px solid rgba(41, 53, 72, .5); background: #0d121a; color: #54637a; font-family: Consolas, "Cascadia Code", "SFMono-Regular", monospace; font-size: 12px; line-height: 1.65; text-align: right; white-space: pre; user-select: none; }
+.code-pane { position: relative; min-width: 0; min-height: 0; flex: 1; overflow: hidden; }
+.syntax-highlight { position: absolute; inset: 0; z-index: 1; margin: 0; padding: 20px 24px 28px; overflow: hidden; pointer-events: none; color: #d7e2f3; font-family: Consolas, "Cascadia Code", "SFMono-Regular", monospace; font-size: 12px; line-height: 1.65; tab-size: 4; white-space: pre; }
+.syntax-highlight code { display: block; min-width: max-content; font: inherit; }
+.code-editor { position: absolute; inset: 0; z-index: 2; display: block; width: 100%; height: 100%; padding: 20px 24px 28px; border: 0; border-radius: 0; outline: none; resize: none; background: transparent; color: transparent; -webkit-text-fill-color: transparent; caret-color: #f0f5ff; font-family: Consolas, "Cascadia Code", "SFMono-Regular", monospace; font-size: 12px; line-height: 1.65; tab-size: 4; white-space: pre; overflow: auto; }
+.code-editor::selection { background: rgba(93, 134, 220, .48); }
 .code-editor:focus { outline: none; }
+.syntax-keyword { color: #c792ea; }
+.syntax-string { color: #c3e88d; }
+.syntax-comment { color: #697c91; font-style: italic; }
+.syntax-number { color: #f78c6c; }
+.syntax-function { color: #82aaff; }
+.syntax-type { color: #ffcb6b; }
+.syntax-tag { color: #f07178; }
+.syntax-property { color: #89ddff; }
 .info-view { flex: 1; min-width: 0; padding: 21px 25px; overflow: auto; }
 .info-view h2 { margin: 0 0 16px; font-size: 15px; font-weight: 650; }
 .info-view pre { padding: 14px; border: 1px solid var(--border); border-radius: 8px; background: #101721; color: #b8c8df; font-size: 11px; line-height: 1.6; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
