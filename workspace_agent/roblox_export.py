@@ -122,7 +122,7 @@ def export_tree(manager, args: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(overwrite, bool):
         raise RuntimeError("overwrite must be a boolean.")
     root = PurePosixPath(root_path.replace("\\", "/"))
-    if root.is_absolute() or any(part in ("", ".", "..") for part in root.parts):
+    if not root.parts or root == PurePosixPath(".") or root.is_absolute() or any(part in ("", ".", "..") for part in root.parts):
         raise RuntimeError("root_path must be a safe workspace-relative directory.")
     if ":" in root_path or root_path.startswith("//"):
         raise RuntimeError("root_path must not contain drive or UNC path syntax.")
@@ -150,7 +150,7 @@ for _, inst in ipairs(game:GetDescendants()) do
             table.insert(segments, 1, node.Name)
             node = node.Parent
         end
-        table.insert(items, {segments = segments, className = inst.ClassName, source = inst.Source})
+        table.insert(items, {instance = inst, segments = segments, className = inst.ClassName})
     end
 end
 table.sort(items, function(a, b)
@@ -163,7 +163,7 @@ local limit = __LIMIT__
 local page = {}
 for i = first, math.min(#items, first + limit - 1) do
     local item = items[i]
-    table.insert(page, {index = i, segments = item.segments, className = item.className, source = item.source})
+    table.insert(page, {index = i, segments = item.segments, className = item.className, source = item.instance.Source})
 end
 return HttpService:JSONEncode({total = #items, first = first, files = page})
 '''
