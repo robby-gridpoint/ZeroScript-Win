@@ -299,7 +299,7 @@
         .map((it) => P.itemKey ? P.itemKey(it) : undefined)
         .filter((key) => key !== undefined && key !== null && key !== "")
         .map(String));
-      const normalizedPayload = String(text || "").replace(/\\s+/g, " ").trim();
+      const normalizedPayload = String(text || "").replace(/\s+/g, " ").trim();
       const deliveryNeedle = normalizedPayload.slice(0, Math.min(96, normalizedPayload.length));
       const matchingNewPayload = () => {
         if (!deliveryNeedle) return false;
@@ -310,7 +310,7 @@
           try {
             itemText = P.itemText ? P.itemText(item) : P.classifyText(item, ".zs-chip");
           } catch {}
-          const normalizedItem = String(itemText || "").replace(/\\s+/g, " ").trim();
+          const normalizedItem = String(itemText || "").replace(/\s+/g, " ").trim();
           if (!normalizedItem.includes(deliveryNeedle)) continue;
           const key = P.itemKey ? P.itemKey(item) : undefined;
           const isNewKey = key !== undefined && key !== null && key !== "" && !priorItemKeys.has(String(key));
