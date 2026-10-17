@@ -1122,8 +1122,8 @@ class MCPManager:
              "inputSchema": {"type": "object", "properties": {"path": {"type": "string", "default": "."}, "max_results": {"type": "integer", "minimum": 1, "maximum": 500}, "include_hidden": {"type": "boolean"}}, "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_read_file", "description": "Read a UTF-8 text file inside the selected project (maximum 1 MB). Optional 1-based start_line/end_line bounds the read.",
              "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}, "start_line": {"type": "integer", "minimum": 1}, "end_line": {"type": "integer", "minimum": 1}}, "required": ["path"], "additionalProperties": False}, "server": "workspace"},
-            {"name": "workspace_search", "description": "Search source text case-insensitively inside the selected project.",
-             "inputSchema": {"type": "object", "properties": {"query": {"type": "string"}, "path": {"type": "string", "default": "."}, "max_results": {"type": "integer", "minimum": 1, "maximum": 500}}, "required": ["query"], "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_search", "description": "Search source text inside the selected project. Supports optional case-sensitive matching and regular expressions; results include line and column.",
+             "inputSchema": {"type": "object", "properties": {"query": {"type": "string"}, "path": {"type": "string", "default": "."}, "max_results": {"type": "integer", "minimum": 1, "maximum": 500}, "case_sensitive": {"type": "boolean", "default": false}, "regex": {"type": "boolean", "default": false}}, "required": ["query"], "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_apply_patch", "description": "Apply an exact old_string to new_string edit to an existing UTF-8 file. Ambiguous matches are rejected unless replace_all is true. Prefer this to replacing whole files for targeted edits.",
              "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}, "old_string": {"type": "string"}, "new_string": {"type": "string"}, "replace_all": {"type": "boolean", "default": false}}, "required": ["path", "old_string", "new_string"], "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_write_file", "description": "Create or replace a UTF-8 text file inside the selected project. Returns a unified diff. This modifies files.",
@@ -1232,7 +1232,8 @@ class MCPManager:
                 result["total_lines"] = len(lines)
             return result
         if name == "workspace_search":
-            return self.workspace.search(args["query"], args.get("path", "."), args.get("max_results", 100))
+            return self.workspace.search(args["query"], args.get("path", "."), args.get("max_results", 100),
+                                         args.get("case_sensitive", False), args.get("regex", False))
         if name == "workspace_apply_patch":
             return self.workspace.apply_patch(args["path"], args["old_string"], args["new_string"], args.get("replace_all", False))
         if name == "workspace_write_file":
