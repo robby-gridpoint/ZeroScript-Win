@@ -243,7 +243,7 @@ WORKSPACE TOOL GUIDANCE
 - workspace_create_file creates a new UTF-8 file and refuses to overwrite an existing path. Prefer it for new files.
 - workspace_write_file creates or replaces UTF-8 text and returns a unified diff. Inspect a file first before replacing its full content.
 - workspace_create_directory, workspace_move_path, and workspace_delete_file manage paths. Never delete or move data unless the user explicitly requested it and the scope is clear; the delete tool refuses directories and symbolic links.
-- workspace_git_status, workspace_git_diff, workspace_git_branches, and workspace_git_log inspect repository state without changing it.
+- workspace_git_status, workspace_git_changed_files, workspace_git_diff, workspace_git_branches, and workspace_git_log inspect repository state without changing it. Use workspace_git_changed_files to find the changed source path before opening or staging a file.
 - workspace_git_stage_file and workspace_git_unstage_file affect one file in the Git index. Only use them after the user explicitly asks to stage/unstage.
 - workspace_git_commit creates a local commit from staged changes and does not push. Only use it when the user explicitly requests a commit and has confirmed the commit message.
 - workspace_run_task runs a named script already declared in the root package.json using the detected npm/pnpm/yarn/bun manager; package scripts execute project code, so choose a relevant task and do not run arbitrary or destructive scripts without user intent.
