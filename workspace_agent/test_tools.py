@@ -80,7 +80,7 @@ class WorkspaceTests(unittest.TestCase):
     def test_symbols_finds_function_and_type(self):
         (self.root / "src").mkdir()
         (self.root / "src" / "app.py").write_text(
-            "class WorkspaceManager:\\n    def select_workspace(self):\\n        return True\\n",
+            "class WorkspaceManager:\n    def select_workspace(self):\n        return True\n",
             encoding="utf-8",
         )
         result = self.ws.symbols()
