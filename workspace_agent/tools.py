@@ -270,11 +270,14 @@ class Workspace:
         results: list[dict[str, Any]] = []
         scanned = 0
         for current, dirs, names in os.walk(base):
-            dirs[:] = sorted(d for d in dirs if d not in DEFAULT_IGNORES and not d.startswith("."))
+            dirs[:] = sorted(d for d in dirs if d not in DEFAULT_IGNORES and not d.startswith(".")
+                              and not (Path(current) / d).is_symlink())
             for name in sorted(names):
                 if name.startswith("."):
                     continue
                 file_path = Path(current) / name
+                if file_path.is_symlink():
+                    continue
                 try:
                     if file_path.stat().st_size > MAX_READ_BYTES:
                         continue
@@ -308,6 +311,8 @@ class Workspace:
         target = self._resolve(path)
         if not target.is_file():
             raise WorkspaceError(f"Patch target is not an existing file: {path}")
+        if target.stat().st_size > MAX_READ_BYTES:
+            raise WorkspaceError(f"Patch target exceeds the {MAX_READ_BYTES}-byte edit limit.")
         if not isinstance(old_string, str) or not old_string:
             raise WorkspaceError("old_string must be a non-empty exact source fragment.")
         if not isinstance(new_string, str):
