@@ -176,6 +176,10 @@
     // upcoming submitAndGetBase/typeAndSend call to attach as the LAST step
     // before sending (see the comment in runTool's r.images branch).
     pendingImages: null,
+    // False until the provider confirms that an injected tool result landed in
+    // conversation history. The loop must not wait on a model reply to a message
+    // that was never delivered.
+    lastSendConfirmed: true,
     // BARE names of tools observed to return images at least once this session.
     // For the KNOWN Roblox vision tool (screen_capture) toolCategory already
     // gives the "screen" chip optimistically at run time; a custom MCP tool's
@@ -266,6 +270,7 @@
   }
 
   async function submitAndGetBase(text, images) {
+    A.lastSendConfirmed = false;
     captureSendToken();
     diag("send", { text: String(text).slice(0, 60), busy: P.isBusyNow() });
     A.injecting = true;
@@ -348,8 +353,10 @@
           `${P.displayName} did not confirm the injected tool result in conversation history after ${tries} attempts. ` +
           `The tool may have executed, but its result was not delivered to the model. Send "continue" to resume, and check the conversation before retrying the action.`);
       } else if (confirmedLanded) {
+        A.lastSendConfirmed = true;
         diag("send.confirmed", { tries, editorCleared: messageSent });
       }
+      if (!confirmedLanded && !A.stop) A.lastSendConfirmed = false;
       return base;
     } finally {
       // During Starting Up / the agent loop, the bootstrap or loop owns the cover
@@ -707,7 +714,7 @@
         // placeholder like "command_name") is NOT misread as a broken command and
         // looped on - only a real tool name means a genuine failed call.
         const nm = ZSParse.toolNameFromText(r);
-        if (nm && nm !== "command" && (A.toolNames.has(nm) || A.toolNames.has(bareToolName(nm)))) {
+        if (nm && nm !== "command" && knownTool(nm)) {
           return { kind: "parse_error", reason: "malformed", raw: r, item: d.item };
         }
       }
@@ -836,12 +843,16 @@
   // plain `A.toolNames.has(bare)` misses, and so does bareToolName(bare), which
   // cannot re-add a prefix it never had. Compare bare-to-bare in BOTH directions.
   const bareKey = (n) => String(n || "").split("/").pop().split(".").pop();
+  function resolveKnownTool(name) {
+    if (!name || !A.toolNames.size) return null;
+    if (A.toolNames.has(name)) return name;
+    const target = bareKey(name);
+    const matches = [...A.toolNames].filter((candidate) => bareKey(candidate) === target);
+    // Never choose arbitrarily if two MCP servers expose the same bare name.
+    return matches.length === 1 ? matches[0] : null;
+  }
   function knownTool(name) {
-    if (!name || !A.toolNames.size) return false;
-    if (A.toolNames.has(name) || A.toolNames.has(bareToolName(name))) return true;
-    const b = bareKey(name);
-    for (const t of A.toolNames) if (bareKey(t) === b) return true;
-    return false;
+    return resolveKnownTool(name) !== null;
   }
   const isBlockedTool = (name) => {
     const bare = bareToolName(name);
@@ -906,8 +917,13 @@
   }
 
   async function runTool(call) {
-    const name = call.tool;
+    const suppliedName = call.tool;
+    // Models sometimes use the bare tool name while the MCP catalogue prefixes
+    // it with a server id (or vice versa). Resolve only a unique catalogue match
+    // so the bridge receives its exact registered tool name.
+    const name = resolveKnownTool(suppliedName) || suppliedName;
     const args = call.arguments || {};
+    if (name !== suppliedName) diag("tool.nameResolved", { supplied: suppliedName, resolved: name });
     if (!name) return ZS.FEEDBACK.parseError("malformed");
     // NEVER execute while the AI tab is backgrounded/minimized. This is the single
     // choke point for ALL execution (agentLoop's tool dispatch AND the bootstrap's
@@ -1492,6 +1508,10 @@
           A.pendingImages = null;
           diag("images.consumed", { count: images ? images.length : 0 });
           base = await submitAndGetBase(toSend, images);
+          if (!A.lastSendConfirmed && !A.stop) {
+            diag("loop.resultUndelivered", { name: call.tool });
+            break; // do not wait for a model response to feedback that never landed
+          }
         }
       }
     } catch (e) {

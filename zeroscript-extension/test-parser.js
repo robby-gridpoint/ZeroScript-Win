@@ -30,6 +30,35 @@ ok("keeps legit Copy( identifier", luaCopyIdent[0].arguments.code === "Copy(work
 const paramless = ZSParse.parseToolCalls('{"command":"list_commands"}');
 ok("paramless command", paramless.length === 1 && paramless[0].tool === "list_commands");
 
+const fence = String.fromCharCode(96, 96, 96);
+const screenshotResponse = `${fence}json\n${JSON.stringify({
+  command: "roblox/list_roblox_studios",
+  params: {},
+}, null, 2)}\n${fence}`;
+const screenshotCall = ZSParse.parseToolCalls(screenshotResponse);
+ok("screenshot-style fenced function call", screenshotCall.length === 1 &&
+  screenshotCall[0].tool === "roblox/list_roblox_studios" &&
+  Object.keys(screenshotCall[0].arguments).length === 0);
+
+const proseResponse = `Here is the call:\n${fence}json\n${JSON.stringify({
+  command: "get_studio_state",
+  params: { studio_id: "abc" },
+})}\n${fence}`;
+const proseWrapped = ZSParse.parseToolCalls(proseResponse);
+ok("JSON function call inside prose and fence", proseWrapped.length === 1 &&
+  proseWrapped[0].tool === "get_studio_state" &&
+  proseWrapped[0].arguments.studio_id === "abc");
+const functionEnvelope = ZSParse.parseToolCalls('{"function":{"name":"get_studio_state","arguments":{"studio_id":"abc"}}}');
+ok("wrapped function/name/arguments envelope", functionEnvelope.length === 1 &&
+  functionEnvelope[0].tool === "get_studio_state" &&
+  functionEnvelope[0].arguments.studio_id === "abc");
+
+ok("wrapped function envelope triggers dispatch path",
+  ZSParse.hasToolSignature('{"function":{"name":"get_studio_state","arguments":{"studio_id":"abc"}}}'));
+ok("wrapped function envelope is treated as command-shaped",
+  ZSParse.hasCommandShape('{"function":{"name":"get_studio_state","arguments":{"studio_id":"abc"}}}'));
+ok("open wrapped function envelope remains open while streaming",
+  ZSParse.hasOpenToolBlock('{"function":{"name":"get_studio_state","arguments":{"studio_id":"abc"}'));
 const braces = ZSParse.parseToolCalls('{"command":"multi_edit","params":{"code":"if x then {y} end"}}');
 ok("braces inside string value", braces.length === 1 && braces[0].arguments.code === "if x then {y} end");
 

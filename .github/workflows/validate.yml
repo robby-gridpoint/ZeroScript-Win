@@ -63,6 +63,7 @@ jobs:
           node --check zeroscript-extension/providers/chatgpt.js 2>&1 | tee -a extension-test-results.txt
           node zeroscript-extension/test-chatgpt.js 2>&1 | tee -a extension-test-results.txt
           node --check zeroscript-extension/core/parser.js 2>&1 | tee -a extension-test-results.txt
+          node zeroscript-extension/test-parser.js 2>&1 | tee -a extension-test-results.txt
           node --check zeroscript-extension/core/main.js 2>&1 | tee -a extension-test-results.txt
           node --check zeroscript-extension/background.js 2>&1 | tee -a extension-test-results.txt
           node --check zeroscript-extension/popup.js 2>&1 | tee -a extension-test-results.txt
