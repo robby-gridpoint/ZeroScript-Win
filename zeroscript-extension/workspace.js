@@ -617,18 +617,22 @@ async function chooseWorkspace() {
       writeOutput("Folder picker", "Selection cancelled. The active workspace was not changed.");
       return;
     }
-    if (state.dirty && !window.confirm("Discard unsaved changes and switch workspaces?")) {
-      writeOutput("Workspace switch cancelled", "Your open file and unsaved edits were kept. The selected folder was not activated.");
+    const dirtyTabs = state.openTabs.filter((tab) => tab.dirty);
+    if (dirtyTabs.length && !window.confirm("Switch workspaces and discard unsaved edits in " + dirtyTabs.length + " open tab(s)?")) {
+      writeOutput("Workspace switch cancelled", "The selected folder was not activated; all open buffers were kept.");
       return;
     }
     const activated = await callTool("workspace_set_root", { path: picked.selected_path });
     state.workspace = activated;
+    state.openTabs = [];
+    state.activeTabKey = null;
     state.folder = ".";
     state.currentFile = null;
     state.fileWorkspaceRoot = null;
     state.savedContent = "";
     state.dirty = false;
     $("codeEditor").value = "";
+    renderOpenTabs();
     showWelcome();
     renderDirty();
     updateWorkspaceHeader();
@@ -934,17 +938,21 @@ async function activateModalItem(item) {
   } else if (item.action === "recent-workspaces") {
     await openRecentWorkspaces();
   } else if (item.action === "open-recent") {
-    if (!mayReplaceEditorView()) return;
+    const dirtyTabs = state.openTabs.filter((tab) => tab.dirty);
+    if (dirtyTabs.length && !window.confirm("Switch workspaces and discard unsaved edits in " + dirtyTabs.length + " open tab(s)?")) return;
     setBusy(true, "Switching workspace…");
     try {
       const result = await callTool("workspace_open_recent", { path: item.path });
       state.workspace = result;
+      state.openTabs = [];
+      state.activeTabKey = null;
       state.folder = ".";
       state.currentFile = null;
       state.fileWorkspaceRoot = null;
       state.savedContent = "";
       state.dirty = false;
       $("codeEditor").value = "";
+      renderOpenTabs();
       showWelcome();
       renderDirty();
       updateWorkspaceHeader();
@@ -1039,11 +1047,9 @@ async function loadGitStatus() {
 }
 
 function mayReplaceEditorView() {
-  if (!state.dirty) return true;
-  if (!window.confirm("Discard unsaved changes to the open file?")) return false;
-  state.dirty = false;
-  $("codeEditor").value = state.savedContent;
-  renderDirty();
+  // Open files keep their own in-memory buffers. Switching to search, Git, or
+  // project details must never discard an editor buffer.
+  syncActiveTabFromEditor();
   return true;
 }
 
@@ -1382,15 +1388,21 @@ chrome.runtime.onMessage.addListener((message) => {
     const nextRoot = message.workspace.root;
     state.workspace = { ...(state.workspace || {}), ...message.workspace };
     updateWorkspaceHeader();
-    if ((!previousRoot || previousRoot !== nextRoot) && !state.dirty && message.workspace.configured) {
-      state.currentFile = null;
-      state.fileWorkspaceRoot = null;
-      state.folder = ".";
-      showWelcome();
-      loadWorkspaceDetails();
-    } else if (previousRoot && previousRoot !== nextRoot && state.dirty) {
-      errorOutput("Workspace changed", "The active folder changed in another ZeroScript window. Your unsaved buffer is preserved, but saving it into the new workspace is blocked. Copy it elsewhere or reopen the original project before continuing.");
+    if ((!previousRoot || previousRoot !== nextRoot) && message.workspace.configured) {
+      const dirtyTabs = state.openTabs.filter((tab) => tab.dirty);
+      if (dirtyTabs.length) {
+        errorOutput("Workspace changed", "The active folder changed in another ZeroScript window. Open tabs and unsaved buffers are preserved, but saving buffers from the prior folder is blocked.");
+      } else {
+        state.openTabs = [];
+        state.activeTabKey = null;
+        state.currentFile = null;
+        state.fileWorkspaceRoot = null;
+        state.folder = ".";
+        showWelcome();
+      }
+      renderOpenTabs();
       renderDirty();
+      loadWorkspaceDetails();
     }
   }
 });
