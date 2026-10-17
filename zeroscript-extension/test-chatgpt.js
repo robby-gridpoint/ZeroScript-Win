@@ -86,6 +86,20 @@ ok("new user content unit is classified as a user turn", P.isUserItem(modernUser
 ok("new assistant content unit is classified as an assistant turn", P.isAssistantItem(modernAssistant));
 ok("new assistant unit supplies a stable turn identity", P.itemKey(modernAssistant) === "turn-abc:assistant");
 ok("new assistant unit is a readable reply fallback", P.replyNodes(modernAssistant)[0] === modernAssistant);
+
+// October ChatGPT may render a code block beside (rather than inside) its
+// .markdown subtree. The prose node alone is not a complete assistant reply.
+const siblingMarkdown = el("div", { class: "markdown" }, ["One moment."]);
+const siblingCommand = el("pre", {}, ['{"command":"list_tools","params":{}}']);
+const splitReply = {
+  getAttribute: (name) => name === "data-message-author-role" ? "assistant" : null,
+  querySelectorAll: (selector) => selector === ".markdown" ? [siblingMarkdown] :
+    selector === "pre" ? [siblingCommand] : [],
+};
+ok("orphaned fenced command outside markdown is included in reply nodes",
+  P.replyNodes(splitReply).includes(siblingCommand));
+ok("orphaned fenced command text reaches the parser",
+  P.itemText(splitReply).includes('"command":"list_tools"'));
 const stopIconPath = "M4.5 5.75C4.5 5.05964 5.05964 4.5 5.75 4.5H14.25C14.9404 4.5 15.5 5.05964 15.5 5.75V14.25C15.5 14.9404 14.9404 15.5 14.25 15.5H5.75C5.05964 15.5 4.5 14.9404 4.5 14.25V5.75Z";
 const modernStopButton = {
   getAttribute: () => null,
