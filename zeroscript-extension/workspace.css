@@ -135,3 +135,7 @@ input[type=checkbox] { margin: 0; accent-color: var(--accent); }
   .welcome-card { min-height: auto; }
   .toolbar-button { padding: 4px; margin: 0 2px; }
 }
+
+.is-busy .connection-dot { animation: zs-pulse 1.1s ease-in-out infinite; }
+@keyframes zs-pulse { 50% { opacity: .35; } }
+.output-text.error-text { color: #f19a9a; }
