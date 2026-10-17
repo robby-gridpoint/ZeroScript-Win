@@ -1898,6 +1898,7 @@
       ui.setStarted(true);
       ui.toast(`Agent ready. Ask ${P.displayName} to work on your project.`);
     } catch (e) {
+      console.error("[zeroscript] Startup failed", e && e.stack ? e.stack : e);
       if (alive()) ui.banner("warn", "Startup failed", String((e && e.message) || e));
     } finally {
       // Only tear down our OWN starting state. If we were superseded (the user
