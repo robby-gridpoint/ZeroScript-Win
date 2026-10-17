@@ -70,8 +70,10 @@ def _build_execute_args(tool: dict[str, Any], code: str) -> dict[str, Any]:
     for key in required:
         if key in args:
             continue
-        if key in ("datamodel_type", "data_model_type", "target"):
+        if key in ("datamodel_type", "data_model_type"):
             args[key] = "Edit"
+        elif key == "target":
+            args[key] = "studio"
         elif key in ("studio_id", "studioId"):
             # Some Studio MCP versions require an explicit studio id. Resolve it
             # through the server's own discovery tool below when possible.
@@ -97,7 +99,7 @@ def _studio_id(client, tool_schema: dict[str, Any]) -> str | None:
         try:
             result = client.call_tool(name, {}, timeout=20)
             payload = _decode_payload(result.get("text", ""))
-            studios = payload.get("studios") or payload.get("instances") or []
+            studios = payload if isinstance(payload, list) else (payload.get("studios") or payload.get("instances") or [])
             if studios and isinstance(studios[0], dict):
                 return str(studios[0].get("studio_id") or studios[0].get("studioId") or studios[0].get("id") or "") or None
         except Exception:
@@ -127,6 +129,8 @@ def export_tree(manager, args: dict[str, Any]) -> dict[str, Any]:
     if ":" in root_path or root_path.startswith("//"):
         raise RuntimeError("root_path must not contain drive or UNC path syntax.")
 
+    if not any(str(item.get("name", "")) == "execute_luau" or str(item.get("name", "")).endswith("/execute_luau") for item in (client.tools_cache or [])):
+        client.refresh_tools()
     tool = _find_execute_tool(client)
     studio_id = _studio_id(client, tool)
     schema_props = (tool.get("inputSchema") or {}).get("properties") or {}
