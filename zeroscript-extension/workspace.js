@@ -151,6 +151,69 @@ function languageForPath(path) {
   return names[ext] || (path.toLowerCase().endsWith("dockerfile") ? "Dockerfile" : "Plain Text");
 }
 
+function updateHighlight() {
+  const editor = $("codeEditor");
+  const code = editor.value;
+  const ext = ((state.currentFile || "").split(".").pop() || "").toLowerCase();
+  const keywords = {
+    js: "async await break case catch class const continue debugger default delete do else export extends false finally for from function if import in instanceof let new null of return static super switch this throw true try typeof undefined var void while yield",
+    jsx: "async await break case catch class const continue debugger default delete do else export extends false finally for from function if import in instanceof let new null of return static super switch this throw true try typeof undefined var void while yield",
+    ts: "abstract any as asserts async await bigint boolean break case catch class const continue declare default delete do else enum export extends false finally for from function if implements import infer instanceof interface keyof let module namespace never new null number object of package private protected public readonly return static string super switch symbol this throw true type typeof undefined unknown var void while yield",
+    tsx: "abstract any as asserts async await bigint boolean break case catch class const continue declare default delete do else enum export extends false finally for from function if implements import infer instanceof interface keyof let module namespace never new null number object of package private protected public readonly return static string super switch symbol this throw true type typeof undefined unknown var void while yield",
+    py: "and as assert async await break class continue def del elif else except False finally for from global if import in is lambda None nonlocal not or pass raise return self True try while with yield",
+    pyw: "and as assert async await break class continue def del elif else except False finally for from global if import in is lambda None nonlocal not or pass raise return self True try while with yield",
+    lua: "and break do else elseif end false for function if in local nil not or repeat return then true until while",
+    luau: "and break continue do else elseif end false for function if in local nil not or repeat return then true until while type export",
+    json: "false null true",
+    jsonc: "false null true",
+    go: "break case chan const continue default defer else fallthrough for func go goto if import interface map package range return select struct switch type var",
+    rs: "as async await break const continue crate dyn else enum extern false fn for if impl in let loop match mod move mut pub ref return self Self static struct super trait true type union unsafe use where while",
+    java: "abstract assert boolean break byte case catch char class const continue default do double else enum extends final finally float for if implements import instanceof int interface long native new package private protected public return short static strictfp super switch synchronized this throw throws transient try void volatile while",
+    cs: "abstract as base bool break byte case catch char checked class const continue decimal default delegate do double else enum event explicit extern false finally fixed float for foreach goto if implicit in int interface internal is lock long namespace new null object operator out override params private protected public readonly ref return sbyte sealed short sizeof stackalloc static string struct switch this throw true try typeof uint ulong unchecked unsafe ushort using var virtual void volatile while",
+    sh: "case do done elif else esac fi for function if in select then time until while",
+    ps1: "begin break catch class continue data define do dynamicparam else elseif end exit filter finally for foreach from function if in param process return switch throw trap try until using var while workflow",
+    sql: "all alter and as asc begin between by case check column commit constraint create cross current_database current_date database declare default delete desc distinct drop else end escape except exists false fetch for foreign from full function grant group having if in index inner insert intersect into is join key left like limit not null offset on or order outer primary procedure references right rollback row select set table then to transaction trigger true union unique update use using values view when where with"
+  };
+  const words = (keywords[ext] || "async await break case catch class const continue default delete do else false finally for from function if import in let new null of return static switch this throw true try typeof var void while yield").split(/\s+/).join("|");
+  const comments = ["py", "pyw", "sh", "ps1", "yaml", "yml", "toml", "rb", "r", "pl", "makefile"].includes(ext)
+    ? "#.*$|//.*$|/\\*.*?\\*/"
+    : ["lua", "luau", "sql"].includes(ext)
+      ? "--.*$|//.*$|/\\*.*?\\*/"
+      : ext === "html" || ext === "xml"
+        ? "<!--.*?-->|//.*$|/\\*.*?\\*/"
+        : "//.*$|/\\*.*?\\*/";
+  const tokenPattern = new RegExp(
+    '("(?:\\\\.|[^"\\\\])*"|\\x27(?:\\\\.|[^\\x27\\\\])*\\x27|\\x60(?:\\\\.|[^\\x60\\\\])*\\x60)|(' + comments + ')|(<\\/?[A-Za-z][^<>]*?>)|(\\b(?:' + words + ')\\b)|(\\b(?:0[xX][\\da-fA-F]+|\\d+(?:\\.\\d+)?)\\b)|(\\b[A-Za-z_$][\\w$]*(?=\\s*\\())|(\\b[A-Z][\\w$]*\\b)',
+    "g"
+  );
+  const sourceLines = code.split("\n");
+  const rendered = sourceLines.map((line) => {
+    let out = "";
+    let last = 0;
+    tokenPattern.lastIndex = 0;
+    let match;
+    while ((match = tokenPattern.exec(line)) !== null) {
+      out += escapeHtml(line.slice(last, match.index));
+      const token = escapeHtml(match[0]);
+      const cls = match[1] ? "syntax-string"
+        : match[2] ? "syntax-comment"
+        : match[3] ? "syntax-tag"
+        : match[4] ? "syntax-keyword"
+        : match[5] ? "syntax-number"
+        : match[6] ? "syntax-function"
+        : "syntax-type";
+      out += '<span class="' + cls + '">' + token + "</span>";
+      last = match.index + match[0].length;
+    }
+    return out + escapeHtml(line.slice(last));
+  });
+  $("highlightCode").innerHTML = rendered.join("\n") || "&#8203;";
+  $("lineNumbers").textContent = sourceLines.map((_, index) => String(index + 1)).join("\n") || "1";
+  $("lineNumbers").scrollTop = editor.scrollTop;
+  $("syntaxHighlight").scrollTop = editor.scrollTop;
+  $("syntaxHighlight").scrollLeft = editor.scrollLeft;
+}
+
 function updateCursorStatus() {
   const text = $("codeEditor").value.slice(0, $("codeEditor").selectionStart || 0);
   const lines = text.split("\n");
