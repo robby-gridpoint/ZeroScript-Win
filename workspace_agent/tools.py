@@ -703,6 +703,10 @@ class Workspace:
         """Stage one workspace-relative file in Git without executing a shell."""
         if not isinstance(path, str) or not path.strip() or path.strip() in (".", "./"):
             raise WorkspaceError("Select a single workspace-relative file to stage.")
+        raw_target = Path(path).expanduser()
+        raw_target = raw_target if raw_target.is_absolute() else self.root / raw_target
+        if raw_target.is_symlink():
+            raise WorkspaceError("Staging symbolic links is not supported.")
         target = self._resolve(path)
         if target.exists() and target.is_dir():
             raise WorkspaceError("Only one file can be staged with this tool; directories are refused.")
@@ -713,6 +717,10 @@ class Workspace:
         """Remove one path from the Git index without changing working-tree contents."""
         if not isinstance(path, str) or not path.strip() or path.strip() in (".", "./"):
             raise WorkspaceError("Select a single workspace-relative file to unstage.")
+        raw_target = Path(path).expanduser()
+        raw_target = raw_target if raw_target.is_absolute() else self.root / raw_target
+        if raw_target.is_symlink():
+            raise WorkspaceError("Unstaging through symbolic links is not supported.")
         target = self._resolve(path)
         if target.exists() and target.is_dir():
             raise WorkspaceError("Only one file can be unstaged with this tool; directories are refused.")
@@ -726,7 +734,7 @@ class Workspace:
         cleaned = message.strip()
         if len(cleaned) > 500:
             raise WorkspaceError("Commit messages are limited to 500 characters.")
-        if any(ord(character) < 32 and character not in "\\t" for character in cleaned):
+        if any(ord(character) < 32 or ord(character) == 127 for character in cleaned):
             raise WorkspaceError("Commit message contains unsupported control characters.")
         return self._run(["git", "commit", "-m", cleaned], timeout=60)
 
