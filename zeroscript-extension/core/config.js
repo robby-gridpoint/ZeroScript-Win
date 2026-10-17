@@ -28,7 +28,7 @@ var ZS = (() => {
     if (/capture|screenshot|screen/i.test(n)) return "screen";
     if (rawName.startsWith("roblox/")) return "roblox";
     if (/^(workspace_info|workspace_recent_roots|workspace_project_info|workspace_tree|workspace_file_outline|workspace_list_files|workspace_read_file|workspace_search|workspace_find_files|workspace_symbols|workspace_git_status|workspace_git_diff|workspace_git_branches|workspace_git_log|list_tools|list_commands)$/.test(n)) return "read";
-    if (/^(workspace_write_file|workspace_apply_patch|workspace_multi_edit|workspace_open_recent|workspace_set_root|workspace_create_file|workspace_create_directory|workspace_move_path|workspace_delete_file|multi_edit|insert_from_creator_store|store_image)$/.test(n)) return "edit";
+    if (/^(workspace_write_file|workspace_apply_patch|workspace_multi_edit|workspace_open_recent|workspace_set_root|workspace_create_file|workspace_create_directory|workspace_move_path|workspace_delete_file|workspace_git_stage_file|workspace_git_unstage_file|workspace_git_commit|multi_edit|insert_from_creator_store|store_image)$/.test(n)) return "edit";
     if (/^(workspace_run_command|execute_luau)$/.test(n)) return "edit";
     if (/capture|screenshot|screen/i.test(n)) return "screen";
     if (/^(generate_|create_)/i.test(n)) return "generate";
@@ -244,6 +244,8 @@ WORKSPACE TOOL GUIDANCE
 - workspace_write_file creates or replaces UTF-8 text and returns a unified diff. Inspect a file first before replacing its full content.
 - workspace_create_directory, workspace_move_path, and workspace_delete_file manage paths. Never delete or move data unless the user explicitly requested it and the scope is clear; the delete tool refuses directories and symbolic links.
 - workspace_git_status, workspace_git_diff, workspace_git_branches, and workspace_git_log inspect repository state without changing it.
+- workspace_git_stage_file and workspace_git_unstage_file affect one file in the Git index. Only use them after the user explicitly asks to stage/unstage.
+- workspace_git_commit creates a local commit from staged changes and does not push. Only use it when the user explicitly requests a commit and has confirmed the commit message.
 - workspace_run_command runs an argv array from the selected root with a bounded timeout and output. Use it for relevant tests/builds, and ask before commands that are destructive, install packages, expose secrets, incur charges, or change external production systems.
 The available tools may include additional MCP integrations. Use the live catalogue and their descriptions for those.
 
