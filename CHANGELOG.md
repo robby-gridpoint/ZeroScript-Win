@@ -2,6 +2,21 @@
 
 All notable changes to ZeroScript Free are documented here.
 
+## [1.11.1] - 2026-10-17
+
+### Fixed
+- **ChatGPT: restore compatibility with the updated composer and conversation DOM.**
+  The provider now recognizes the newer composer form/contenteditable, modern
+  user and assistant content units, updated turn identifiers, and the current
+  icon-based Stop control. The status bar uses the fixed anchored fallback when
+  the composer no longer exposes a safe full-width grid row, avoiding stale grid
+  areas that could squeeze the input.
+- **ChatGPT: add regression coverage for modern turn markup.**
+  The smoke test now checks current user/assistant unit identification, stable
+  turn keys, and reply-node fallback. CI runs the ChatGPT provider syntax check
+  and smoke tests.
+
+
 ## [1.5.5] - 2026-09-10
 
 ### Fixed
