@@ -1460,6 +1460,44 @@ async function applyReplacePreview() {
   if (applied && $("searchQuery").value) await runSearch();
 }
 
+async function mutateGitPath(path, unstage = false) {
+  if (state.busy) return;
+  if (!state.workspace || !state.workspace.configured || !path) {
+    errorOutput("Git file action blocked", "Choose a workspace and a changed file first.");
+    return;
+  }
+  const activeRoot = state.workspace.root;
+  const openTab = state.openTabs.find((tab) => tab.root === activeRoot && tab.path === path);
+  const verb = unstage ? "Unstage" : "Stage";
+  if (!unstage && openTab && openTab.dirty) {
+    if (!window.confirm("Save the unsaved editor buffer for " + path + " before staging it?")) return;
+    switchToTab(openTab.key);
+    await saveFile();
+    if (openTab.dirty) {
+      errorOutput("Stage cancelled", "The file is still unsaved. Fix the save failure before staging it.");
+      return;
+    }
+  }
+  if (!window.confirm(verb + " " + path + " in the local Git index? This does not create a commit or push changes.")) return;
+  setBusy(true, verb + "ing " + path + "…");
+  try {
+    const result = await callTool(unstage ? "workspace_git_unstage_file" : "workspace_git_stage_file", { path });
+    if (result.exit_code !== 0) throw new Error(result.output || "Git exited with code " + result.exit_code);
+    const [status, changed] = await Promise.all([
+      callTool("workspace_git_status", {}),
+      callTool("workspace_git_changed_files", {}),
+    ]);
+    $("gitSummary").textContent = status.output || "(No Git output)";
+    renderGitChanges(changed.files || []);
+    writeOutput(verb + " file", result.output || verb + "d " + path);
+  } catch (error) {
+    errorOutput(verb + " file failed", error);
+  } finally {
+    setBusy(false);
+    renderDirty();
+  }
+}
+
 async function mutateGitFile(unstage = false) {
   if (state.busy) return;
   const tab = activeTab();
@@ -1547,6 +1585,8 @@ function renderGitChanges(files) {
   for (const entry of state.gitChanges) {
     const row = document.createElement("div");
     row.className = "git-change-row";
+    const primary = document.createElement("div");
+    primary.className = "git-change-primary";
     const open = document.createElement("button");
     open.type = "button";
     open.className = "git-change-open";
@@ -1573,7 +1613,43 @@ function renderGitChanges(files) {
       if (entry.kind === "deleted") loadGitDiff(entry.staged && !entry.unstaged, entry.path);
       else openFile(entry.path);
     });
-    row.append(open);
+    primary.append(open);
+
+    const actions = document.createElement("div");
+    actions.className = "git-change-actions";
+    if (entry.unstaged || entry.untracked) {
+      const diff = document.createElement("button");
+      diff.type = "button";
+      diff.className = "git-change-action";
+      diff.textContent = "Diff";
+      diff.title = "Show unstaged diff for " + entry.path;
+      diff.addEventListener("click", () => loadGitDiff(false, entry.path));
+      actions.append(diff);
+      const stage = document.createElement("button");
+      stage.type = "button";
+      stage.className = "git-change-action stage";
+      stage.textContent = "＋";
+      stage.title = "Stage " + entry.path;
+      stage.addEventListener("click", () => mutateGitPath(entry.path, false));
+      actions.append(stage);
+    }
+    if (entry.staged) {
+      const stagedDiff = document.createElement("button");
+      stagedDiff.type = "button";
+      stagedDiff.className = "git-change-action";
+      stagedDiff.textContent = "Staged";
+      stagedDiff.title = "Show staged diff for " + entry.path;
+      stagedDiff.addEventListener("click", () => loadGitDiff(true, entry.path));
+      actions.append(stagedDiff);
+      const unstage = document.createElement("button");
+      unstage.type = "button";
+      unstage.className = "git-change-action";
+      unstage.textContent = "−";
+      unstage.title = "Unstage " + entry.path;
+      unstage.addEventListener("click", () => mutateGitPath(entry.path, true));
+      actions.append(unstage);
+    }
+    row.append(primary, actions);
     host.append(row);
   }
 }
