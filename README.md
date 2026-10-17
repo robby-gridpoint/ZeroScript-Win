@@ -6,7 +6,7 @@ The extension preserves the existing browser-provider integrations and Roblox St
 
 ## Current status
 
-**Workspace-first IDE remaster in progress (v1.8.0).**
+**Workspace-first IDE remaster in progress (v1.9.0).**
 
 The bridge exposes an expanded, project-scoped toolset:
 
@@ -16,8 +16,8 @@ The bridge exposes an expanded, project-scoped toolset:
 - Source-file outlines for imports, headings, variables, and declarations, plus cross-language declaration/symbol discovery.
 - Exact-match patch edits, validated multi-file edit batches that verify all replacements before writing, and complete-file writes that return unified diffs.
 - Safe no-overwrite file/directory creation, rename/move, and single-file delete operations. Directory deletion and symbolic-link mutation are refused.
-- Git status, staged/unstaged diffs, branch listing, and recent commit history.
-- A dedicated Workspace Explorer page with file tree, text editor, lightweight syntax coloring and line numbers, keyboard indentation, fuzzy Quick Open, a searchable Command Palette, search/outline/project panes, Git views, output/problems panes, and argv-based command runner.
+- Git status, staged/unstaged diffs, branch listing, recent history, single-file stage/unstage, and confirmed local commits (no automatic push).
+- A dedicated Workspace Explorer page with file tree, multi-tab text editor with independent unsaved buffers, lightweight syntax coloring and line numbers, keyboard indentation, Save All, close-tab controls, fuzzy Quick Open, a searchable Command Palette, search/outline/project panes, Git views, output/problems panes, and argv-based command runner.
 - One-click project Test/Build/Lint/Check tasks discovered from package.json and package manager metadata, each with an explicit confirmation.
 - Bounded command execution from the selected project directory using an argument array and `shell=False`.
 
