@@ -596,55 +596,53 @@ class Workspace:
             raise WorkspaceError("A task name is required.")
         name = task.strip()
         timeout = max(1, min(int(timeout), 300))
+        builtins = {item["task"]: item for item in self._builtin_task_catalogue()}
 
-        if name.startswith("package:"):
-            script_name = name[len("package:"):]
-        else:
-            script_name = name
+        # Built-ins have namespaced keys, so they cannot be confused with plain
+        # package script names. These argv arrays come only from our whitelist.
+        if name in builtins:
+            selected = builtins[name]
+            result = self._run(selected["command"], timeout=timeout)
+            return {**selected, **result, "timeout": timeout}
 
+        explicit_package_task = name.startswith("package:")
+        script_name = name[len("package:"):] if explicit_package_task else name
         package_path = self.root / "package.json"
+        scripts: dict[str, Any] = {}
         if not package_path.is_symlink() and package_path.is_file():
             try:
                 package = json.loads(package_path.read_text(encoding="utf-8"))
                 if not isinstance(package, dict):
                     raise ValueError("package.json must contain a JSON object")
+                raw_scripts = package.get("scripts") or {}
+                scripts = raw_scripts if isinstance(raw_scripts, dict) else {}
             except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
                 raise WorkspaceError(f"Could not read package.json: {exc}") from exc
-            scripts = package.get("scripts") or {}
-            if isinstance(scripts, dict) and script_name in scripts and (name.startswith("package:") or name == script_name):
-                details = self.project_info()
-                manager = details.get("package_manager")
-                if manager not in {"npm", "pnpm", "yarn", "bun"}:
-                    raise WorkspaceError("No supported package manager could be detected for this project.")
-                command = [manager, "run", script_name]
-                result = self._run(command, timeout=timeout)
-                return {
-                    "task": name if name == script_name else "package:" + script_name,
-                    "name": script_name,
-                    "script": str(scripts[script_name]),
-                    "package_manager": manager,
-                    **result,
-                }
 
-        builtins = {item["task"]: item for item in self._builtin_task_catalogue()}
-        if name not in builtins:
-            available: list[str] = []
-            if not package_path.is_symlink() and package_path.is_file():
-                try:
-                    package = json.loads(package_path.read_text(encoding="utf-8"))
-                    scripts = package.get("scripts") or {} if isinstance(package, dict) else {}
-                    if isinstance(scripts, dict):
-                        available.extend("package:" + str(key) for key in scripts)
-                except (OSError, UnicodeDecodeError, json.JSONDecodeError):
-                    pass
-            available.extend(builtins)
-            suffix = ", ".join(available[:40])
-            raise WorkspaceError(f"Task '{name}' is not available for this workspace." + (f" Available tasks: {suffix}" if suffix else ""))
+        if script_name and script_name in scripts:
+            details = self.project_info()
+            manager = details.get("package_manager")
+            if manager not in {"npm", "pnpm", "yarn", "bun"}:
+                raise WorkspaceError("No supported package manager could be detected for this project.")
+            command = [manager, "run", script_name]
+            result = self._run(command, timeout=timeout)
+            return {
+                "task": "package:" + script_name if explicit_package_task else script_name,
+                "name": script_name,
+                "kind": "package",
+                "script": str(scripts[script_name]),
+                "package_manager": manager,
+                "command_label": " ".join(command),
+                **result,
+            }
 
-        selected = builtins[name]
-        command = selected["command"]
-        result = self._run(command, timeout=timeout)
-        return {**selected, **result, "timeout": timeout}
+        available = ["package:" + str(key) for key in scripts]
+        available.extend(builtins)
+        suffix = ", ".join(available[:40])
+        raise WorkspaceError(
+            f"Task '{name}' is not available for this workspace."
+            + (f" Available tasks: {suffix}" if suffix else "")
+        )
 
     def symbols(self, query: str = "", path: str = ".", max_results: int = 200) -> dict[str, Any]:
         """Find likely function/type/variable declarations using language-neutral patterns."""
