@@ -348,25 +348,30 @@ async function deleteCurrentFile() {
 }
 
 async function chooseWorkspace() {
-  if (state.dirty && !window.confirm("Discard unsaved changes and switch workspaces?")) return;
   setBusy(true, "Opening folder picker…");
   try {
-    const result = await callTool("workspace_browse", {});
-    if (result && !result.cancelled && result.root) {
-      state.workspace = result;
-      state.folder = ".";
-      state.currentFile = null;
-      state.fileWorkspaceRoot = null;
-      state.savedContent = "";
-      state.dirty = false;
-      $("codeEditor").value = "";
-      showWelcome();
-      updateWorkspaceHeader();
-      await loadWorkspaceDetails();
-      writeOutput("Workspace selected", result);
-    } else {
+    const picked = await callTool("workspace_browse", {});
+    if (!picked || picked.cancelled || !picked.selected_path) {
       writeOutput("Folder picker", "Selection cancelled. The active workspace was not changed.");
+      return;
     }
+    if (state.dirty && !window.confirm("Discard unsaved changes and switch workspaces?")) {
+      writeOutput("Workspace switch cancelled", "Your open file and unsaved edits were kept. The selected folder was not activated.");
+      return;
+    }
+    const activated = await callTool("workspace_set_root", { path: picked.selected_path });
+    state.workspace = activated;
+    state.folder = ".";
+    state.currentFile = null;
+    state.fileWorkspaceRoot = null;
+    state.savedContent = "";
+    state.dirty = false;
+    $("codeEditor").value = "";
+    showWelcome();
+    renderDirty();
+    updateWorkspaceHeader();
+    await loadWorkspaceDetails();
+    writeOutput("Workspace selected", activated);
   } catch (error) {
     errorOutput("Could not choose workspace", error);
   } finally {
