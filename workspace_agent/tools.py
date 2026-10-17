@@ -109,11 +109,14 @@ class Workspace:
         matches: list[dict[str, Any]] = []
         visited = 0
         for current, dirs, names in os.walk(base):
-            dirs[:] = sorted(d for d in dirs if d not in DEFAULT_IGNORES and not d.startswith("."))
+            dirs[:] = sorted(d for d in dirs if d not in DEFAULT_IGNORES and not d.startswith(".")
+                              and not (Path(current) / d).is_symlink())
             for name in sorted(names):
                 if name.startswith("."):
                     continue
                 candidate = Path(current) / name
+                if candidate.is_symlink():
+                    continue
                 try:
                     if candidate.stat().st_size > MAX_READ_BYTES:
                         continue
