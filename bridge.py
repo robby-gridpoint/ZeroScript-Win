@@ -1221,6 +1221,8 @@ class MCPManager:
             return self._set_workspace(args.get("path", ""))
         if name == "workspace_browse":
             return self._browse_workspace()
+        if not self.workspace_configured:
+            raise RuntimeError("No project workspace has been selected. Ask the user to choose an absolute folder path or call workspace_browse; do not inspect the default bridge directory.")
         if self.workspace is None:
             raise RuntimeError(self.workspace_error or "Workspace is unavailable. Select a folder with workspace_set_root or workspace_browse.")
         if name == "workspace_create_file":
