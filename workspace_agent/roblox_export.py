@@ -199,7 +199,7 @@ for i = first, math.min(#items, first + limit - 1) do
             source = (ok and not tooLarge) and source or "",
             sourceBytes = sourceBytes,
             oversized = tooLarge,
-            sourceError = ok and nil or tostring(source)
+            sourceError = (not ok) and tostring(source) or nil
         })
     end
 end
