@@ -272,6 +272,7 @@ function switchToTab(key) {
   selectFileInTree(tab.path);
   updateHighlight();
   updateCursorStatus();
+  refreshFindMatches();
   renderDirty();
   renderOpenTabs();
 }
@@ -394,6 +395,7 @@ function closeTabsForWorkspaceSwitch() {
 }
 
 function showWelcome() {
+  $("findBar").classList.add("hidden");
   $("welcomeScreen").classList.remove("hidden");
   $("codeSurface").classList.add("hidden");
   $("infoView").classList.add("hidden");
@@ -590,6 +592,7 @@ async function openFile(path, jumpLine = 1) {
     selectFileInTree(filePath);
     updateHighlight();
     updateCursorStatus();
+    refreshFindMatches();
     writeOutput("File opened", `${filePath}\n${content.split("\n").length} lines`);
     if (jumpLine > 1) {
       const lines = content.split("\n");
@@ -663,6 +666,7 @@ async function reloadCurrentFile() {
       $("eolStatus").textContent = lineEndingLabel(tab.lineEnding);
       updateHighlight();
       updateCursorStatus();
+      refreshFindMatches();
     }
     renderDirty();
     renderOpenTabs();
@@ -2211,6 +2215,7 @@ $("fileTree").addEventListener("click", (event) => {
 $("codeEditor").addEventListener("input", () => {
   syncActiveTabFromEditor();
   updateHighlight();
+  refreshFindMatches();
   renderDirty();
 });
 $("codeEditor").addEventListener("keyup", updateCursorStatus);
@@ -2254,6 +2259,30 @@ $("codeEditor").addEventListener("keydown", (event) => {
     }
   }
 });
+$("findFileButton").addEventListener("click", () => openFindBar(false));
+$("findText").addEventListener("input", () => {
+  state.findIndex = -1;
+  refreshFindMatches();
+});
+$("findText").addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    moveFindMatch(event.shiftKey ? -1 : 1);
+  } else if (event.key === "Escape") {
+    event.preventDefault();
+    event.stopPropagation();
+    closeFindBar();
+  }
+});
+$("findMatchCase").addEventListener("change", () => {
+  state.findIndex = -1;
+  refreshFindMatches();
+});
+$("findPrevious").addEventListener("click", () => moveFindMatch(-1));
+$("findNext").addEventListener("click", () => moveFindMatch(1));
+$("closeFind").addEventListener("click", closeFindBar);
+$("replaceCurrent").addEventListener("click", replaceCurrentMatch);
+$("replaceAllCurrent").addEventListener("click", replaceAllCurrentMatches);
 $("saveFile").addEventListener("click", saveFile);
 $("reloadFile").addEventListener("click", reloadCurrentFile);
 $("showOutline").addEventListener("click", loadOutline);
@@ -2337,6 +2366,11 @@ document.addEventListener("keydown", (event) => {
     }
     return;
   }
+  if (event.key === "Escape" && !$("findBar").classList.contains("hidden")) {
+    event.preventDefault();
+    closeFindBar();
+    return;
+  }
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
     event.preventDefault();
     if (event.shiftKey) saveAllTabs();
@@ -2347,6 +2381,12 @@ document.addEventListener("keydown", (event) => {
   } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "g") {
     event.preventDefault();
     goToLine();
+  } else if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === "f") {
+    event.preventDefault();
+    openFindBar(false);
+  } else if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === "h") {
+    event.preventDefault();
+    openFindBar(true);
   } else if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "f") {
     event.preventDefault();
     setView("search");
