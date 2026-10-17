@@ -686,27 +686,20 @@ function refreshFindMatches() {
   const previous = state.findMatches[state.findIndex];
   const content = editor.value || "";
   state.findTabKey = tab ? tab.key : null;
-  state.findMatches = [];
   if (!tab || !query) {
+    state.findMatches = [];
     state.findIndex = -1;
     $("findCount").textContent = "0 / 0";
     return;
   }
-  const matchCase = $("findMatchCase").checked;
-  const haystack = matchCase ? content : content.toLocaleLowerCase();
-  const needle = matchCase ? query : query.toLocaleLowerCase();
-  if (!needle) {
+  const utils = globalThis.ZSEditorUtils;
+  if (!utils || typeof utils.findAllMatches !== "function") {
+    state.findMatches = [];
     state.findIndex = -1;
     $("findCount").textContent = "0 / 0";
     return;
   }
-  let offset = 0;
-  while (offset <= haystack.length - needle.length) {
-    const start = haystack.indexOf(needle, offset);
-    if (start < 0) break;
-    state.findMatches.push({ start, end: start + needle.length });
-    offset = start + Math.max(needle.length, 1);
-  }
+  state.findMatches = utils.findAllMatches(content, query, $("findMatchCase").checked);
   if (!state.findMatches.length) {
     state.findIndex = -1;
     $("findCount").textContent = "0 / 0";
@@ -812,13 +805,19 @@ function replaceAllCurrentMatches() {
     writeOutput("Replace in File", "No matches are available in the current file.");
     return;
   }
-  const find = $("findText").value;
   const replacement = $("replaceCurrentText").value;
   if (!window.confirm("Replace " + matches.length + " occurrence(s) in " + tab.path + "?\n\nThis changes only the open editor buffer. Save the tab to write changes to disk.")) return;
-  let content = $("codeEditor").value;
-  for (let index = matches.length - 1; index >= 0; index -= 1) {
-    const match = matches[index];
-    content = content.slice(0, match.start) + replacement + content.slice(match.end);
+  const utils = globalThis.ZSEditorUtils;
+  if (!utils || typeof utils.replaceRanges !== "function") {
+    errorOutput("Replace in File", "Workspace editor utilities did not load. Reload the Workspace Explorer page.");
+    return;
+  }
+  let content;
+  try {
+    content = utils.replaceRanges($("codeEditor").value, matches, replacement);
+  } catch (error) {
+    errorOutput("Replace in File", error);
+    return;
   }
   $("codeEditor").value = content;
   syncActiveTabFromEditor();
@@ -1432,22 +1431,11 @@ async function activateModalItem(item) {
 }
 
 function getSearchScope() {
-  const scope = ($("searchPath").value || ".").trim() || ".";
-  if (scope.startsWith("/") || /^[a-zA-Z]:[\\/]/.test(scope) || scope.startsWith("\\\\")) {
-    throw new Error("Folder scope must be relative to the selected workspace (for example src/ or .).");
+  const utils = globalThis.ZSEditorUtils;
+  if (!utils || typeof utils.normalizeWorkspaceRelativeScope !== "function") {
+    throw new Error("Workspace editor utilities did not load. Reload the Workspace Explorer page.");
   }
-  const parts = scope.replace(/\\/g, "/").split("/");
-  const normalized = [];
-  for (const part of parts) {
-    if (!part || part === ".") continue;
-    if (part === "..") {
-      if (!normalized.length) throw new Error("Folder scope cannot escape the selected workspace.");
-      normalized.pop();
-    } else {
-      normalized.push(part);
-    }
-  }
-  return normalized.join("/") || ".";
+  return utils.normalizeWorkspaceRelativeScope($("searchPath").value || ".");
 }
 
 async function runSearch() {
