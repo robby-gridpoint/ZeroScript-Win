@@ -1111,6 +1111,8 @@ class MCPManager:
              "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_project_info", "description": "Inspect common project manifests, framework/language hints, Git presence, source-file counts, and package scripts.",
              "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_create_file", "description": "Create a new UTF-8 file inside the workspace without overwriting an existing file. Parent directory must exist.",
+             "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string", "default": ""}}, "required": ["path"], "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_create_directory", "description": "Create a new directory within the workspace. Existing paths are never overwritten; use a workspace-relative path.",
              "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"], "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_move_path", "description": "Rename or move a file/directory within the selected workspace. Destination must not exist; symbolic links and moving the workspace root are refused.",
@@ -1219,6 +1221,8 @@ class MCPManager:
             return self._browse_workspace()
         if self.workspace is None:
             raise RuntimeError(self.workspace_error or "Workspace is unavailable. Select a folder with workspace_set_root or workspace_browse.")
+        if name == "workspace_create_file":
+            return self.workspace.create_file(args["path"], args.get("content", ""))
         if name == "workspace_create_directory":
             return self.workspace.create_directory(args["path"])
         if name == "workspace_move_path":
