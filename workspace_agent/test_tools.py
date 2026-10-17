@@ -60,6 +60,42 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(len(search["matches"]), 1)
         self.assertEqual(search["matches"][0]["line"], 2)
 
+    def test_finds_files_by_glob(self):
+        (self.root / "src").mkdir()
+        (self.root / "src" / "main.luau").write_text("return true\n", encoding="utf-8")
+        (self.root / "src" / "theme.json").write_text("{}\n", encoding="utf-8")
+        result = self.ws.find_files("*.luau")
+        self.assertEqual([item["path"] for item in result["matches"]], ["src/main.luau"])
+
+    def test_project_info_detects_node_scripts(self):
+        (self.root / "package.json").write_text(
+            '{"name":"sample-project","scripts":{"test":"vitest run","build":"tsc"}}',
+            encoding="utf-8",
+        )
+        result = self.ws.project_info()
+        self.assertEqual(result["project_type"], "Node.js / JavaScript / TypeScript")
+        self.assertEqual(result["package_scripts"]["test"], "vitest run")
+        self.assertIn("package.json", result["manifest_files"])
+
+    def test_symbols_finds_function_and_type(self):
+        (self.root / "src").mkdir()
+        (self.root / "src" / "app.py").write_text(
+            "class WorkspaceManager:\\n    def select_workspace(self):\\n        return True\\n",
+            encoding="utf-8",
+        )
+        result = self.ws.symbols()
+        names = {item["name"] for item in result["symbols"]}
+        self.assertIn("WorkspaceManager", names)
+        self.assertIn("select_workspace", names)
+
+    def test_apply_patch_rejects_ambiguous_match(self):
+        self.ws.write_file("src/main.txt", "same\nsame\n")
+        with self.assertRaises(WorkspaceError):
+            self.ws.apply_patch("src/main.txt", "same", "changed")
+        result = self.ws.apply_patch("src/main.txt", "same", "changed", replace_all=True)
+        self.assertEqual(result["replacements"], 2)
+        self.assertEqual(self.ws.read_file("src/main.txt")["content"], "changed\nchanged\n")
+
     def test_run_command_without_shell(self):
         result = self.ws.run_command([sys.executable, "-c", "print('workspace-ok')"])
         self.assertEqual(result["exit_code"], 0)
