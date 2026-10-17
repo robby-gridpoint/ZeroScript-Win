@@ -1091,6 +1091,8 @@ class MCPManager:
     def _load_workspace(self):
         if Workspace is None:
             self.workspace_error = "Workspace tools could not be imported."
+            self.workspace_configured = False
+            self.workspace_source = "unavailable"
             return
         try:
             self.workspace = Workspace(self.workspace_root)
@@ -1151,6 +1153,8 @@ class MCPManager:
         return tools
 
     def _set_workspace(self, path, source="selected", persist=True):
+        if Workspace is None:
+            raise RuntimeError("Workspace tools could not be imported.")
         if not isinstance(path, str) or not path.strip():
             raise RuntimeError("A local folder path is required.")
         if not Path(path).expanduser().is_absolute():
