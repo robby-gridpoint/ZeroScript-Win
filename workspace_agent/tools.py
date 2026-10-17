@@ -176,6 +176,57 @@ class Workspace:
             "diff": diff[:MAX_OUTPUT_CHARS],
         }
 
+    def create_directory(self, path: str) -> dict[str, Any]:
+        """Create a project-relative directory without overwriting existing paths."""
+        if not isinstance(path, str) or not path.strip() or path.strip() in (".", "./"):
+            raise WorkspaceError("A non-root directory path is required.")
+        target = self._resolve(path)
+        if target == self.root:
+            raise WorkspaceError("The workspace root cannot be created or replaced.")
+        if target.exists():
+            raise WorkspaceError(f"Path already exists: {path}")
+        target.mkdir(parents=True, exist_ok=False)
+        return {"path": target.relative_to(self.root).as_posix(), "created": True, "type": "directory"}
+
+    def move_path(self, source: str, destination: str) -> dict[str, Any]:
+        """Rename/move a file or directory within the workspace without overwriting."""
+        if not isinstance(source, str) or not source.strip() or not isinstance(destination, str) or not destination.strip():
+            raise WorkspaceError("Both source and destination paths are required.")
+        raw_source = Path(source).expanduser()
+        raw_source = raw_source if raw_source.is_absolute() else self.root / raw_source
+        if raw_source.is_symlink():
+            raise WorkspaceError("Moving symbolic links is not supported.")
+        old = self._resolve(source)
+        new = self._resolve(destination)
+        if old == self.root:
+            raise WorkspaceError("The workspace root cannot be moved.")
+        if not old.exists():
+            raise WorkspaceError(f"Source path does not exist: {source}")
+        if new.exists():
+            raise WorkspaceError(f"Destination already exists: {destination}")
+        if not new.parent.is_dir():
+            raise WorkspaceError("Destination parent directory must already exist.")
+        if old.is_dir() and old in new.parents:
+            raise WorkspaceError("A directory cannot be moved into itself or one of its descendants.")
+        old.rename(new)
+        return {"source": old.relative_to(self.root).as_posix(),
+                "destination": new.relative_to(self.root).as_posix(),
+                "type": "directory" if new.is_dir() else "file", "moved": True}
+
+    def delete_file(self, path: str) -> dict[str, Any]:
+        """Delete one regular file only; directories and symbolic links are refused."""
+        raw = Path(path).expanduser()
+        raw = raw if raw.is_absolute() else self.root / raw
+        if raw.is_symlink():
+            raise WorkspaceError("Deleting symbolic links is not supported.")
+        target = self._resolve(path)
+        if target == self.root:
+            raise WorkspaceError("The workspace root cannot be deleted.")
+        if not target.exists() or not target.is_file():
+            raise WorkspaceError(f"Not an existing regular file: {path}")
+        relative = target.relative_to(self.root).as_posix()
+        target.unlink()
+        return {"path": relative, "deleted": True, "type": "file"}
     def find_files(self, pattern: str = "*", path: str = ".", max_results: int = 200, include_hidden: bool = False) -> dict[str, Any]:
         """Find files by glob against their workspace-relative path or filename."""
         if not isinstance(pattern, str) or not pattern.strip():
