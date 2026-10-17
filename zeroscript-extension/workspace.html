@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <title>ZeroScript Workspace</title>
+  <link rel="stylesheet" href="workspace.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <img src="icon.png" alt="" />
+        <div><strong>ZeroScript</strong><span>Workspace</span></div>
+      </div>
+      <div class="workspace-meta">
+        <span class="connection-dot" id="connectionDot"></span>
+        <span id="connectionLabel">Connecting to local bridge…</span>
+        <span class="meta-separator"></span>
+        <span id="projectName">No workspace selected</span>
+      </div>
+      <div class="top-actions">
+        <button class="icon-button" id="chooseWorkspace" title="Choose project folder">Open Folder</button>
+        <button class="icon-button" id="refreshWorkspace" title="Refresh project">Refresh</button>
+      </div>
+    </header>
+
+    <div class="body-layout">
+      <nav class="activity-rail" aria-label="Activity">
+        <button class="activity-button active" data-view="explorer" title="Explorer" aria-label="Explorer">▤</button>
+        <button class="activity-button" data-view="search" title="Search" aria-label="Search">⌕</button>
+        <button class="activity-button" data-view="source" title="Source control" aria-label="Source control">⑂</button>
+        <button class="activity-button" data-view="project" title="Project info" aria-label="Project info">◈</button>
+        <div class="rail-spacer"></div>
+        <button class="activity-button" data-view="terminal" title="Terminal" aria-label="Terminal">›_</button>
+      </nav>
+
+      <aside class="side-panel">
+        <div class="side-heading">
+          <span id="sideTitle">EXPLORER</span>
+          <div class="side-heading-actions">
+            <button class="tiny-button" id="newFile" title="Create file">＋</button>
+            <button class="tiny-button" id="collapseTree" title="Return to workspace root">⌂</button>
+          </div>
+        </div>
+        <section id="explorerView" class="side-view">
+          <button class="root-row" id="rootRow">
+            <span class="chevron">⌄</span><span id="rootRowName">Workspace</span>
+          </button>
+          <div class="tree-toolbar">
+            <button id="treeUp">↑ Parent folder</button>
+            <button id="treeReload">↻</button>
+          </div>
+          <div id="fileTree" class="file-tree" aria-label="Project files">
+            <div class="empty-state">Connect the local bridge to load project files.</div>
+          </div>
+        </section>
+
+        <section id="searchView" class="side-view hidden">
+          <label class="field-label" for="searchQuery">Search in project</label>
+          <input id="searchQuery" placeholder="Text or regex pattern" autocomplete="off" />
+          <div class="inline-fields">
+            <label><input id="searchRegex" type="checkbox" /> Regex</label>
+            <label><input id="searchCase" type="checkbox" /> Match case</label>
+          </div>
+          <button class="small-primary" id="runSearch">Search files</button>
+          <div id="searchResults" class="search-results"></div>
+        </section>
+
+        <section id="sourceView" class="side-view hidden">
+          <div class="section-caption">SOURCE CONTROL</div>
+          <button class="panel-action" id="loadGitStatus">↻ Refresh Git status</button>
+          <button class="panel-action" id="loadGitDiff">Show unstaged diff</button>
+          <button class="panel-action" id="loadStagedDiff">Show staged diff</button>
+          <button class="panel-action" id="loadGitBranches">List branches</button>
+          <div id="gitSummary" class="git-summary">No Git status loaded.</div>
+        </section>
+
+        <section id="projectView" class="side-view hidden">
+          <div class="section-caption">PROJECT OVERVIEW</div>
+          <button class="panel-action" id="loadProjectInfo">↻ Inspect project</button>
+          <div id="projectSummary" class="project-summary">Project metadata has not been loaded yet.</div>
+        </section>
+
+        <section id="terminalView" class="side-view hidden">
+          <div class="section-caption">COMMAND RUNNER</div>
+          <p class="subtle">Commands run in the selected workspace without shell expansion. Use a JSON array of arguments.</p>
+          <label class="field-label" for="commandInput">Command argv</label>
+          <textarea id="commandInput" class="command-input" rows="4" spellcheck="false">["git","status","--short","--branch"]</textarea>
+          <label class="field-label" for="commandTimeout">Timeout (seconds)</label>
+          <input id="commandTimeout" type="number" min="1" max="300" value="60" />
+          <button class="small-primary" id="runCommand">Run command</button>
+          <p class="warning-note">Review commands before running them. Some commands can modify files, install packages, or access external services.</p>
+        </section>
+      </aside>
+
+      <main class="editor-area">
+        <div class="tab-strip">
+          <div class="file-tab" id="fileTab"><span class="file-tab-icon">◇</span><span id="activeFileName">Welcome</span><span class="dirty-dot hidden" id="dirtyDot"></span></div>
+          <div class="tab-strip-spacer"></div>
+          <button class="toolbar-button" id="showOutline">Outline</button>
+          <button class="toolbar-button" id="showProjectInfo">Project Info</button>
+          <button class="toolbar-button" id="saveFile" disabled>Save <kbd>Ctrl+S</kbd></button>
+        </div>
+        <div class="breadcrumb" id="breadcrumb">ZeroScript / Workspace</div>
+        <div class="editor-host" id="editorHost">
+          <div class="welcome-screen" id="welcomeScreen">
+            <div class="welcome-symbol">Z</div>
+            <h1>Welcome to ZeroScript Workspace</h1>
+            <p>A focused local development surface paired with your AI agent.</p>
+            <div class="welcome-grid">
+              <button class="welcome-card" id="welcomeOpen"><strong>Open a folder</strong><span>Select the project ZeroScript should work in.</span><kbd>Choose Folder</kbd></button>
+              <button class="welcome-card" id="welcomeSearch"><strong>Search source</strong><span>Find text, symbols, imports, and declarations.</span><kbd>Search</kbd></button>
+              <button class="welcome-card" id="welcomeGit"><strong>Inspect Git</strong><span>Review status, branches, and file diffs.</span><kbd>Source Control</kbd></button>
+            </div>
+            <p class="subtle domain-note">Roblox Studio remains a separate adapter. This editor manages on-disk project files, not the live Studio DataModel.</p>
+          </div>
+          <textarea id="codeEditor" class="code-editor hidden" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-label="Source editor"></textarea>
+          <div id="infoView" class="info-view hidden"></div>
+        </div>
+        <section class="output-drawer" id="outputDrawer">
+          <div class="output-heading">
+            <div class="output-tabs">
+              <button class="output-tab active" data-output="output">OUTPUT</button>
+              <button class="output-tab" data-output="problems">PROBLEMS</button>
+            </div>
+            <button class="tiny-button" id="clearOutput" title="Clear output">×</button>
+          </div>
+          <pre id="outputText" class="output-text">ZeroScript local workspace ready. Select a folder to begin.</pre>
+        </section>
+        <footer class="statusbar">
+          <span id="statusWorkspace">No workspace</span>
+          <span id="statusFile">No file open</span>
+          <span class="status-spacer"></span>
+          <span id="cursorStatus">Ln 1, Col 1</span>
+          <span id="encodingStatus">UTF-8</span>
+          <span id="eolStatus">CRLF</span>
+          <span id="languageStatus">Plain Text</span>
+        </footer>
+      </main>
+    </div>
+  </div>
+  <script src="workspace.js"></script>
+</body>
+</html>
