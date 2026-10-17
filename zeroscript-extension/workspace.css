@@ -221,3 +221,17 @@ input[type=checkbox] { margin: 0; accent-color: var(--accent); }
 .git-change-copy { display: flex; flex-direction: column; flex: 1; min-width: 0; gap: 3px; }
 .git-change-path { min-width: 0; color: #d0dced; font-family: Consolas, monospace; font-size: 10px; overflow-wrap: anywhere; }
 .git-change-status { color: #73849b; font-size: 9px; overflow-wrap: anywhere; }
+
+.problem-list { display: flex; flex-direction: column; gap: 5px; padding: 9px 12px; border-bottom: 1px solid var(--border-soft); max-height: 220px; overflow: auto; }
+.problem-list.hidden { display: none; }
+.problem-empty { padding: 8px 4px; color: #8190a7; font-size: 10px; }
+.problem-item { display: flex; align-items: flex-start; gap: 9px; width: 100%; padding: 7px 9px; border: 1px solid #2a3547; border-radius: 6px; background: #111925; color: #bcc9dd; text-align: left; }
+.problem-item:hover { border-color: #526fa6; background: #172236; }
+.problem-severity { flex: 0 0 auto; width: 14px; padding-top: 1px; font-size: 11px; font-weight: 800; text-align: center; }
+.problem-severity.error { color: #f17c86; }
+.problem-severity.warning { color: #e3b45c; }
+.problem-severity.info { color: #79a9f7; }
+.problem-copy { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+.problem-message { color: #d1dced; font-size: 10px; line-height: 1.45; overflow-wrap: anywhere; }
+.problem-location { color: #8293ad; font-family: Consolas, monospace; font-size: 9px; overflow-wrap: anywhere; }
+.problem-source { color: #63748e; font-size: 9px; }
