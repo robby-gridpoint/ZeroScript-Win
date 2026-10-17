@@ -23,7 +23,7 @@ var ZS = (() => {
   function toolCategory(name) {
     const n = (name || "").includes("/") ? name.split("/").pop() : (name || "");
     if (/^(workspace_info|workspace_project_info|workspace_tree|workspace_file_outline|workspace_list_files|workspace_read_file|workspace_search|workspace_find_files|workspace_symbols|workspace_git_status|workspace_git_diff|workspace_git_branches|workspace_git_log|list_tools|list_commands)$/.test(n)) return "read";
-    if (/^(workspace_write_file|workspace_apply_patch|multi_edit|insert_from_creator_store|store_image)$/.test(n)) return "edit";
+    if (/^(workspace_write_file|workspace_apply_patch|workspace_create_directory|workspace_move_path|workspace_delete_file|multi_edit|insert_from_creator_store|store_image)$/.test(n)) return "edit";
     if (/^(workspace_run_command|execute_luau)$/.test(n)) return "edit";
     if (/capture|screenshot|screen/i.test(n)) return "screen";
     if (/^(generate_|create_)/i.test(n)) return "generate";
@@ -227,13 +227,16 @@ SAFETY AND SCOPE
 - For configured app-specific MCP tools, use them only when the request actually needs that app. Roblox Studio is an optional integration, not a prerequisite for general coding work.
 
 WORKSPACE TOOL GUIDANCE
-- workspace_info identifies the selected root.
-- workspace_list_files lists files under that root; common generated folders are skipped by default.
-- workspace_read_file reads a bounded UTF-8 text file.
-- workspace_search searches source text.
-- workspace_write_file creates or replaces a UTF-8 text file and returns a unified diff.
-- workspace_git_status reports Git state.
-- workspace_run_command runs an argv array from the selected root, with a bounded timeout and output. Use it for project test/build commands.
+- workspace_info identifies the selected root and onboarding state.
+- workspace_tree and workspace_list_files explore project files while skipping generated folders and symbolic links by default.
+- workspace_find_files searches paths using globs; workspace_symbols and workspace_file_outline help locate declarations, imports, and headings.
+- workspace_read_file reads bounded UTF-8 text and can return a specific 1-based line range.
+- workspace_search supports case-insensitive text, optional case-sensitive matching, and regular expressions, with line and column references.
+- workspace_apply_patch is the preferred focused edit when an exact match exists; it refuses ambiguous replacements unless replace_all is explicitly true.
+- workspace_write_file creates or replaces UTF-8 text and returns a unified diff. Inspect a file first before replacing its full content.
+- workspace_create_directory, workspace_move_path, and workspace_delete_file manage paths. Never delete or move data unless the user explicitly requested it and the scope is clear; the delete tool refuses directories and symbolic links.
+- workspace_git_status, workspace_git_diff, workspace_git_branches, and workspace_git_log inspect repository state without changing it.
+- workspace_run_command runs an argv array from the selected root with a bounded timeout and output. Use it for relevant tests/builds, and ask before commands that are destructive, install packages, expose secrets, incur charges, or change external production systems.
 The available tools may include additional MCP integrations. Use the live catalogue and their descriptions for those.
 
 STARTUP
