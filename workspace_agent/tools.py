@@ -57,6 +57,24 @@ class Workspace:
         with target.open("r", encoding="utf-8", newline="") as handle:
             return handle.read()
 
+    @staticmethod
+    def _preferred_line_ending(content: str) -> str:
+        endings = re.findall(r"\r\n|\r|\n", content)
+        if not endings:
+            return "\n"
+        counts = {ending: endings.count(ending) for ending in set(endings)}
+        maximum = max(counts.values())
+        return next(ending for ending in endings if counts[ending] == maximum)
+
+    @staticmethod
+    def _convert_line_endings(content: str, line_ending: str) -> str:
+        normalized = content.replace("\r\n", "\n").replace("\r", "\n")
+        if line_ending == "\r\n":
+            return normalized.replace("\n", "\r\n")
+        if line_ending == "\r":
+            return normalized.replace("\n", "\r")
+        return normalized
+
     def list_files(self, path: str = ".", max_results: int = 200, include_hidden: bool = False) -> dict[str, Any]:
         base = self._resolve(path)
         if not base.exists() or not base.is_dir():
@@ -225,6 +243,7 @@ class Workspace:
                     "path": target.relative_to(self.root).as_posix(),
                     "original": original,
                     "content": original,
+                    "line_ending": self._preferred_line_ending(original),
                     "replacements": 0,
                     "operations": 0,
                 }
@@ -251,6 +270,7 @@ class Workspace:
         applied: list[Path] = []
         try:
             for target, item in pending.items():
+                item["content"] = self._convert_line_endings(item["content"], item["line_ending"])
                 self.write_file(item["path"], item["content"])
                 applied.append(target)
         except Exception as exc:
@@ -609,7 +629,9 @@ class Workspace:
             raise WorkspaceError("Exact old_string was not found. Re-read the file and use a smaller, exact patch.")
         if occurrences > 1 and not replace_all:
             raise WorkspaceError(f"Patch is ambiguous: old_string appears {occurrences} times. Include more context or set replace_all=true.")
+        line_ending = self._preferred_line_ending(content)
         updated = content.replace(old_string, new_string) if replace_all else content.replace(old_string, new_string, 1)
+        updated = self._convert_line_endings(updated, line_ending)
         result = self.write_file(path, updated)
         result["replacements"] = occurrences if replace_all else 1
         return result
