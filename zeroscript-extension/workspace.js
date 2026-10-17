@@ -266,6 +266,11 @@ async function saveAllTabs() {
         failed.push(tab.path + ": " + error.message);
       }
     }
+    const current = activeTab();
+    if (current) {
+      state.savedContent = current.savedContent;
+      state.dirty = current.dirty;
+    }
     renderDirty();
     renderOpenTabs();
     if (failed.length) {
