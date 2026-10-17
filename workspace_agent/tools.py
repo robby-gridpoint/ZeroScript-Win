@@ -204,7 +204,7 @@ class Workspace:
 
     def project_info(self) -> dict[str, Any]:
         """Summarize common project manifests, package scripts, source mix, and Git state."""
-        root_files = sorted(p.name for p in self.root.iterdir() if p.is_file())
+        root_files = sorted(p.name for p in self.root.iterdir() if p.is_file() and not p.is_symlink())
         manifests = [
             "package.json", "pnpm-workspace.yaml", "yarn.lock", "pnpm-lock.yaml",
             "package-lock.json", "pyproject.toml", "requirements.txt", "Pipfile",
@@ -212,10 +212,10 @@ class Workspace:
             "build.gradle.kts", "settings.gradle", "composer.json", "Gemfile",
             "CMakeLists.txt", "Makefile", "justfile", "Dockerfile",
         ]
-        present = [name for name in manifests if (self.root / name).is_file()]
+        present = [name for name in manifests if (self.root / name).is_file() and not (self.root / name).is_symlink()]
         scripts: dict[str, str] = {}
         package_path = self.root / "package.json"
-        if package_path.is_file():
+        if package_path.is_file() and not package_path.is_symlink():
             try:
                 package = json.loads(package_path.read_text(encoding="utf-8"))
                 scripts = {str(k): str(v) for k, v in (package.get("scripts") or {}).items()}
@@ -226,7 +226,7 @@ class Workspace:
         for item in inventory["files"]:
             suffix = Path(item["path"]).suffix.lower() or "[no extension]"
             extensions[suffix] = extensions.get(suffix, 0) + 1
-        if package_path.is_file():
+        if package_path.is_file() and not package_path.is_symlink():
             project_type = "Node.js / JavaScript / TypeScript"
         elif (self.root / "pyproject.toml").is_file() or (self.root / "requirements.txt").is_file():
             project_type = "Python"
