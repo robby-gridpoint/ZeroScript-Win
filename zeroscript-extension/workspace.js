@@ -1606,6 +1606,14 @@ $("modalBackdrop").addEventListener("click", (event) => {
   if (event.target === $("modalBackdrop")) closeModal();
 });
 
+window.addEventListener("beforeunload", (event) => {
+  syncActiveTabFromEditor();
+  if (state.openTabs.some((tab) => tab.dirty)) {
+    event.preventDefault();
+    event.returnValue = "";
+  }
+});
+
 document.addEventListener("keydown", (event) => {
   if (!$("modalBackdrop").classList.contains("hidden")) {
     if (event.key === "Escape") {
