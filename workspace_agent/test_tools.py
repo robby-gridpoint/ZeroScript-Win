@@ -135,6 +135,38 @@ class WorkspaceTests(unittest.TestCase):
         self.assertIn("declaration", kinds)
         self.assertEqual(result["path"], "src/app.py")
 
+    def test_multi_edit_updates_multiple_files_and_returns_diffs(self):
+        self.ws.write_file("src/one.py", "VALUE = 1\n")
+        self.ws.write_file("src/two.py", "VALUE = 2\n")
+        result = self.ws.multi_edit([
+            {"path": "src/one.py", "old_string": "VALUE = 1", "new_string": "VALUE = 10"},
+            {"path": "src/two.py", "old_string": "VALUE = 2", "new_string": "VALUE = 20"},
+        ])
+        self.assertEqual(result["files_changed"], 2)
+        self.assertEqual(result["operations_applied"], 2)
+        self.assertIn("+VALUE = 10", result["files"][0]["diff"])
+        self.assertEqual(self.ws.read_file("src/one.py")["content"], "VALUE = 10\n")
+        self.assertEqual(self.ws.read_file("src/two.py")["content"], "VALUE = 20\n")
+
+    def test_multi_edit_validates_entire_batch_before_writing(self):
+        self.ws.write_file("src/one.py", "VALUE = 1\n")
+        self.ws.write_file("src/two.py", "VALUE = 2\n")
+        with self.assertRaises(WorkspaceError):
+            self.ws.multi_edit([
+                {"path": "src/one.py", "old_string": "VALUE = 1", "new_string": "VALUE = 10"},
+                {"path": "src/two.py", "old_string": "NOT_PRESENT", "new_string": "VALUE = 20"},
+            ])
+        self.assertEqual(self.ws.read_file("src/one.py")["content"], "VALUE = 1\n")
+        self.assertEqual(self.ws.read_file("src/two.py")["content"], "VALUE = 2\n")
+
+    def test_multi_edit_rejects_ambiguous_matches(self):
+        self.ws.write_file("src/ambiguous.py", "X = 1\nX = 1\n")
+        with self.assertRaisesRegex(WorkspaceError, "appears 2 times"):
+            self.ws.multi_edit([
+                {"path": "src/ambiguous.py", "old_string": "X = 1", "new_string": "X = 2"}
+            ])
+        self.assertEqual(self.ws.read_file("src/ambiguous.py")["content"], "X = 1\nX = 1\n")
+
     def test_create_file_refuses_overwrite_and_requires_parent(self):
         self.ws.create_directory("src")
         result = self.ws.create_file("src/new.py", "print('new')\n")
