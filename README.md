@@ -6,7 +6,7 @@ The extension preserves the existing browser-provider integrations and Roblox St
 
 ## Current status
 
-**Workspace-first remaster foundation integrated (v1.7.0).**
+**Workspace-first IDE remaster in progress (v1.8.0).**
 
 The bridge exposes an expanded, project-scoped toolset:
 
@@ -14,10 +14,11 @@ The bridge exposes an expanded, project-scoped toolset:
 - Project metadata, manifest/framework hints, package scripts, and source inventory.
 - Bounded file reads, a depth-limited project tree, recursive file listing, glob search, regex/case-sensitive text search, and line/column matches.
 - Source-file outlines for imports, headings, variables, and declarations, plus cross-language declaration/symbol discovery.
-- Exact-match patch edits that reject ambiguous replacements, plus complete-file writes that return unified diffs.
+- Exact-match patch edits, validated multi-file edit batches that verify all replacements before writing, and complete-file writes that return unified diffs.
 - Safe no-overwrite file/directory creation, rename/move, and single-file delete operations. Directory deletion and symbolic-link mutation are refused.
 - Git status, staged/unstaged diffs, branch listing, and recent commit history.
-- A dedicated Workspace Explorer page with file tree, editor and save state, search, outline, project metadata, source-control views, output/problems panes, and argv-based command runner.
+- A dedicated Workspace Explorer page with file tree, text editor, lightweight syntax coloring and line numbers, keyboard indentation, fuzzy Quick Open, a searchable Command Palette, search/outline/project panes, Git views, output/problems panes, and argv-based command runner.
+- One-click project Test/Build/Lint/Check tasks discovered from package.json and package manager metadata, each with an explicit confirmation.
 - Bounded command execution from the selected project directory using an argument array and `shell=False`.
 
 ## Choose a workspace
@@ -45,7 +46,7 @@ The local workspace root and the open Roblox place are not interchangeable. Use 
 Requires Python 3.10 or later.
 
 ```powershell
-py -3 -m unittest workspace_agent.test_tools -v
+py -3 -m unittest workspace_agent.test_tools workspace_agent.test_bridge -v
 ```
 
 ## Security notes
