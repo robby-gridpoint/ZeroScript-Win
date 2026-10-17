@@ -28,6 +28,12 @@ import threading
 import time
 
 try:
+    from workspace_agent.tools import Workspace, WorkspaceError
+except Exception:
+    Workspace = None
+    WorkspaceError = RuntimeError
+
+try:
     # Sibling script (same folder as bridge.py, which Python puts on sys.path
     # automatically) - reused here purely to detect a Studio version bump
     # (see _current_studio_exe below), not to launch anything.
@@ -1066,6 +1072,64 @@ class MCPManager:
         self.clients = {}          # server_id -> MCPClient
         self.index = {}            # advertised_name -> (holder, real_name)
         self.index_lock = threading.Lock()
+        # The workspace root is explicit and configurable through the
+        # ZS_WORKSPACE_ROOT environment variable. Default to the repository
+        # folder so the coding tools work without requiring Roblox Studio.
+        self.workspace_root = os.environ.get("ZS_WORKSPACE_ROOT", HERE)
+        self.workspace = None
+        self.workspace_error = None
+        self._load_workspace()
+
+    def _load_workspace(self):
+        if Workspace is None:
+            self.workspace_error = "Workspace tools could not be imported."
+            return
+        try:
+            self.workspace = Workspace(self.workspace_root)
+            log(f"workspace selected: {self.workspace.root}", "cy")
+        except Exception as exc:
+            self.workspace_error = str(exc)
+            log(f"workspace unavailable: {exc}", "yl")
+
+    def _workspace_tools(self):
+        if self.workspace is None:
+            return []
+        return [
+            {"name": "workspace_info", "description": "Get the selected project root and name.",
+             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_list_files", "description": "List source files in the selected project. Generated directories are skipped.",
+             "inputSchema": {"type": "object", "properties": {"path": {"type": "string", "default": "."}, "max_results": {"type": "integer", "minimum": 1, "maximum": 500}, "include_hidden": {"type": "boolean"}}, "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_read_file", "description": "Read a UTF-8 text file inside the selected project (maximum 1 MB).",
+             "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"], "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_search", "description": "Search source text case-insensitively inside the selected project.",
+             "inputSchema": {"type": "object", "properties": {"query": {"type": "string"}, "path": {"type": "string", "default": "."}, "max_results": {"type": "integer", "minimum": 1, "maximum": 500}}, "required": ["query"], "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_write_file", "description": "Create or replace a UTF-8 text file inside the selected project. Returns a unified diff. This modifies files.",
+             "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"], "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_git_status", "description": "Get Git working-tree status for the selected project.",
+             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_run_command", "description": "Run a command as an argument array from the selected project directory. Shell expansion is disabled. Use only commands required for the requested development task.",
+             "inputSchema": {"type": "object", "properties": {"command": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 100}, "timeout": {"type": "integer", "minimum": 1, "maximum": 300}}, "required": ["command"], "additionalProperties": False}, "server": "workspace"},
+        ]
+
+    def _call_workspace(self, name, arguments):
+        if self.workspace is None:
+            raise RuntimeError(self.workspace_error or "Workspace is unavailable.")
+        args = arguments or {}
+        if name == "workspace_info":
+            return self.workspace.describe()
+        if name == "workspace_list_files":
+            return self.workspace.list_files(args.get("path", "."), args.get("max_results", 200), args.get("include_hidden", False))
+        if name == "workspace_read_file":
+            return self.workspace.read_file(args["path"])
+        if name == "workspace_search":
+            return self.workspace.search(args["query"], args.get("path", "."), args.get("max_results", 100))
+        if name == "workspace_write_file":
+            return self.workspace.write_file(args["path"], args["content"])
+        if name == "workspace_git_status":
+            return self.workspace.git_status()
+        if name == "workspace_run_command":
+            return self.workspace.run_command(args["command"], args.get("timeout", 60))
+        raise RuntimeError(f"unknown workspace tool '{name}'")
 
     def load_config(self):
         servers = _read_config().get("mcpServers", {}) or {}
@@ -1136,9 +1200,13 @@ class MCPManager:
                 tt["name"] = advertised
                 tt["server"] = sid
                 out.append(tt)
+        out.extend(self._workspace_tools())
         return out
 
     def call(self, name, arguments, timeout):
+        if name.startswith("workspace_"):
+            result = self._call_workspace(name, arguments)
+            return {"text": json.dumps(result, ensure_ascii=False, indent=2), "images": []}
         with self.index_lock:
             entry = self.index.get(name)
         if entry is None:
