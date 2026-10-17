@@ -437,15 +437,42 @@ class Workspace:
                 "name": name,
                 "kind": "builtin",
                 "command": command,
-                "command_label": " ".join(command),
+                "command_label": subprocess.list2cmdline(command),
                 "description": description,
             })
 
-        if "pyproject.toml" in root_files or "requirements.txt" in root_files:
-            add("python.test", "Python: Run unit tests", [sys.executable, "-m", "unittest", "discover", "-v"],
-                "Discover and run standard-library unittest tests.")
-            add("python.compile", "Python: Compile source", [sys.executable, "-m", "compileall", "-q", "."],
-                "Compile Python files to detect syntax errors.")
+        if "pyproject.toml" in root_files or "requirements.txt" in root_files or "Pipfile" in root_files:
+            test_manifests = ("pyproject.toml", "requirements.txt", "Pipfile", "tox.ini", "pytest.ini")
+            pytest_configured = "pytest.ini" in root_files or "conftest.py" in root_files
+            ruff_configured = "ruff.toml" in root_files or ".ruff.toml" in root_files
+            mypy_configured = "mypy.ini" in root_files or ".mypy.ini" in root_files
+            for manifest_name in test_manifests:
+                candidate = self.root / manifest_name
+                if candidate.is_symlink() or not candidate.is_file():
+                    continue
+                try:
+                    manifest_text = candidate.read_text(encoding="utf-8", errors="replace")[:200_000].lower()
+                except OSError:
+                    continue
+                pytest_configured = pytest_configured or "pytest" in manifest_text
+                ruff_configured = ruff_configured or "ruff" in manifest_text
+                mypy_configured = mypy_configured or "mypy" in manifest_text
+            if pytest_configured:
+                add("python.test", "Python: Run pytest", [sys.executable, "-m", "pytest"],
+                    "Run the project's pytest suite.")
+            else:
+                add("python.test", "Python: Run unit tests", [sys.executable, "-m", "unittest", "discover", "-v"],
+                    "Discover and run standard-library unittest tests.")
+            add("python.compile", "Python: Compile source", [sys.executable, "-m", "compileall", "-q", "-x", "(\\.venv|venv|node_modules|build|dist|\\.tox)", "."],
+                "Compile Python files while skipping common environment and generated directories.")
+            if ruff_configured:
+                add("python.lint", "Python: Ruff check", [sys.executable, "-m", "ruff", "check", "."],
+                    "Run Ruff lint checks when the project configures Ruff.")
+                add("python.format", "Python: Ruff format check", [sys.executable, "-m", "ruff", "format", "--check", "."],
+                    "Check Ruff formatting without rewriting files.")
+            if mypy_configured:
+                add("python.typecheck", "Python: Mypy", [sys.executable, "-m", "mypy", "."],
+                    "Run Mypy when the project configures it.")
 
         if "Cargo.toml" in root_files:
             add("rust.test", "Rust: Test", ["cargo", "test"], "Run Cargo tests.")
