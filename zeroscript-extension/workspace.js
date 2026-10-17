@@ -205,6 +205,76 @@ function closeTab(key) {
   }
 }
 
+function closeOtherTabs() {
+  syncActiveTabFromEditor();
+  const current = activeTab();
+  if (!current) return;
+  const others = state.openTabs.filter((tab) => tab.key !== current.key);
+  if (others.some((tab) => tab.dirty) &&
+      !window.confirm("Close " + others.length + " other tab(s) and discard any unsaved edits in them?")) return;
+  state.openTabs = [current];
+  state.activeTabKey = current.key;
+  switchToTab(current.key);
+}
+
+function closeAllTabs() {
+  syncActiveTabFromEditor();
+  if (state.openTabs.some((tab) => tab.dirty) &&
+      !window.confirm("Close all " + state.openTabs.length + " tabs and discard their unsaved edits?")) return;
+  state.openTabs = [];
+  state.activeTabKey = null;
+  state.currentFile = null;
+  state.fileWorkspaceRoot = null;
+  state.savedContent = "";
+  state.dirty = false;
+  $("codeEditor").value = "";
+  showWelcome();
+  renderDirty();
+  renderOpenTabs();
+}
+
+async function saveAllTabs() {
+  syncActiveTabFromEditor();
+  const activeRoot = state.workspace && state.workspace.root;
+  const dirtyTabs = state.openTabs.filter((tab) => tab.dirty);
+  if (!dirtyTabs.length) {
+    writeOutput("Save All", "All open tabs are already saved.");
+    return;
+  }
+  const blocked = dirtyTabs.filter((tab) => tab.root !== activeRoot);
+  if (blocked.length) {
+    errorOutput("Save All blocked", blocked.length + " tab(s) belong to a different workspace. Switch back to that folder before saving those buffers.");
+  }
+  setBusy(true, "Saving open files…");
+  const saved = [];
+  const failed = [];
+  try {
+    for (const tab of dirtyTabs) {
+      if (tab.root !== activeRoot) continue;
+      try {
+        const currentContent = tab.key === state.activeTabKey ? $("codeEditor").value : tab.content;
+        await callTool("workspace_write_file", { path: tab.path, content: currentContent });
+        tab.savedContent = currentContent;
+        tab.content = currentContent;
+        tab.dirty = false;
+        saved.push(tab.path);
+      } catch (error) {
+        failed.push(tab.path + ": " + error.message);
+      }
+    }
+    renderDirty();
+    renderOpenTabs();
+    if (failed.length) {
+      errorOutput("Save All partially completed", "Saved " + saved.length + " file(s).\n\nFailed:\n" + failed.join("\n"));
+    } else {
+      writeOutput("Save All", "Saved " + saved.length + " file(s):\n" + saved.join("\n"));
+    }
+    await refreshTree();
+  } finally {
+    setBusy(false);
+  }
+}
+
 function closeTabsForWorkspaceSwitch() {
   const dirtyTabs = state.openTabs.filter((tab) => tab.dirty);
   if (dirtyTabs.length && !window.confirm("Switch workspaces and discard unsaved edits in " + dirtyTabs.length + " open tab(s)?")) return false;
@@ -773,6 +843,10 @@ const COMMAND_PALETTE_ITEMS = [
   { title: "Choose Workspace Folder", detail: "Pick and activate a local project folder", icon: "▱", action: "workspace", shortcut: "" },
   { title: "Switch Recent Workspace", detail: "Switch between previously selected project folders", icon: "⌂", action: "recent-workspaces", shortcut: "" },
   { title: "Save Current File", detail: "Save the open source file", icon: "↓", action: "save", shortcut: "Ctrl+S" },
+  { title: "Save All Open Files", detail: "Save every modified tab in the active workspace", icon: "⇩", action: "save-all", shortcut: "" },
+  { title: "Close Current Tab", detail: "Close the active editor tab", icon: "×", action: "close-tab", shortcut: "Ctrl+W" },
+  { title: "Close Other Tabs", detail: "Close all tabs except the current one", icon: "⊟", action: "close-other-tabs", shortcut: "" },
+  { title: "Close All Tabs", detail: "Close every open editor tab", icon: "×", action: "close-all-tabs", shortcut: "" },
   { title: "Search in Files", detail: "Search project text, optionally with regex", icon: "⌕", action: "search", shortcut: "Ctrl+Shift+F" },
   { title: "Show Project Overview", detail: "Inspect manifests, project type, scripts, and source inventory", icon: "◈", action: "project", shortcut: "" },
   { title: "Show Git Status", detail: "Review branch and working-tree status", icon: "⑂", action: "git-status", shortcut: "" },
@@ -1003,6 +1077,14 @@ async function activateModalItem(item) {
     }
   } else if (item.action === "save") {
     await saveFile();
+  } else if (item.action === "save-all") {
+    await saveAllTabs();
+  } else if (item.action === "close-tab") {
+    if (state.activeTabKey) closeTab(state.activeTabKey);
+  } else if (item.action === "close-other-tabs") {
+    closeOtherTabs();
+  } else if (item.action === "close-all-tabs") {
+    closeAllTabs();
   } else if (item.action === "search") {
     setView("search");
     $("searchQuery").focus();
@@ -1401,7 +1483,11 @@ document.addEventListener("keydown", (event) => {
   }
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
     event.preventDefault();
-    saveFile();
+    if (event.shiftKey) saveAllTabs();
+    else saveFile();
+  } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "w") {
+    event.preventDefault();
+    if (state.activeTabKey) closeTab(state.activeTabKey);
   } else if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "f") {
     event.preventDefault();
     setView("search");
