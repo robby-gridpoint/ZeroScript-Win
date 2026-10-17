@@ -157,6 +157,7 @@ function renderOpenTabs() {
 }
 
 function switchToTab(key) {
+  if (state.busy) return;
   if (state.activeTabKey && state.activeTabKey !== key) syncActiveTabFromEditor();
   const tab = state.openTabs.find((item) => item.key === key);
   if (!tab) return;
@@ -181,6 +182,7 @@ function switchToTab(key) {
 }
 
 function closeTab(key) {
+  if (state.busy) return;
   syncActiveTabFromEditor();
   const index = state.openTabs.findIndex((tab) => tab.key === key);
   if (index < 0) return;
@@ -324,9 +326,8 @@ function setInfoMode(title, data, path = "") {
   info.classList.remove("hidden");
   $("activeFileName").textContent = title;
   $("breadcrumb").textContent = path ? `ZeroScript / ${path}` : `ZeroScript / ${title}`;
-  $("saveFile").disabled = true;
-  $("dirtyDot").classList.add("hidden");
   $("statusFile").textContent = path || title;
+  renderDirty();
 }
 
 function renderDirty() {
