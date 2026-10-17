@@ -1227,6 +1227,8 @@ class MCPManager:
             raise RuntimeError(self.workspace_error or "Workspace is unavailable. Select a folder with workspace_set_root or workspace_browse.")
         if name == "workspace_create_file":
             return self.workspace.create_file(args["path"], args.get("content", ""))
+        if name == "workspace_create_file":
+            return self.workspace.create_file(args["path"], args.get("content", ""))
         if name == "workspace_create_directory":
             return self.workspace.create_directory(args["path"])
         if name == "workspace_move_path":
