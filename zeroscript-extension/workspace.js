@@ -1412,7 +1412,7 @@ function renderProjectTasks(project) {
   host.replaceChildren();
   const catalogue = project && Array.isArray(project.task_catalogue) ? project.task_catalogue : [];
   const longRunning = /^(?:dev|start|serve|watch|preview|storybook|docs:dev|dev:.*|watch:.*)$/i;
-  const riskyOneClick = /^(?:deploy|publish|release|upload|migrate|destroy|reset|clean:all)(?:$|:)/i;
+  const riskyOneClick = /(?:^|[:._-])(?:deploy|publish|release|upload|migrate|destroy|reset|seed|clean:all)(?:$|[:._-])/i;
   const packageTasks = catalogue.filter((item) =>
     item.kind === "package" && !longRunning.test(item.name || "") && !riskyOneClick.test(item.name || "")
   );
