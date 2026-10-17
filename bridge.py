@@ -1153,6 +1153,8 @@ class MCPManager:
     def _set_workspace(self, path, source="selected", persist=True):
         if not isinstance(path, str) or not path.strip():
             raise RuntimeError("A local folder path is required.")
+        if not Path(path).expanduser().is_absolute():
+            raise RuntimeError("Use an absolute folder path, or open workspace_browse to choose a folder.")
         candidate = Workspace(path)
         if persist:
             try:
