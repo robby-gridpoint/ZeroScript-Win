@@ -216,6 +216,7 @@ class Workspace:
             old_string = edit.get("old_string")
             new_string = edit.get("new_string")
             replace_all = edit.get("replace_all", False)
+            whole_file = edit.get("whole_file", False)
             if not isinstance(path, str) or not path.strip():
                 raise WorkspaceError(f"Edit {index + 1} requires a path.")
             if not isinstance(old_string, str) or not old_string:
@@ -224,6 +225,8 @@ class Workspace:
                 raise WorkspaceError(f"Edit {index + 1} requires new_string to be a string.")
             if not isinstance(replace_all, bool):
                 raise WorkspaceError(f"Edit {index + 1} replace_all must be a boolean.")
+            if not isinstance(whole_file, bool):
+                raise WorkspaceError(f"Edit {index + 1} whole_file must be a boolean.")
 
             raw_path = Path(path).expanduser()
             raw_path = raw_path if raw_path.is_absolute() else self.root / raw_path
@@ -249,22 +252,32 @@ class Workspace:
                     "operations": 0,
                 }
             current = pending[target]["content"]
-            occurrences = current.count(old_string)
-            if occurrences == 0:
-                raise WorkspaceError(
-                    f"Edit {index + 1}: old_string was not found in {path}; no files were changed."
-                )
-            if occurrences > 1 and not replace_all:
-                raise WorkspaceError(
-                    f"Edit {index + 1}: old_string appears {occurrences} times in {path}; "
-                    "add more context or set replace_all=true. No files were changed."
-                )
-            if replace_all:
-                updated = current.replace(old_string, new_string)
-                pending[target]["replacements"] += occurrences
-            else:
-                updated = current.replace(old_string, new_string, 1)
+            if whole_file:
+                if current != old_string:
+                    raise WorkspaceError(
+                        f"Edit {index + 1}: {path} changed while the edit batch was being prepared; "
+                        "no files were changed."
+                    )
+                occurrences = 1
+                updated = new_string
                 pending[target]["replacements"] += 1
+            else:
+                occurrences = current.count(old_string)
+                if occurrences == 0:
+                    raise WorkspaceError(
+                        f"Edit {index + 1}: old_string was not found in {path}; no files were changed."
+                    )
+                if occurrences > 1 and not replace_all:
+                    raise WorkspaceError(
+                        f"Edit {index + 1}: old_string appears {occurrences} times in {path}; "
+                        "add more context or set replace_all=true. No files were changed."
+                    )
+                if replace_all:
+                    updated = current.replace(old_string, new_string)
+                    pending[target]["replacements"] += occurrences
+                else:
+                    updated = current.replace(old_string, new_string, 1)
+                    pending[target]["replacements"] += 1
             pending[target]["content"] = updated
             pending[target]["operations"] += 1
 
@@ -727,7 +740,7 @@ class Workspace:
                     "message": "No matching text remains; no files were changed.",
                 }
             edits = [
-                {"path": item["path"], "old_string": item["original"], "new_string": item["updated"]}
+                {"path": item["path"], "old_string": item["original"], "new_string": item["updated"], "whole_file": True}
                 for item in pending
             ]
             changed = self.multi_edit(edits)
