@@ -1330,7 +1330,7 @@ async function runProjectTask(manager, name) {
   if (!window.confirm(`Run the project-defined script below?\n\n${display}\n\nProject scripts are executable code and may modify files or access the network.`)) return;
   setBusy(true, `Running ${name}…`);
   try {
-    const result = await callTool("workspace_run_command", { command, timeout: 300 }, 315000);
+    const result = await callTool("workspace_run_task", { task: name, timeout: 300 }, 315000);
     const status = result.timed_out ? "Timed out after 300 seconds" : `Exit code ${result.exit_code}`;
     writeOutput(`Task · ${name} · ${status}`, `${command.join(" ")}\n\n${result.output || "(No output)"}`, result.exit_code === 0 ? "output" : "problems");
   } catch (error) {
