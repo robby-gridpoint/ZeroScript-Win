@@ -1,8 +1,6 @@
 # Workspace agent foundation
 
-ZeroScript-Win is being decoupled from Roblox Studio into a local-first coding
-agent. The existing browser provider adapters and MCP bridge remain available
-while the workspace backend is introduced independently.
+ZeroScript-Win is a workspace-first, local coding agent. The extension retains its existing browser provider adapters, while the bridge exposes workspace tools independently of optional MCP integrations such as Roblox Studio.
 
 ## Initial workspace tools
 
