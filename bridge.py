@@ -1486,6 +1486,8 @@ async def run_tool_task(ws, name, args, timeout, rid):
         await ws.send(json.dumps({"type": "tool_result", "id": rid, **res}))
     except websockets.ConnectionClosed:
         pass
+    if res.get("ok") and name.startswith("workspace_"):
+        await broadcast_status()
 
 
 async def broadcast_status():
@@ -1520,6 +1522,7 @@ async def broadcast_status():
             "studio_proc": _proc,
             "servers": mgr.health(),
             "tools": mgr.list_tools(),
+            "workspace": mgr._workspace_description(),
             "port": PORT,
         })
     except Exception:
@@ -1563,6 +1566,7 @@ async def handler(ws):
                     "type": "studio_status", "id": rid,
                     "studio": studio["place"], "studio_app": studio["app"],
                     "studio_proc": await asyncio.to_thread(_roblox_studio_app_running),
+                    "workspace": mgr._workspace_description(),
                     "mcp_alive": mgr.any_alive(),
                 }))
 
@@ -1576,6 +1580,7 @@ async def handler(ws):
                 await ws.send(json.dumps({
                     "type": "tools", "id": rid,
                     "tools": tools, "mcp_alive": mgr.any_alive(),
+                    "workspace": mgr._workspace_description(),
                     "studio": _st["place"], "studio_app": _st["app"],
                     "studio_proc": await asyncio.to_thread(_roblox_studio_app_running),
                     "servers": mgr.health(),
