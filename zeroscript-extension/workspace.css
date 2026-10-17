@@ -191,3 +191,8 @@ input[type=checkbox] { margin: 0; accent-color: var(--accent); }
   .modal-backdrop { padding: 8vh 12px 12px; }
   .command-modal { max-height: 82vh; }
 }
+
+.is-busy .activity-rail,
+.is-busy .side-panel,
+.is-busy .top-actions,
+.is-busy .tab-strip { pointer-events: none; opacity: .78; }
