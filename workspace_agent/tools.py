@@ -190,11 +190,14 @@ class Workspace:
             dirs[:] = sorted(
                 d for d in dirs
                 if d not in DEFAULT_IGNORES and (include_hidden or not d.startswith("."))
+                and not (Path(current) / d).is_symlink()
             )
             for name in sorted(names):
                 if not include_hidden and name.startswith("."):
                     continue
                 item = Path(current) / name
+                if item.is_symlink():
+                    continue
                 rel = item.relative_to(self.root).as_posix()
                 rel_from_base = item.relative_to(base).as_posix()
                 if not (fnmatch.fnmatchcase(rel, pattern) or fnmatch.fnmatchcase(rel_from_base, pattern)
