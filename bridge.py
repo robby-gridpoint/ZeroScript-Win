@@ -35,6 +35,11 @@ except Exception:
     WorkspaceError = RuntimeError
 
 try:
+    from workspace_agent.roblox_export import export_tree as export_roblox_tree
+except Exception:
+    export_roblox_tree = None
+
+try:
     # Sibling script (same folder as bridge.py, which Python puts on sys.path
     # automatically) - reused here purely to detect a Studio version bump
     # (see _current_studio_exe below), not to launch anything.
@@ -1180,6 +1185,15 @@ class MCPManager:
             {"name": "workspace_run_command", "description": "Run a command as an argument array from the selected project directory. Shell expansion is disabled. Use only commands required for the requested development task.",
              "inputSchema": {"type": "object", "properties": {"command": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 100}, "timeout": {"type": "integer", "minimum": 1, "maximum": 300}}, "required": ["command"], "additionalProperties": False}, "server": "workspace"},
         ]
+        tools.append({
+            "name": "roblox_export_tree",
+            "description": "Export all Script, LocalScript, and ModuleScript source from the connected Roblox Studio place into the selected local workspace. Traverses the full DataModel, preserves hierarchy as directories, keeps server/client/module suffixes, and writes locally in bounded batches without sending script contents through the agent conversation. Requires a configured workspace and Roblox Studio MCP connection. Existing files are protected unless overwrite=true.",
+            "inputSchema": {"type": "object", "properties": {
+                "root_path": {"type": "string", "default": "RobloxExport", "description": "Workspace-relative directory to create the export under."},
+                "overwrite": {"type": "boolean", "default": False, "description": "Explicitly replace matching existing files."}
+            }, "additionalProperties": False},
+            "server": "roblox-export"
+        })
         return tools
 
     def _set_workspace(self, path, source="selected", persist=True):
@@ -1465,6 +1479,11 @@ class MCPManager:
         return out
 
     def call(self, name, arguments, timeout):
+        if name == "roblox_export_tree":
+            if export_roblox_tree is None:
+                raise RuntimeError("Roblox tree exporter could not be imported. Check workspace_agent/roblox_export.py.")
+            result = export_roblox_tree(self, arguments or {})
+            return {"text": json.dumps(result, ensure_ascii=False, indent=2), "images": []}
         if name.startswith("workspace_"):
             result = self._call_workspace(name, arguments)
             return {"text": json.dumps(result, ensure_ascii=False, indent=2), "images": []}
