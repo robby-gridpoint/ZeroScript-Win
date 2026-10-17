@@ -35,6 +35,7 @@ assert.doesNotMatch(prompt, /Roblox Studio place.*always connected/i);
 assert.equal(ZS.toolCategory("workspace_read_file"), "read");
 assert.equal(ZS.toolCategory("workspace_write_file"), "edit");
 assert.equal(ZS.toolCategory("workspace_multi_edit"), "edit");
+assert.equal(ZS.toolCategory("workspace_replace_in_files"), "edit");
 assert.equal(ZS.toolCategory("workspace_run_task"), "edit");
 assert.equal(ZS.toolCategory("workspace_git_stage_file"), "edit");
 assert.equal(ZS.toolCategory("workspace_git_unstage_file"), "edit");
