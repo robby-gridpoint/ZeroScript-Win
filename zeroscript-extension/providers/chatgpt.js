@@ -1057,7 +1057,7 @@ const ZSProvider = (() => {
       try { document.documentElement.setAttribute("data-zs-gpt-ver", "2026-10-17_composer-turn-compat"); } catch {}
     },
     // turns
-    allItems, role, replyNodes, isUserItem, isAssistantItem, itemText, classifyText,
+    allItems, role, replyNodes, isUserItem, isAssistantItem, isStopBtn, itemText, classifyText,
     assistantCount, userCount, lastAssistant, lastAssistantId, itemKey, readAssistant,
     streamLen, snapshot,
     // composer / state
