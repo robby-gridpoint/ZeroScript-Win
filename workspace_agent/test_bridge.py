@@ -54,6 +54,9 @@ class WorkspaceBridgeTests(unittest.TestCase):
         recent = self.manager._call_workspace("workspace_recent_roots", {})["recent_roots"]
         self.assertEqual([item["path"] for item in recent[:2]], [str(second), str(first)])
         self.assertTrue(recent[0]["current"])
+        with open(self.manager.workspace_settings_path, "r", encoding="utf-8") as handle:
+            saved = json.load(handle)
+        self.assertEqual(saved["recent_roots"][:2], [str(second), str(first)])
         activated = self.manager._call_workspace("workspace_open_recent", {"path": str(first)})
         self.assertEqual(activated["root"], str(first))
         self.assertEqual(self.manager.workspace_source, "recent")
