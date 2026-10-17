@@ -137,6 +137,9 @@ document.getElementById("restart").addEventListener("click", (event) => {
 document.getElementById("kofi").addEventListener("click", () => {
   chrome.tabs.create({ url: KOFI_URL });
 });
+document.getElementById("openExplorer").addEventListener("click", () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL("workspace.html") });
+});
 document.getElementById("settings").addEventListener("click", () => {
   chrome.tabs.query({}, (tabs) => {
     const active = tabs.find((t) => t.active && t.url && SUPPORTED_HOSTS.some((h) => t.url.includes(h)));
