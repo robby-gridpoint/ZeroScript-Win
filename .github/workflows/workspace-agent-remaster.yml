@@ -1,6 +1,7 @@
 name: Workspace agent remaster checks
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - agent/full-remaster-workspace-first
@@ -38,6 +39,7 @@ jobs:
           node --check zeroscript-extension/core/main.js
           node --check zeroscript-extension/background.js
           node --check zeroscript-extension/popup.js
+          node --check zeroscript-extension/workspace.js
 
       - name: Validate extension manifest
         run: node -e "JSON.parse(require('fs').readFileSync('zeroscript-extension/manifest.json', 'utf8'))"
