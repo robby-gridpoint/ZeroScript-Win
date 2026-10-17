@@ -1155,6 +1155,8 @@ class MCPManager:
              "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}, "old_string": {"type": "string"}, "new_string": {"type": "string"}, "replace_all": {"type": "boolean", "default": False}}, "required": ["path", "old_string", "new_string"], "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_write_file", "description": "Create or replace a UTF-8 text file inside the selected project. Returns a unified diff. This modifies files.",
              "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"], "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_git_changed_files", "description": "List changed files with staged, unstaged, untracked, added, deleted, or renamed state. Use for source-control browsing; it does not mutate Git.",
+             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_git_stage_file", "description": "Stage one file path inside the selected workspace using Git. Does not stage an entire directory. Only call after the user explicitly asks to stage that file.",
              "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"], "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_git_unstage_file", "description": "Remove one file path from the Git index without changing its working-tree contents. Only call after the user explicitly asks to unstage that file.",
@@ -1347,6 +1349,8 @@ class MCPManager:
             return self.workspace.apply_patch(args["path"], args["old_string"], args["new_string"], args.get("replace_all", False))
         if name == "workspace_write_file":
             return self.workspace.write_file(args["path"], args["content"])
+        if name == "workspace_git_changed_files":
+            return self.workspace.git_changed_files()
         if name == "workspace_git_stage_file":
             return self.workspace.git_stage_file(args["path"])
         if name == "workspace_git_unstage_file":
