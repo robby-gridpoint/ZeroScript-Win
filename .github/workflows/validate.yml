@@ -2,7 +2,7 @@ name: Validate workspace agent
 
 on:
   push:
-    branches: ["master", "agent/workspace-foundation"]
+    branches: ["master", "agent/workspace-foundation", "agent/full-remaster-workspace-first"]
   pull_request:
 
 jobs:
