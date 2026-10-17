@@ -19,6 +19,17 @@ The `workspace_agent` Python package provides project-scoped tools for:
 
 See [Workspace Agent Foundation](docs/WORKSPACE_AGENT.md) for implementation boundaries and next steps.
 
+## Select a project workspace
+
+The bridge exposes workspace tools even when Roblox Studio is closed. By default, the workspace is the ZeroScript-Win repository directory. To target another project on Windows, set `ZS_WORKSPACE_ROOT` to that project's absolute path before starting the bridge. For example, in PowerShell:
+
+```powershell
+$env:ZS_WORKSPACE_ROOT = 'D:\Projects\MyApp'
+py -3 bridge.py
+```
+
+The setting applies to that bridge process. Restart the bridge after changing it. Only select a directory you trust: the agent can write files and run local commands in that workspace.
+
 ## Run the workspace tests
 
 Requires Python 3.10 or later.
