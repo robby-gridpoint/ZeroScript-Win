@@ -30,6 +30,7 @@ class WorkspaceBridgeTests(unittest.TestCase):
         self.assertIn("workspace_tree", by_name)
         self.assertIn("workspace_search", by_name)
         self.assertIn("workspace_multi_edit", by_name)
+        self.assertIn("workspace_replace_in_files", by_name)
         self.assertIn("workspace_create_file", by_name)
         self.assertIn("workspace_recent_roots", by_name)
         self.assertIn("workspace_open_recent", by_name)
@@ -68,6 +69,16 @@ class WorkspaceBridgeTests(unittest.TestCase):
         self.assertEqual(self.manager.workspace_source, "recent")
         with self.assertRaisesRegex(RuntimeError, "not in the saved recent-workspace list"):
             self.manager._call_workspace("workspace_open_recent", {"path": str(self.root)})
+
+    def test_bridge_routes_preview_replace_to_selected_workspace(self):
+        self.manager.workspace_configured = True
+        preview = {"applied": False, "preview_hash": "hash", "files_changed": 1}
+        with mock.patch.object(self.manager.workspace, "replace_in_files", return_value=preview) as replace:
+            result = self.manager._call_workspace("workspace_replace_in_files", {
+                "query": "old", "replacement": "new", "apply": False,
+            })
+        self.assertEqual(result["preview_hash"], "hash")
+        replace.assert_called_once_with("old", "new", ".", 100, False, False, False, "")
 
     def test_bridge_routes_multi_edit_to_selected_workspace(self):
         self.manager.workspace_configured = True
