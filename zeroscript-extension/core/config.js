@@ -3,7 +3,7 @@
 // feedback strings, tool categorisation. NOTHING in this file may reference a
 // specific AI site (DOM, selectors, site names) - that lives in providers/*.
 // eslint-disable-next-line no-unused-vars
-globalThis.ZS = (() => {
+var ZS = (() => {
   "use strict";
 
   // Display name + unique marker injected at the top of the system prompt so the
