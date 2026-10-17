@@ -135,6 +135,28 @@ class WorkspaceTests(unittest.TestCase):
         self.assertIn("declaration", kinds)
         self.assertEqual(result["path"], "src/app.py")
 
+    def test_create_move_and_delete_paths(self):
+        created = self.ws.create_directory("src/generated")
+        self.assertEqual(created["type"], "directory")
+        self.ws.write_file("src/generated/app.txt", "hello\n")
+        moved = self.ws.move_path("src/generated/app.txt", "src/app.txt")
+        self.assertTrue(moved["moved"])
+        self.assertEqual(self.ws.read_file("src/app.txt")["content"], "hello\n")
+        deleted = self.ws.delete_file("src/app.txt")
+        self.assertTrue(deleted["deleted"])
+        self.assertFalse((self.root / "src" / "app.txt").exists())
+
+    def test_path_lifecycle_refuses_overwrite_and_directory_delete(self):
+        self.ws.create_directory("src")
+        self.ws.write_file("src/existing.txt", "existing\n")
+        self.ws.write_file("src/other.txt", "other\n")
+        with self.assertRaises(WorkspaceError):
+            self.ws.move_path("src/other.txt", "src/existing.txt")
+        with self.assertRaises(WorkspaceError):
+            self.ws.delete_file("src")
+        with self.assertRaises(WorkspaceError):
+            self.ws.move_path(".", "backup")
+
     def test_run_command_without_shell(self):
         result = self.ws.run_command([sys.executable, "-c", "print('workspace-ok')"])
         self.assertEqual(result["exit_code"], 0)
