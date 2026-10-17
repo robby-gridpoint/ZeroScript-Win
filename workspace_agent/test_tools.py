@@ -3,6 +3,7 @@ import shutil
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 from workspace_agent.tools import Workspace, WorkspaceError
@@ -221,13 +222,13 @@ class WorkspaceTests(unittest.TestCase):
             self.ws.git_stage_file(".")
 
     def test_git_unstage_does_not_touch_working_tree(self):
-        with unittest.mock.patch.object(self.ws, "_run", return_value={"exit_code": 0, "output": ""}) as mocked:
+        with mock.patch.object(self.ws, "_run", return_value={"exit_code": 0, "output": ""}) as mocked:
             result = self.ws.git_unstage_file("src/main.py")
         self.assertEqual(result["exit_code"], 0)
         mocked.assert_called_once_with(["git", "restore", "--staged", "--", "src/main.py"], timeout=30)
 
     def test_git_commit_validates_message_and_does_not_use_shell(self):
-        with unittest.mock.patch.object(self.ws, "_run", return_value={"exit_code": 0, "output": "[main abc] test"}) as mocked:
+        with mock.patch.object(self.ws, "_run", return_value={"exit_code": 0, "output": "[main abc] test"}) as mocked:
             result = self.ws.git_commit("  test commit  ")
         self.assertEqual(result["exit_code"], 0)
         mocked.assert_called_once_with(["git", "commit", "-m", "test commit"], timeout=60)
