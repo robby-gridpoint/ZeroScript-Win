@@ -32,6 +32,9 @@ class WorkspaceBridgeTests(unittest.TestCase):
         self.assertIn("workspace_create_file", by_name)
         self.assertIn("workspace_recent_roots", by_name)
         self.assertIn("workspace_open_recent", by_name)
+        self.assertIn("workspace_git_stage_file", by_name)
+        self.assertIn("workspace_git_unstage_file", by_name)
+        self.assertIn("workspace_git_commit", by_name)
         self.assertIs(by_name["workspace_tree"]["inputSchema"]["properties"]["include_hidden"]["default"], False)
         self.assertIs(by_name["workspace_search"]["inputSchema"]["properties"]["regex"]["default"], False)
         self.assertIn("configured: false", by_name["workspace_info"]["description"])
@@ -76,6 +79,18 @@ class WorkspaceBridgeTests(unittest.TestCase):
         self.assertEqual(result["files_changed"], 2)
         self.assertEqual(self.manager.workspace.read_file("one.py")["content"], "VALUE = 10\n")
         self.assertEqual(self.manager.workspace.read_file("two.py")["content"], "VALUE = 20\n")
+
+    def test_bridge_routes_git_stage_and_commit_tools(self):
+        self.manager.workspace_configured = True
+        with mock.patch.object(self.manager.workspace, "git_stage_file", return_value={"exit_code": 0}) as stage:
+            self.assertEqual(self.manager._call_workspace("workspace_git_stage_file", {"path": "main.py"})["exit_code"], 0)
+            stage.assert_called_once_with("main.py")
+        with unittest.mock.patch.object(self.manager.workspace, "git_unstage_file", return_value={"exit_code": 0}) as unstage:
+            self.assertEqual(self.manager._call_workspace("workspace_git_unstage_file", {"path": "main.py"})["exit_code"], 0)
+            unstage.assert_called_once_with("main.py")
+        with unittest.mock.patch.object(self.manager.workspace, "git_commit", return_value={"exit_code": 0}) as commit:
+            self.assertEqual(self.manager._call_workspace("workspace_git_commit", {"message": "test"})["exit_code"], 0)
+            commit.assert_called_once_with("test")
 
     def test_explicit_workspace_selection_persists_and_unlocks_tools(self):
         project = self.root / "project"
