@@ -114,6 +114,22 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(result["package_manager"], "pnpm")
         self.assertEqual(result["package_scripts"]["test"], "vitest run")
 
+    def test_run_task_uses_only_declared_package_scripts(self):
+        (self.root / "package.json").write_text(
+            '{"name":"sample","packageManager":"pnpm@9.0.0","scripts":{"test":"vitest run","build":"vite build"}}',
+            encoding="utf-8",
+        )
+        with mock.patch.object(self.ws, "_run", return_value={"exit_code": 0, "output": "ok"}) as mocked:
+            result = self.ws.run_task("test", timeout=45)
+        self.assertEqual(result["task"], "test")
+        self.assertEqual(result["package_manager"], "pnpm")
+        self.assertEqual(result["script"], "vitest run")
+        mocked.assert_called_once_with(["pnpm", "run", "test"], timeout=45)
+        with mock.patch.object(self.ws, "_run") as mocked:
+            with self.assertRaisesRegex(WorkspaceError, "not declared"):
+                self.ws.run_task("deploy")
+            mocked.assert_not_called()
+
     def test_symbols_finds_function_and_type(self):
         (self.root / "src").mkdir()
         (self.root / "src" / "app.py").write_text(
