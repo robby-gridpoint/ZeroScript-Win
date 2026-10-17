@@ -60,6 +60,8 @@
         </section>
 
         <section id="searchView" class="side-view hidden">
+          <label class="field-label" for="searchPath">Folder scope <span class="field-muted">(relative to workspace)</span></label>
+          <input id="searchPath" placeholder=". (entire workspace) or src/" value="." autocomplete="off" spellcheck="false" />
           <label class="field-label" for="searchQuery">Search in project</label>
           <input id="searchQuery" placeholder="Text or regex pattern" autocomplete="off" />
           <div class="inline-fields">
