@@ -751,6 +751,7 @@ function openFindBar(showReplace = false) {
     writeOutput("Find in File", "Open a source file before finding text.");
     return;
   }
+  setEditorMode();
   const editor = $("codeEditor");
   const selectedText = editor.value.slice(editor.selectionStart, editor.selectionEnd);
   if (!$("findText").value && selectedText && !/[\r\n]/.test(selectedText)) {
