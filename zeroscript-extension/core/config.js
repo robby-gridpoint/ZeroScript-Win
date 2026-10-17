@@ -22,8 +22,11 @@ var ZS = (() => {
   //   read | edit | screen | generate | roblox | tool
   function toolCategory(name) {
     const rawName = String(name || "");
-    if (rawName.startsWith("roblox/")) return "roblox";
     const n = rawName.includes("/") ? rawName.split("/").pop() : rawName;
+    // Preserve the existing screenshot/image chip behavior for Roblox capture tools,
+    // while keeping every other Roblox command in its own visual category.
+    if (/capture|screenshot|screen/i.test(n)) return "screen";
+    if (rawName.startsWith("roblox/")) return "roblox";
     if (/^(workspace_info|workspace_recent_roots|workspace_project_info|workspace_tree|workspace_file_outline|workspace_list_files|workspace_read_file|workspace_search|workspace_find_files|workspace_symbols|workspace_git_status|workspace_git_diff|workspace_git_branches|workspace_git_log|list_tools|list_commands)$/.test(n)) return "read";
     if (/^(workspace_write_file|workspace_apply_patch|workspace_multi_edit|workspace_open_recent|workspace_set_root|workspace_create_file|workspace_create_directory|workspace_move_path|workspace_delete_file|multi_edit|insert_from_creator_store|store_image)$/.test(n)) return "edit";
     if (/^(workspace_run_command|execute_luau)$/.test(n)) return "edit";
