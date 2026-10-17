@@ -268,6 +268,19 @@ class WorkspaceTests(unittest.TestCase):
         with self.assertRaises(WorkspaceError):
             self.ws.move_path(".", "backup")
 
+    def test_git_changed_files_parses_staged_unstaged_and_untracked(self):
+        porcelain = " M src/main.py\\x00A  src/new file.py\\x00?? notes.md\\x00"
+        with mock.patch.object(self.ws, "_run", return_value={"exit_code": 0, "output": porcelain}) as mocked:
+            result = self.ws.git_changed_files()
+        self.assertEqual(result["count"], 3)
+        by_path = {item["path"]: item for item in result["files"]}
+        self.assertTrue(by_path["src/main.py"]["unstaged"])
+        self.assertFalse(by_path["src/main.py"]["staged"])
+        self.assertTrue(by_path["src/new file.py"]["staged"])
+        self.assertFalse(by_path["src/new file.py"]["unstaged"])
+        self.assertTrue(by_path["notes.md"]["untracked"])
+        mocked.assert_called_once_with(["git", "status", "--porcelain=v1", "-z", "--untracked-files=all"], timeout=20)
+
     def test_git_stage_file_scopes_to_one_path(self):
         (self.root / "src").mkdir()
         (self.root / "src" / "main.py").write_text("print('ok')\n", encoding="utf-8")
