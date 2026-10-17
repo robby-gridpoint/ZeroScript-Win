@@ -8,6 +8,8 @@ const state = {
   currentFile: null,
   savedContent: "",
   dirty: false,
+  openTabs: [],
+  activeTabKey: null,
   currentView: "explorer",
   busy: false,
   fileWorkspaceRoot: null,
@@ -93,6 +95,127 @@ function updateWorkspaceHeader() {
   } else if (ws) {
     $("connectionLabel").textContent = "Workspace selection required";
   }
+}
+
+function tabKey(path, root = (state.workspace && state.workspace.root) || "") {
+  return String(root) + "\u0000" + String(path);
+}
+
+function activeTab() {
+  return state.openTabs.find((tab) => tab.key === state.activeTabKey) || null;
+}
+
+function syncActiveTabFromEditor() {
+  const tab = activeTab();
+  if (!tab || tab.root !== ((state.workspace && state.workspace.root) || null)) return;
+  tab.content = $("codeEditor").value;
+  tab.dirty = tab.content !== tab.savedContent;
+  state.currentFile = tab.path;
+  state.savedContent = tab.savedContent;
+  state.dirty = tab.dirty;
+  state.fileWorkspaceRoot = tab.root;
+}
+
+function renderOpenTabs() {
+  const host = $("openTabs");
+  host.replaceChildren();
+  for (const tab of state.openTabs) {
+    const item = document.createElement("div");
+    item.className = "editor-tab" + (tab.key === state.activeTabKey ? " active" : "") + (tab.dirty ? " dirty" : "");
+    item.title = tab.root ? tab.root + "\\" + tab.path.replace(/\//g, "\\") : tab.path;
+    const main = document.createElement("button");
+    main.type = "button";
+    main.className = "editor-tab-main";
+    main.title = "Open " + tab.path;
+    const icon = document.createElement("span");
+    icon.className = "file-tab-icon";
+    icon.textContent = iconForFile(tab.path.split("/").pop());
+    const name = document.createElement("span");
+    name.className = "editor-tab-name";
+    name.textContent = tab.path.split("/").pop();
+    const marker = document.createElement("span");
+    marker.className = "editor-tab-dirty";
+    marker.textContent = tab.dirty ? "●" : "";
+    main.append(icon, name, marker);
+    main.addEventListener("click", () => switchToTab(tab.key));
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "editor-tab-close";
+    close.title = "Close " + tab.path;
+    close.setAttribute("aria-label", "Close " + tab.path);
+    close.textContent = "×";
+    close.addEventListener("click", (event) => {
+      event.stopPropagation();
+      closeTab(tab.key);
+    });
+    item.append(main, close);
+    host.append(item);
+  }
+}
+
+function switchToTab(key) {
+  const tab = state.openTabs.find((item) => item.key === key);
+  if (!tab) return;
+  state.activeTabKey = tab.key;
+  state.currentFile = tab.path;
+  state.savedContent = tab.savedContent;
+  state.dirty = tab.dirty;
+  state.fileWorkspaceRoot = tab.root;
+  $("codeEditor").value = tab.content;
+  setEditorMode();
+  $("activeFileName").textContent = tab.path.split("/").pop();
+  $("breadcrumb").textContent = "ZeroScript / " + tab.path;
+  $("statusFile").textContent = tab.path;
+  $("languageStatus").textContent = languageForPath(tab.path);
+  $("encodingStatus").textContent = "UTF-8";
+  $("eolStatus").textContent = tab.content.includes("\r\n") ? "CRLF" : "LF";
+  selectFileInTree(tab.path);
+  updateHighlight();
+  updateCursorStatus();
+  renderDirty();
+  renderOpenTabs();
+}
+
+function closeTab(key) {
+  const index = state.openTabs.findIndex((tab) => tab.key === key);
+  if (index < 0) return;
+  const tab = state.openTabs[index];
+  if (tab.dirty && !window.confirm("Close " + tab.path + " with unsaved changes? The in-memory edits will be discarded.")) return;
+  const wasActive = tab.key === state.activeTabKey;
+  state.openTabs.splice(index, 1);
+  if (!wasActive) {
+    renderOpenTabs();
+    return;
+  }
+  if (state.openTabs.length) {
+    const next = state.openTabs[Math.min(index, state.openTabs.length - 1)];
+    switchToTab(next.key);
+  } else {
+    state.activeTabKey = null;
+    state.currentFile = null;
+    state.fileWorkspaceRoot = null;
+    state.savedContent = "";
+    state.dirty = false;
+    $("codeEditor").value = "";
+    showWelcome();
+    renderDirty();
+    renderOpenTabs();
+  }
+}
+
+function closeTabsForWorkspaceSwitch() {
+  const dirtyTabs = state.openTabs.filter((tab) => tab.dirty);
+  if (dirtyTabs.length && !window.confirm("Switch workspaces and discard unsaved edits in " + dirtyTabs.length + " open tab(s)?")) return false;
+  state.openTabs = [];
+  state.activeTabKey = null;
+  state.currentFile = null;
+  state.fileWorkspaceRoot = null;
+  state.savedContent = "";
+  state.dirty = false;
+  $("codeEditor").value = "";
+  renderOpenTabs();
+  renderDirty();
+  return true;
 }
 
 function showWelcome() {
