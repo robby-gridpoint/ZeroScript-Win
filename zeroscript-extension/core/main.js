@@ -289,6 +289,35 @@
       }
       const base = P.assistantCount();
       const preUser = P.userCount();
+      // Keep a snapshot of rendered turn identities. On long ChatGPT conversations,
+      // virtualisation can remove an old turn as a new one is added, leaving userCount
+      // unchanged. Counts alone then falsely report that a successfully sent result
+      // was never delivered. Identity + payload matching is the stronger receipt.
+      const priorItems = P.allItems();
+      const priorItemRefs = new Set(priorItems);
+      const priorItemKeys = new Set(priorItems
+        .map((it) => P.itemKey ? P.itemKey(it) : undefined)
+        .filter((key) => key !== undefined && key !== null && key !== "")
+        .map(String));
+      const normalizedPayload = String(text || "").replace(/\\s+/g, " ").trim();
+      const deliveryNeedle = normalizedPayload.slice(0, Math.min(96, normalizedPayload.length));
+      const matchingNewPayload = () => {
+        if (!deliveryNeedle) return false;
+        const items = P.allItems();
+        for (let i = items.length - 1; i >= 0; i--) {
+          const item = items[i];
+          let itemText = "";
+          try {
+            itemText = P.itemText ? P.itemText(item) : P.classifyText(item, ".zs-chip");
+          } catch {}
+          const normalizedItem = String(itemText || "").replace(/\\s+/g, " ").trim();
+          if (!normalizedItem.includes(deliveryNeedle)) continue;
+          const key = P.itemKey ? P.itemKey(item) : undefined;
+          const isNewKey = key !== undefined && key !== null && key !== "" && !priorItemKeys.has(String(key));
+          if (!priorItemRefs.has(item) || isNewKey) return true;
+        }
+        return false;
+      };
       // Arm the optimistic pre-hide for the result turn we're about to inject:
       // the very next NEW user turn is ours, so preHideWholeItems can mask it on
       // creation instead of waiting for its "Output of '…'" caption to render
@@ -300,7 +329,8 @@
       // "Landed" = a new turn appeared in the DOM. In long chats, list
       // virtualisation can keep counts flat even when our message landed - the
       // textarea-cleared signal below is the primary fast gate.
-      const landed = () => P.userCount() > preUser || P.assistantCount() > base;
+      const landedByCount = () => P.userCount() > preUser || P.assistantCount() > base;
+      const landed = () => matchingNewPayload() || landedByCount();
       // CRITICAL: never type/send while the tab is HIDDEN. Background tabs throttle
       // rendering, which made the landed-check unreliable and caused the SAME
       // feedback to be sent several times. Send ONLY while visible.
@@ -348,13 +378,26 @@
       }
       const confirmedLanded = landed();
       if (!confirmedLanded && !A.stop) {
-        diag("send.failed", { tries, editorCleared: messageSent, landed: false });
+        diag("send.failed", {
+          tries,
+          editorCleared: messageSent,
+          landed: false,
+          itemCount: P.allItems().length,
+          userCount: P.userCount(),
+          assistantCount: P.assistantCount(),
+          expectedPrefix: deliveryNeedle.slice(0, 48),
+        });
         ui.banner("warn", "Function result was not delivered",
           `${P.displayName} did not confirm the injected tool result in conversation history after ${tries} attempts. ` +
           `The tool may have executed, but its result was not delivered to the model. Send "continue" to resume, and check the conversation before retrying the action.`);
       } else if (confirmedLanded) {
         A.lastSendConfirmed = true;
-        diag("send.confirmed", { tries, editorCleared: messageSent });
+        diag("send.confirmed", {
+          tries,
+          editorCleared: messageSent,
+          byContent: matchingNewPayload(),
+          byCount: landedByCount(),
+        });
       }
       if (!confirmedLanded && !A.stop) A.lastSendConfirmed = false;
       return base;
