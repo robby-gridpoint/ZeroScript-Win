@@ -72,6 +72,16 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(len(search["matches"]), 1)
         self.assertEqual(search["matches"][0]["line"], 2)
 
+    def test_targeted_patches_preserve_original_eol_style(self):
+        target = self.root / "source.txt"
+        target.write_bytes(b"VALUE = 1\r\nNAME = old\r\n")
+        self.ws.apply_patch("source.txt", "VALUE = 1\r\n", "VALUE = 2\n")
+        self.assertEqual(target.read_bytes(), b"VALUE = 2\r\nNAME = old\r\n")
+        self.ws.multi_edit([
+            {"path": "source.txt", "old_string": "NAME = old\r\n", "new_string": "NAME = new\n"}
+        ])
+        self.assertEqual(target.read_bytes(), b"VALUE = 2\r\nNAME = new\r\n")
+
     def test_search_regex_case_sensitivity_and_columns(self):
         self.ws.write_file("src/search.txt", "Hello 123\nhello 456\n")
         sensitive = self.ws.search("Hello", case_sensitive=True)
