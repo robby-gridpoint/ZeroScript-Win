@@ -1110,6 +1110,12 @@ class MCPManager:
              "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_project_info", "description": "Inspect common project manifests, framework/language hints, Git presence, source-file counts, and package scripts.",
              "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_create_directory", "description": "Create a new directory within the workspace. Existing paths are never overwritten; use a workspace-relative path.",
+             "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"], "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_move_path", "description": "Rename or move a file/directory within the selected workspace. Destination must not exist; symbolic links and moving the workspace root are refused.",
+             "inputSchema": {"type": "object", "properties": {"source": {"type": "string"}, "destination": {"type": "string"}}, "required": ["source", "destination"], "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_delete_file", "description": "Delete one regular file inside the selected workspace. Directories and symbolic links are refused; only use when the user explicitly requests deletion.",
+             "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"], "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_find_files", "description": "Find project files by glob pattern (for example **/*.luau, *.json, or src/*.ts). Generated directories are skipped.",
              "inputSchema": {"type": "object", "properties": {"pattern": {"type": "string"}, "path": {"type": "string", "default": "."}, "max_results": {"type": "integer", "minimum": 1, "maximum": 500}, "include_hidden": {"type": "boolean"}}, "required": ["pattern"], "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_symbols", "description": "Find likely function, class, type, and variable declarations across source files. Optional query filters symbol names or declaration text.",
@@ -1208,6 +1214,12 @@ class MCPManager:
             return self._browse_workspace()
         if self.workspace is None:
             raise RuntimeError(self.workspace_error or "Workspace is unavailable. Select a folder with workspace_set_root or workspace_browse.")
+        if name == "workspace_create_directory":
+            return self.workspace.create_directory(args["path"])
+        if name == "workspace_move_path":
+            return self.workspace.move_path(args["source"], args["destination"])
+        if name == "workspace_delete_file":
+            return self.workspace.delete_file(args["path"])
         if name == "workspace_project_info":
             return self.workspace.project_info()
         if name == "workspace_find_files":
