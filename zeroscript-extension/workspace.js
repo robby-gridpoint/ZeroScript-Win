@@ -866,6 +866,8 @@ const COMMAND_PALETTE_ITEMS = [
   { title: "Show Staged Diff", detail: "Read staged file changes", icon: "±", action: "git-diff-staged", shortcut: "" },
   { title: "List Git Branches", detail: "Inspect local and remote branches", icon: "⑂", action: "git-branches", shortcut: "" },
   { title: "Show File Outline", detail: "Inspect imports, headings, and declarations in the current file", icon: "☷", action: "outline", shortcut: "" },
+  { title: "Go to Line", detail: "Jump to a line in the active source file", icon: "№", action: "go-line", shortcut: "Ctrl+G" },
+  { title: "Search Symbols", detail: "Find function, class, type, and variable declarations", icon: "⌘", action: "symbols", shortcut: "" },
   { title: "Create New File", detail: "Create an empty file without overwriting existing files", icon: "＋", action: "new-file", shortcut: "" },
   { title: "Create New Folder", detail: "Create a workspace-relative directory", icon: "▱", action: "new-folder", shortcut: "" },
   { title: "Run a Command", detail: "Open the argv-based command runner", icon: ">_", action: "terminal", shortcut: "" },
@@ -1115,6 +1117,10 @@ async function activateModalItem(item) {
     await loadGitBranches();
   } else if (item.action === "outline") {
     await loadOutline();
+  } else if (item.action === "go-line") {
+    goToLine();
+  } else if (item.action === "symbols") {
+    await searchSymbols();
   } else if (item.action === "new-file") {
     await createFile();
   } else if (item.action === "new-folder") {
@@ -1356,6 +1362,50 @@ async function loadProjectInfo() {
   } finally { setBusy(false); }
 }
 
+async function searchSymbols() {
+  if (!state.workspace || !state.workspace.configured) {
+    writeOutput("Search Symbols", "Choose a project workspace first.");
+    return;
+  }
+  const query = window.prompt("Symbol name or declaration text (leave empty to list likely declarations):", "");
+  if (query === null) return;
+  setBusy(true, "Searching project symbols…");
+  try {
+    const result = await callTool("workspace_symbols", {
+      query: query.trim(), path: ".", max_results: 300,
+    });
+    setInfoMode("Symbol Search", result, "Search");
+    writeOutput("Symbol Search", result);
+  } catch (error) {
+    errorOutput("Symbol search failed", error);
+  } finally {
+    setBusy(false);
+  }
+}
+
+function goToLine() {
+  const tab = activeTab();
+  if (!tab) {
+    writeOutput("Go to Line", "Open a source file first.");
+    return;
+  }
+  if (!mayReplaceEditorView()) return;
+  const total = $("codeEditor").value.split("\n").length;
+  const raw = window.prompt("Go to line (1–" + total + "):", "1");
+  if (raw === null) return;
+  const lineNumber = Number.parseInt(raw, 10);
+  if (!Number.isInteger(lineNumber) || lineNumber < 1 || lineNumber > total) {
+    errorOutput("Go to Line", "Enter a whole line number between 1 and " + total + ".");
+    return;
+  }
+  const lines = $("codeEditor").value.split("\n");
+  const index = lines.slice(0, lineNumber - 1).join("\n").length + (lineNumber > 1 ? 1 : 0);
+  setEditorMode();
+  $("codeEditor").focus();
+  $("codeEditor").setSelectionRange(index, index);
+  updateCursorStatus();
+}
+
 async function loadOutline() {
   if (!mayReplaceEditorView()) return;
   if (!state.currentFile) {
@@ -1571,6 +1621,9 @@ document.addEventListener("keydown", (event) => {
   } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "w") {
     event.preventDefault();
     if (state.activeTabKey) closeTab(state.activeTabKey);
+  } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "g") {
+    event.preventDefault();
+    goToLine();
   } else if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "f") {
     event.preventDefault();
     setView("search");
