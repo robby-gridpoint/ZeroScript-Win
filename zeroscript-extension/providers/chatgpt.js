@@ -62,20 +62,29 @@ const ZSProvider = (() => {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   let diag = () => {}; // injected by core via init()
 
+  // ChatGPT's October 2026 layout introduces a new semantic composer and
+  // turn renderer. Keep the stable legacy hooks first, but accept the new form,
+  // content-search units, and icon-based stop control too.
+  const STOP_ICON_PATH = "M4.5 5.75C4.5 5.05964 5.05964 4.5 5.75 4.5H14.25C14.9404 4.5 15.5 5.05964 15.5 5.75V14.25C15.5 14.9404 14.9404 15.5 14.25 15.5H5.75C5.05964 15.5 4.5 14.9404 4.5 14.25V5.75Z";
   const S = {
-    msg: "[data-message-author-role]",
+    msg: "[data-message-author-role], [data-content-search-unit-key$=':user'], [data-content-search-unit-key$=':assistant'], [data-testid^='conversation-turn-'][data-turn='user'], [data-testid^='conversation-turn-'][data-turn='assistant']",
     userRole: "user",
     assistantRole: "assistant",
     reply: ".markdown",
-    editor: "#prompt-textarea",
-    // The ONE submit control; its data-testid says whether it is currently a
-    // send or a stop button (see isStopBtn). Id first - it survives testid churn.
-    submitBtn: "#composer-submit-button, button[data-testid='send-button'], button[data-testid='stop-button']",
-    // Kept for installSendHooks, which needs to recognise a click on the native
-    // stop control wherever it lives.
-    stopBtn: "button[data-testid='stop-button']",
+    editor: [
+      '[data-testid="prompt-textarea"]',
+      "#prompt-textarea",
+      'form[data-chatgpt-composer] [data-composer-markdown][contenteditable="true"][role="textbox"]',
+      'form[data-chatgpt-composer] [contenteditable="true"][role="textbox"]',
+      'form[data-chatgpt-composer] [contenteditable="true"]',
+      '[contenteditable="true"][data-lexical-editor="true"]',
+    ].join(", "),
+    // Current ChatGPT builds may no longer use #composer-submit-button. The
+    // primary action remains inside the composer form, with a send test id when
+    // idle and an icon-based Stop state while generating.
+    submitBtn: "#composer-submit-button, button[data-testid='send-button'], button[data-testid='stop-button'], form[data-chatgpt-composer] button[type='submit'], form[data-chatgpt-composer] button.size-token-button-composer",
+    stopBtn: "button[data-testid='stop-button'], form[data-chatgpt-composer] button.size-token-button-composer",
     codeWrap: "pre",
-    // composer frame: the <form> that wraps the ProseMirror editor.
     errorSurfaces: '[role="alert"],[data-testid*="error"],[class*="error-message"]',
   };
 
@@ -115,7 +124,21 @@ const ZSProvider = (() => {
   };
 
   // ── Turn classification ───────────────────────────────────────────────────
-  const role = (item) => (item && item.getAttribute ? item.getAttribute("data-message-author-role") : null);
+  const role = (item) => {
+    if (!item || !item.getAttribute) return null;
+    const legacy = item.getAttribute("data-message-author-role");
+    if (legacy === S.userRole || legacy === S.assistantRole) return legacy;
+    const searchKey = item.getAttribute("data-content-search-unit-key") || "";
+    const suffix = searchKey.slice(searchKey.lastIndexOf(":") + 1);
+    if (suffix === S.userRole || suffix === S.assistantRole) return suffix;
+    const turn = item.getAttribute("data-turn");
+    if (turn === S.userRole || turn === S.assistantRole) return turn;
+    // Final fallback for the newer grouped turn renderer. Prefer the assistant
+    // marker first because a grouped wrapper can contain the user's bubble too.
+    if (item.querySelector && item.querySelector('[data-conversation-role="assistant"], [data-chatgpt-agent-turn-start]')) return S.assistantRole;
+    if (item.querySelector && item.querySelector("[data-user-message-bubble]")) return S.userRole;
+    return null;
+  };
   const isUserItem = (item) => role(item) === S.userRole;
   const isAssistantItem = (item) => role(item) === S.assistantRole;
 
@@ -198,33 +221,65 @@ const ZSProvider = (() => {
   // Non-reasoning reply text only: join the .markdown container(s). Reasoning
   // renders outside .markdown, so this never sees tool blocks the model merely
   // drafts while thinking.
+  // Legacy replies use .markdown. The October renderer can expose a semantic
+  // assistant content node instead, so fall back to the role-specific unit itself.
+  function replyNodes(item) {
+    if (!item || !item.querySelectorAll) return [];
+    const markdown = [...item.querySelectorAll(S.reply)];
+    if (markdown.length) return markdown;
+    const semantic = [...item.querySelectorAll('[data-conversation-role="assistant"]')];
+    if (semantic.length) return semantic;
+    return [item];
+  }
+
   function itemText(item) {
     if (!item) return "";
     if (isAssistantItem(item)) {
       // textWithout, never textContent - see the CodeMirror note there.
-      return [...item.querySelectorAll(S.reply)].map((m) => textWithout(m)).join("\n");
+      return replyNodes(item).map((m) => textWithout(m)).join("\n");
     }
     return textWithout(item);
   }
 
   function classifyText(item, excludeSel) {
     if (isAssistantItem(item)) {
-      return [...item.querySelectorAll(S.reply)]
-        .filter((m) => !(excludeSel && m.closest(excludeSel)))
+      return replyNodes(item)
+        .filter((m) => !(excludeSel && m.closest && m.closest(excludeSel)))
         .map((m) => textWithout(m, excludeSel)).join("\n");
     }
     return textWithout(item, excludeSel);
   }
 
   // ── DOM primitives ────────────────────────────────────────────────────────
-  const allItems = () => [...document.querySelectorAll(S.msg)];
+  function allItems() {
+    // Avoid matching both an outer conversation wrapper and its inner message.
+    // Prefer the old message-role nodes when present, then the new per-role
+    // content-search units, then the intermediate conversation-turn layout.
+    const legacy = [...document.querySelectorAll('[data-message-author-role="user"], [data-message-author-role="assistant"]')];
+    if (legacy.length) return legacy;
+    const searchUnits = [...document.querySelectorAll('[data-content-search-unit-key$=":user"], [data-content-search-unit-key$=":assistant"]')];
+    if (searchUnits.length) return searchUnits;
+    const turnNodes = [...document.querySelectorAll('[data-testid^="conversation-turn-"][data-turn="user"], [data-testid^="conversation-turn-"][data-turn="assistant"]')];
+    if (turnNodes.length) return turnNodes;
+    return [...document.querySelectorAll("[data-turn-key]")].filter((item) => role(item));
+  }
   const assistantItems = () => allItems().filter(isAssistantItem);
   const assistantCount = () => assistantItems().length;
   const userCount = () => allItems().filter(isUserItem).length;
-  const getEditor = () => document.querySelector(S.editor);
+  const getEditor = () => {
+    const candidates = [...document.querySelectorAll(S.editor)];
+    if (!candidates.length) return null;
+    const visible = candidates.filter((el) =>
+      el && (el.offsetParent !== null || (el.getClientRects && el.getClientRects().length > 0))
+    );
+    const usable = visible.length ? visible : candidates;
+    return usable.find((el) => el.closest && el.closest("form[data-chatgpt-composer]")) ||
+      usable.find((el) => el.id === "prompt-textarea") || usable[0] || null;
+  };
   const editorText = () => {
     const e = getEditor();
-    return e ? e.textContent || "" : "";
+    if (!e) return "";
+    return typeof e.value === "string" ? e.value : e.textContent || "";
   };
 
   const lastAssistant = () => {
@@ -241,8 +296,14 @@ const ZSProvider = (() => {
   // a monotonic number, so the core's numeric "old id" shortcut simply doesn't
   // apply here (Number(uuid) is NaN and that guard is skipped) - the
   // settled-history guard covers the same case provider-agnostically.
-  const itemKey = (item) =>
-    (item && item.getAttribute ? item.getAttribute("data-message-id") : null) || null;
+  const itemKey = (item) => {
+    if (!item || !item.getAttribute) return null;
+    return item.getAttribute("data-message-id") ||
+      item.getAttribute("data-content-search-unit-key") ||
+      item.getAttribute("data-turn-key") ||
+      item.getAttribute("data-testid") ||
+      null;
+  };
   const lastAssistantId = () => itemKey(lastAssistant());
 
   const chatIsEmpty = () => allItems().length === 0;
@@ -309,27 +370,55 @@ const ZSProvider = (() => {
     const ed = getEditor();
     if (!ed) return null;
     const box = ed.closest("[class*='composer-surface']");
-    if (!box) return null;
-    const area = topArea(box);
-    if (area) {
-      const bar = document.getElementById("zs-bar");
-      if (bar && bar.style.gridArea !== area) bar.style.gridArea = area;
+    const bar = document.getElementById("zs-bar");
+    // Only insert inside a CSS-grid surface when its live template exposes a
+    // safe full-width top slot. Never let a stale grid-area create implicit
+    // columns and squeeze the ChatGPT editor to zero width.
+    if (!box) {
+      if (bar) bar.style.gridArea = "";
+      return null;
     }
+    const area = topArea(box);
+    if (!area) {
+      if (bar) bar.style.gridArea = "";
+      return null; // core will use barAnchor() without mutating the new React form
+    }
+    if (bar && bar.style.gridArea !== area) bar.style.gridArea = area;
     // Skip our own bar if already mounted, otherwise we'd insert it before itself.
     let before = box.firstElementChild;
     if (before && before.id === "zs-bar") before = before.nextElementSibling;
     return { parent: box, before, inside: true };
   }
 
+  function barAnchor() {
+    const ed = getEditor();
+    if (!ed) return null;
+    return ed.closest("[class*='composer-surface']") ||
+      ed.closest("form[data-chatgpt-composer]") ||
+      ed.closest("form") ||
+      ed.parentElement ||
+      null;
+  }
+
   // ── Input lock ────────────────────────────────────────────────────────────
   // ProseMirror is a contenteditable: flipping contenteditable=false blocks the
   // user, but typeAndSend temporarily re-enables it so our own injection works.
   let _locked = false;
+  function setEditable(ed, editable) {
+    if (!ed) return;
+    const tag = String(ed.tagName || "").toUpperCase();
+    if ((tag === "TEXTAREA" || tag === "INPUT") && "readOnly" in ed) {
+      ed.readOnly = !editable;
+    } else {
+      ed.setAttribute("contenteditable", editable ? "true" : "false");
+    }
+  }
+
   function setInputLock(on) {
     _locked = on;
     const ed = getEditor();
     if (!ed) return;
-    ed.setAttribute("contenteditable", on ? "false" : "true");
+    setEditable(ed, !on);
     if (on) ed.setAttribute("data-zs-locked", "1");
     else ed.removeAttribute("data-zs-locked");
   }
@@ -343,10 +432,34 @@ const ZSProvider = (() => {
   // sendButton() cheerfully returns the stop square and every guarded click is
   // refused. That is exactly what stranded a tool result in the composer and
   // raised "ChatGPT did not accept the injected message after 4 attempts".
-  const isStopBtn = (b) => !!b && b.getAttribute("data-testid") === "stop-button";
+  const isStopBtn = (b) => {
+    if (!b) return false;
+    if (b.getAttribute && b.getAttribute("data-testid") === "stop-button") return true;
+    const label = [
+      b.getAttribute && b.getAttribute("aria-label"),
+      b.getAttribute && b.getAttribute("title"),
+    ].filter(Boolean).join(" ");
+    if (/\b(stop|interrupt|interrompre|arr[eê]ter|cancel response|stop generating)\b/i.test(label)) return true;
+    return !!(b.matches && b.matches(
+      'form[data-chatgpt-composer] button.size-token-button-composer:has(svg.icon-primary-action > path[d="' + STOP_ICON_PATH + '"])'
+    ));
+  };
   const submitButton = () => {
-    const b = document.querySelector(S.submitBtn);
-    return b && b.offsetParent !== null ? b : null;
+    const ed = getEditor();
+    const form = ed && (ed.closest("form[data-chatgpt-composer]") || ed.closest("form"));
+    const candidates = form
+      ? [...form.querySelectorAll(S.submitBtn)]
+      : [...document.querySelectorAll(S.submitBtn)];
+    const visible = candidates.filter((b) =>
+      b && (b.offsetParent !== null || (b.getClientRects && b.getClientRects().length > 0))
+    );
+    if (!visible.length) return null;
+    return visible.find(isStopBtn) ||
+      visible.find((b) => b.getAttribute && b.getAttribute("data-testid") === "send-button") ||
+      visible.find((b) => b.id === "composer-submit-button") ||
+      visible.find((b) => String(b.type || "").toLowerCase() === "submit") ||
+      visible[0] ||
+      null;
   };
   const sendButton = () => {
     const b = submitButton();
@@ -448,18 +561,16 @@ const ZSProvider = (() => {
     try {
       const it = lastAssistant();
       if (!it) return { th: 0, rp: 0 };
-      const md = it.querySelector(S.reply);
-      return { th: 0, rp: md ? (md.textContent || "").length : 0 };
+      return { th: 0, rp: replyNodes(it).map((node) => textWithout(node)).join("\n").length };
     } catch { return {}; }
   }
 
   function readAssistant() {
     const item = lastAssistant();
     if (!item) return { present: false, reply: "", thinking: "", item: null };
-    const mds = [...item.querySelectorAll(S.reply)];
     return {
       present: true,
-      reply: mds.map((m) => textWithout(m, ".zs-chip")).join("\n").trim(),
+      reply: replyNodes(item).map((node) => textWithout(node, ".zs-chip")).join("\n").trim(),
       thinking: "", // reasoning is gated by the stop button, not parsed as text
       item,
     };
@@ -597,7 +708,7 @@ const ZSProvider = (() => {
     if (!ed) throw new Error("ChatGPT input box not found");
     text = truncateForSend(text);
     const relock = _locked;
-    if (relock) ed.setAttribute("contenteditable", "true"); // injection needs it editable
+    if (relock) setEditable(ed, true); // injection needs it editable
     try {
       await setEditorText(ed, text);
       // Attach images LAST, right before the send click - see gemini.js/deepseek.js
@@ -633,7 +744,7 @@ const ZSProvider = (() => {
       ed.dispatchEvent(new KeyboardEvent("keydown", o));
       ed.dispatchEvent(new KeyboardEvent("keyup", o));
     } finally {
-      if (relock) { const e2 = getEditor(); if (e2) e2.setAttribute("contenteditable", "false"); }
+      if (relock) setEditable(getEditor(), false);
     }
   }
 
@@ -849,7 +960,7 @@ const ZSProvider = (() => {
   const CMD_CLOSE = /###\s*END_(?:LUA|MCP_TOOL)\s*###/i;
 
   function findToolBlockSpot(item /*, chip */) {
-    const replies = [...item.querySelectorAll(S.reply)];
+    const replies = replyNodes(item);
     let hidAny = null;
     const hide = (el, mc) => {
       el.classList.add("zs-tool-hide");
@@ -944,14 +1055,14 @@ const ZSProvider = (() => {
       if (d) diag = d;
       // Version beacon: stamp the loaded build onto <html> so a reload can be
       // confirmed from the page (read document.documentElement.dataset.zsGptVer).
-      try { document.documentElement.setAttribute("data-zs-gpt-ver", "2026-08-13_cmtap+toolkey"); } catch {}
+      try { document.documentElement.setAttribute("data-zs-gpt-ver", "2026-10-17_composer-turn-compat"); } catch {}
     },
     // turns
-    allItems, isUserItem, isAssistantItem, itemText, classifyText,
+    allItems, role, itemKey, replyNodes, isUserItem, isAssistantItem, itemText, classifyText,
     assistantCount, userCount, lastAssistant, lastAssistantId, itemKey, readAssistant,
     streamLen, snapshot,
     // composer / state
-    getEditor, editorText, chatIsEmpty, isFreshChat, composerFrame, barMount,
+    getEditor, editorText, chatIsEmpty, isFreshChat, composerFrame, barMount, barAnchor,
     // Cover the scrolling text band, and lift the core's 200px clamp past that
     // band's own ~245px ceiling so a full composer is covered edge to edge.
     coverTarget,
