@@ -1247,7 +1247,7 @@
     // so the reminder does not bloat the context too often.
     const REMIND_TOOLS_EVERY = 20;
     ui.showStop(true);
-    P.setInputLock(true); // prevent user from typing while the agent is active
+    // Keep the native composer editable while the agent runs. Locking the\n    // contenteditable surface also disables Space/Delete and makes ChatGPT\n    // appear broken to the user. Injection locks only during its own operation.
     ui.inputCover(true);  // keep the "Agent is working" cover up for the WHOLE loop
     diag("loop.start", { base });
     try {
@@ -1834,7 +1834,7 @@
     A.toolCallsSinceReminder = 0; // fresh reminder cadence for the new session
     ui.setStarting(true);
     ui.updateStartGate(); // refresh the bar into its "starting" state
-    P.setInputLock(true); // block user input during bootstrap
+    // Do not lock the native composer during bootstrap; users must retain normal\n    // editing keys (including Space and Delete) while ZeroScript initializes.
     ui.inputCover(true);  // cover the composer ("Working…") for the WHOLE Starting Up
     try {
       await ensureTools(true); // boot: always take a fresh catalogue (the TTL then
