@@ -15,6 +15,7 @@ const state = {
   projectInfo: null,
   modalMode: null,
   modalItems: [],
+  modalFiltered: [],
   modalIndex: 0,
   outputs: {
     output: "ZeroScript local workspace ready. Select a folder to begin.",
@@ -542,6 +543,225 @@ function setView(view) {
   if (view === "source") loadGitStatus();
   if (view === "project") loadProjectInfo();
   if (view === "terminal") $("commandInput").focus();
+}
+
+function fuzzyScore(query, candidate) {
+  const needle = query.trim().toLowerCase();
+  const haystack = String(candidate || "").toLowerCase();
+  if (!needle) return haystack.length / 1000;
+  if (haystack === needle) return -10000;
+  const direct = haystack.indexOf(needle);
+  if (direct >= 0) return direct * 2 + haystack.length / 100;
+  let cursor = -1;
+  let score = 0;
+  let consecutive = 0;
+  for (const character of needle) {
+    const next = haystack.indexOf(character, cursor + 1);
+    if (next < 0) return Number.POSITIVE_INFINITY;
+    consecutive = next === cursor + 1 ? consecutive + 1 : 0;
+    score += next + (consecutive ? -3 : 0);
+    if (next === 0 || /[\/_.-]/.test(haystack[next - 1])) score -= 2;
+    cursor = next;
+  }
+  return score + haystack.length / 100;
+}
+
+const COMMAND_PALETTE_ITEMS = [
+  { title: "Open File", detail: "Quick Open a file from the workspace", icon: "⌕", action: "quick-open", shortcut: "Ctrl+P" },
+  { title: "Choose Workspace Folder", detail: "Pick and activate a local project folder", icon: "▱", action: "workspace", shortcut: "" },
+  { title: "Save Current File", detail: "Save the open source file", icon: "↓", action: "save", shortcut: "Ctrl+S" },
+  { title: "Search in Files", detail: "Search project text, optionally with regex", icon: "⌕", action: "search", shortcut: "Ctrl+Shift+F" },
+  { title: "Show Project Overview", detail: "Inspect manifests, project type, scripts, and source inventory", icon: "◈", action: "project", shortcut: "" },
+  { title: "Show Git Status", detail: "Review branch and working-tree status", icon: "⑂", action: "git-status", shortcut: "" },
+  { title: "Show Unstaged Diff", detail: "Read uncommitted file changes", icon: "±", action: "git-diff", shortcut: "" },
+  { title: "Show Staged Diff", detail: "Read staged file changes", icon: "±", action: "git-diff-staged", shortcut: "" },
+  { title: "List Git Branches", detail: "Inspect local and remote branches", icon: "⑂", action: "git-branches", shortcut: "" },
+  { title: "Show File Outline", detail: "Inspect imports, headings, and declarations in the current file", icon: "☷", action: "outline", shortcut: "" },
+  { title: "Create New File", detail: "Create an empty file without overwriting existing files", icon: "＋", action: "new-file", shortcut: "" },
+  { title: "Create New Folder", detail: "Create a workspace-relative directory", icon: "▱", action: "new-folder", shortcut: "" },
+  { title: "Run a Command", detail: "Open the argv-based command runner", icon: ">_", action: "terminal", shortcut: "" },
+  { title: "Refresh Project", detail: "Reload workspace status, tree, and project metadata", icon: "↻", action: "refresh", shortcut: "" },
+];
+
+function renderModalResults() {
+  const host = $("modalResults");
+  const query = $("modalInput").value;
+  const filtered = state.modalItems
+    .map((item) => ({ item, score: fuzzyScore(query, item.title + " " + (item.detail || "") + " " + (item.path || "")) }))
+    .filter((entry) => Number.isFinite(entry.score))
+    .sort((a, b) => a.score - b.score || a.item.title.localeCompare(b.item.title))
+    .slice(0, 80)
+    .map((entry) => entry.item);
+  state.modalFiltered = filtered;
+  state.modalIndex = Math.max(0, Math.min(state.modalIndex, filtered.length - 1));
+  host.replaceChildren();
+  if (filtered.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "modal-empty";
+    empty.textContent = state.modalMode === "quickOpen" ? "No matching files. Try another path fragment." : "No matching commands.";
+    host.append(empty);
+    return;
+  }
+  filtered.forEach((item, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "modal-result" + (index === state.modalIndex ? " selected" : "");
+    button.dataset.index = String(index);
+    button.setAttribute("role", "option");
+    button.setAttribute("aria-selected", index === state.modalIndex ? "true" : "false");
+    const icon = document.createElement("span");
+    icon.className = "modal-result-icon";
+    icon.textContent = item.icon || "·";
+    const copy = document.createElement("span");
+    copy.className = "modal-result-copy";
+    const title = document.createElement("span");
+    title.className = "modal-result-title";
+    title.textContent = item.title;
+    const detail = document.createElement("span");
+    detail.className = "modal-result-detail";
+    detail.textContent = item.detail || "";
+    copy.append(title, detail);
+    button.append(icon, copy);
+    if (item.shortcut) {
+      const shortcut = document.createElement("span");
+      shortcut.className = "modal-result-shortcut";
+      shortcut.textContent = item.shortcut;
+      button.append(shortcut);
+    }
+    button.addEventListener("mouseenter", () => {
+      state.modalIndex = index;
+      renderModalResults();
+    });
+    button.addEventListener("click", () => activateModalItem(filtered[index]));
+    host.append(button);
+  });
+  host.querySelector(".modal-result.selected")?.scrollIntoView({ block: "nearest" });
+}
+
+function showModal(mode, items, initialQuery = "") {
+  state.modalMode = mode;
+  state.modalItems = items;
+  state.modalFiltered = [];
+  state.modalIndex = 0;
+  $("modalTitle").textContent = mode === "quickOpen" ? "Quick Open" : "Command Palette";
+  $("modalSubtitle").textContent = mode === "quickOpen"
+    ? "Search project files by name or path"
+    : "Search and run ZeroScript workspace commands";
+  $("modalInput").placeholder = mode === "quickOpen" ? "Type a file name or path…" : "Type a command…";
+  $("modalInput").value = initialQuery;
+  $("modalBackdrop").classList.remove("hidden");
+  renderModalResults();
+  $("modalInput").focus();
+  $("modalInput").select();
+}
+
+function closeModal() {
+  $("modalBackdrop").classList.add("hidden");
+  state.modalMode = null;
+  state.modalItems = [];
+  state.modalFiltered = [];
+  state.modalIndex = 0;
+}
+
+async function openQuickOpen() {
+  if (!state.workspace || !state.workspace.configured) {
+    await chooseWorkspace();
+    return;
+  }
+  showModal("quickOpen", [{
+    title: "Loading workspace files…",
+    detail: "Reading the selected project tree",
+    icon: "↻",
+    action: "none",
+  }]);
+  try {
+    const result = await callTool("workspace_tree", {
+      path: ".", max_depth: 12, max_results: 500, include_hidden: false,
+    });
+    const entries = result.entries || [];
+    state.treeEntries = entries;
+    const items = entries.filter((entry) => entry.type === "file").map((entry) => ({
+      title: entry.name,
+      detail: entry.path,
+      path: entry.path,
+      icon: iconForFile(entry.name),
+      action: "open-file",
+    }));
+    if (result.truncated) {
+      items.push({
+        title: "More than 500 project entries",
+        detail: "The file list is bounded for responsiveness. Search the Explorer panel for deep directories.",
+        icon: "…",
+        action: "none",
+      });
+    }
+    if (state.modalMode === "quickOpen") {
+      state.modalItems = items;
+      state.modalIndex = 0;
+      renderModalResults();
+      $("modalInput").focus();
+    }
+  } catch (error) {
+    closeModal();
+    errorOutput("Quick Open failed", error);
+  }
+}
+
+function iconForFile(name) {
+  const ext = (name.split(".").pop() || "").toLowerCase();
+  const icons = {
+    luau: "L", lua: "L", js: "JS", jsx: "JS", ts: "TS", tsx: "TS",
+    py: "Py", json: "{ }", html: "◇", css: "#", md: "M", yml: "Y",
+    yaml: "Y", xml: "◇", sql: "DB", png: "▧", jpg: "▧", jpeg: "▧",
+    svg: "◇", toml: "T", cs: "C#", cpp: "C++", c: "C", rs: "R",
+  };
+  return icons[ext] || "·";
+}
+
+function openCommandPalette() {
+  showModal("command", COMMAND_PALETTE_ITEMS);
+}
+
+async function activateModalItem(item) {
+  if (!item) return;
+  closeModal();
+  if (item.action === "none") return;
+  if (item.action === "open-file") {
+    if (!mayReplaceEditorView()) return;
+    await openFile(item.path);
+  } else if (item.action === "quick-open") {
+    await openQuickOpen();
+  } else if (item.action === "workspace") {
+    await chooseWorkspace();
+  } else if (item.action === "save") {
+    await saveFile();
+  } else if (item.action === "search") {
+    setView("search");
+    $("searchQuery").focus();
+  } else if (item.action === "project") {
+    setView("project");
+    await loadProjectInfo();
+  } else if (item.action === "git-status") {
+    setView("source");
+    await loadGitStatus();
+  } else if (item.action === "git-diff") {
+    await loadGitDiff(false);
+  } else if (item.action === "git-diff-staged") {
+    await loadGitDiff(true);
+  } else if (item.action === "git-branches") {
+    setView("source");
+    await loadGitBranches();
+  } else if (item.action === "outline") {
+    await loadOutline();
+  } else if (item.action === "new-file") {
+    await createFile();
+  } else if (item.action === "new-folder") {
+    await createFolder();
+  } else if (item.action === "terminal") {
+    setView("terminal");
+  } else if (item.action === "refresh") {
+    await initialize();
+  }
 }
 
 async function runSearch() {
