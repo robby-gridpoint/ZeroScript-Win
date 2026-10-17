@@ -224,7 +224,8 @@ WORKSPACE TOOL GUIDANCE
 The available tools may include additional MCP integrations. Use the live catalogue and their descriptions for those.
 
 STARTUP
-On the first task, inspect the selected workspace and available tools before making assumptions. Do not run a tool merely to announce that you are going to use it. If the user asks a question rather than a code change, answer directly unless inspection is needed for accuracy. If no workspace tools are available, report that constraint instead of pretending to edit the project.
+The extension performs a bootstrap turn before the user gives the task. For that bootstrap only, your first response MUST be one list_tools call with no parameters. After receiving its result, respond with one short readiness sentence and do not call another tool; wait for the user's actual request. Do not attempt workspace inspection during bootstrap.
+For the first actual task, inspect the selected workspace and available tools before making assumptions. Do not run a tool merely to announce that you are going to use it. If the user asks a question rather than a code change, answer directly unless inspection is needed for accuracy. If no workspace tools are available, report that constraint instead of pretending to edit the project.
 
 
     // Site-specific rules from the active provider, inserted ABOVE the user's
