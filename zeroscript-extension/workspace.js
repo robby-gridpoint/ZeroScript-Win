@@ -1099,7 +1099,39 @@ for (const tab of document.querySelectorAll(".output-tab")) {
     renderOutputBuffer();
   });
 }
+$("modalInput").addEventListener("input", () => {
+  state.modalIndex = 0;
+  renderModalResults();
+});
+$("modalInput").addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    event.preventDefault();
+    closeModal();
+  } else if (event.key === "ArrowDown") {
+    event.preventDefault();
+    state.modalIndex = Math.min(state.modalIndex + 1, state.modalFiltered.length - 1);
+    renderModalResults();
+  } else if (event.key === "ArrowUp") {
+    event.preventDefault();
+    state.modalIndex = Math.max(0, state.modalIndex - 1);
+    renderModalResults();
+  } else if (event.key === "Enter") {
+    event.preventDefault();
+    activateModalItem(state.modalFiltered[state.modalIndex]);
+  }
+});
+$("modalBackdrop").addEventListener("click", (event) => {
+  if (event.target === $("modalBackdrop")) closeModal();
+});
+
 document.addEventListener("keydown", (event) => {
+  if (!$("modalBackdrop").classList.contains("hidden")) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeModal();
+    }
+    return;
+  }
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
     event.preventDefault();
     saveFile();
@@ -1107,30 +1139,12 @@ document.addEventListener("keydown", (event) => {
     event.preventDefault();
     setView("search");
     $("searchQuery").focus();
-  } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "p" && !event.shiftKey) {
-    event.preventDefault();
-    if (state.workspace && state.workspace.configured) {
-      const path = window.prompt("Open workspace-relative file path:", state.currentFile || "");
-      if (path && path.trim()) openFile(path.trim());
-    } else {
-      chooseWorkspace();
-    }
   } else if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "p") {
     event.preventDefault();
-    const command = window.prompt("Command palette: save, open-file, search, project, git-status, outline, new-file, new-folder");
-    if (!command) return;
-    const key = command.trim().toLowerCase();
-    if (key === "save") saveFile();
-    else if (key === "open-file") {
-      const path = window.prompt("Workspace-relative path:");
-      if (path) openFile(path.trim());
-    } else if (key === "search") { setView("search"); $("searchQuery").focus(); }
-    else if (key === "project") loadProjectInfo();
-    else if (key === "git-status") loadGitStatus();
-    else if (key === "outline") loadOutline();
-    else if (key === "new-file") createFile();
-    else if (key === "new-folder") createFolder();
-    else writeOutput("Command palette", "Unknown command: " + command);
+    openCommandPalette();
+  } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "p") {
+    event.preventDefault();
+    openQuickOpen();
   }
 });
 
