@@ -1469,8 +1469,7 @@ function setNavigationList(title, items, defaultPath = "", emptyMessage = "No re
       content.append(top, detail);
       if (excerpt.textContent && excerpt.textContent !== top.textContent) content.append(excerpt);
       row.append(icon, content);
-      row.title = (path || "") + (entry.line ? ":" + entry.line : "") + (entry.text ? "
-" + entry.text : "");
+      row.title = (path || "") + (entry.line ? ":" + entry.line : "") + (entry.text ? "\n" + entry.text : "");
       row.addEventListener("click", () => {
         if (path) openFile(path, entry.line || 1);
       });
