@@ -338,6 +338,9 @@ function renderDirty() {
   const tabWorkspaceActive = !!tab && !!state.workspace && state.workspace.root === tab.root;
   $("renamePath").disabled = !tabWorkspaceActive || state.busy;
   $("deleteFile").disabled = !tabWorkspaceActive || state.busy;
+  $("stageCurrentFile").disabled = !tabWorkspaceActive || state.busy;
+  $("unstageCurrentFile").disabled = !tabWorkspaceActive || state.busy;
+  $("commitStaged").disabled = !state.workspace || !state.workspace.configured || state.busy;
   $("activeFileName").textContent = state.currentFile
     ? state.currentFile.split("/").pop() + (state.dirty ? " •" : "")
     : "Welcome";
@@ -1157,6 +1160,71 @@ async function runSearch() {
   }
 }
 
+async function mutateGitFile(unstage = false) {
+  if (state.busy) return;
+  const tab = activeTab();
+  if (!tab) {
+    writeOutput("Git file action", "Open a file first, then choose Stage or Unstage Current File.");
+    return;
+  }
+  if (!state.workspace || state.workspace.root !== tab.root) {
+    errorOutput("Git file action blocked", "Switch back to the workspace that owns the active tab first.");
+    return;
+  }
+  const verb = unstage ? "Unstage" : "Stage";
+  if (!window.confirm(verb + " " + tab.path + " in the local Git index? This does not create a commit or push changes.")) return;
+  setBusy(true, verb + "ing " + tab.path + "…");
+  try {
+    const result = await callTool(unstage ? "workspace_git_unstage_file" : "workspace_git_stage_file", { path: tab.path });
+    if (result.exit_code !== 0) throw new Error(result.output || "Git exited with code " + result.exit_code);
+    const status = await callTool("workspace_git_status", {});
+    $("gitSummary").textContent = status.output || "(No Git output)";
+    writeOutput(verb + " file", result.output || verb + "d " + tab.path);
+  } catch (error) {
+    errorOutput(verb + " file failed", error);
+  } finally {
+    setBusy(false);
+    renderDirty();
+  }
+}
+
+async function commitStagedChanges() {
+  if (state.busy) return;
+  if (!state.workspace || !state.workspace.configured) {
+    errorOutput("Commit blocked", "Choose a project workspace first.");
+    return;
+  }
+  const message = $("commitMessage").value.trim();
+  if (!message) {
+    errorOutput("Commit blocked", "Enter a commit message before creating a commit.");
+    $("commitMessage").focus();
+    return;
+  }
+  setBusy(true, "Checking staged changes…");
+  try {
+    const staged = await callTool("workspace_git_diff", { staged: true });
+    if (staged.exit_code !== 0) throw new Error(staged.output || "Could not read the staged Git diff.");
+    if (!String(staged.output || "").trim()) {
+      writeOutput("Commit", "There are no staged changes to commit.");
+      return;
+    }
+    const preview = String(staged.output).split("\n").slice(0, 12).join("\n");
+    if (!window.confirm("Create a local commit with this message?\n\n" + message + "\n\nStaged diff preview:\n" + preview + "\n\nThis commit will not be pushed to a remote.")) return;
+    setBusy(true, "Creating local commit…");
+    const result = await callTool("workspace_git_commit", { message });
+    if (result.exit_code !== 0) throw new Error(result.output || "Git commit exited with code " + result.exit_code);
+    const status = await callTool("workspace_git_status", {});
+    $("gitSummary").textContent = status.output || "(No Git output)";
+    $("commitMessage").value = "";
+    writeOutput("Local commit created", result.output || "Commit created. No push was performed.");
+  } catch (error) {
+    errorOutput("Commit failed", error);
+  } finally {
+    setBusy(false);
+    renderDirty();
+  }
+}
+
 async function loadGitStatus() {
   setBusy(true, "Reading Git status…");
   try {
@@ -1432,11 +1500,17 @@ $("showProjectInfo").addEventListener("click", loadProjectInfo);
 $("searchQuery").addEventListener("keydown", (event) => {
   if (event.key === "Enter") runSearch();
 });
+$("commitMessage").addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) commitStagedChanges();
+});
 $("runSearch").addEventListener("click", runSearch);
 $("loadGitStatus").addEventListener("click", loadGitStatus);
 $("loadGitDiff").addEventListener("click", () => loadGitDiff(false));
 $("loadStagedDiff").addEventListener("click", () => loadGitDiff(true));
 $("loadGitBranches").addEventListener("click", loadGitBranches);
+$("stageCurrentFile").addEventListener("click", () => mutateGitFile(false));
+$("unstageCurrentFile").addEventListener("click", () => mutateGitFile(true));
+$("commitStaged").addEventListener("click", commitStagedChanges);
 $("loadProjectInfo").addEventListener("click", loadProjectInfo);
 $("runCommand").addEventListener("click", runCommand);
 $("clearOutput").addEventListener("click", () => {
