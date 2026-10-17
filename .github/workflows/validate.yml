@@ -60,6 +60,8 @@ jobs:
           node zeroscript-extension/workspace-diagnostics.test.cjs 2>&1 | tee -a extension-test-results.txt
           node --check zeroscript-extension/workspace-editor-utils.js 2>&1 | tee -a extension-test-results.txt
           node zeroscript-extension/workspace-editor-utils.test.cjs 2>&1 | tee -a extension-test-results.txt
+          node --check zeroscript-extension/providers/chatgpt.js 2>&1 | tee -a extension-test-results.txt
+          node zeroscript-extension/test-chatgpt.js 2>&1 | tee -a extension-test-results.txt
           node --check zeroscript-extension/core/parser.js 2>&1 | tee -a extension-test-results.txt
           node --check zeroscript-extension/core/main.js 2>&1 | tee -a extension-test-results.txt
           node --check zeroscript-extension/background.js 2>&1 | tee -a extension-test-results.txt
