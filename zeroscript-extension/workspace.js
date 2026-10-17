@@ -20,6 +20,9 @@ const state = {
   modalItems: [],
   modalFiltered: [],
   modalIndex: 0,
+  findMatches: [],
+  findIndex: -1,
+  findTabKey: null,
   problemDiagnostics: [],
   replacePreview: null,
   outputs: {
@@ -670,6 +673,155 @@ async function reloadCurrentFile() {
   } finally {
     setBusy(false);
   }
+}
+
+function refreshFindMatches() {
+  const editor = $("codeEditor");
+  const tab = activeTab();
+  const query = $("findText").value;
+  const previous = state.findMatches[state.findIndex];
+  const content = editor.value || "";
+  state.findTabKey = tab ? tab.key : null;
+  state.findMatches = [];
+  if (!tab || !query) {
+    state.findIndex = -1;
+    $("findCount").textContent = "0 / 0";
+    return;
+  }
+  const matchCase = $("findMatchCase").checked;
+  const haystack = matchCase ? content : content.toLocaleLowerCase();
+  const needle = matchCase ? query : query.toLocaleLowerCase();
+  if (!needle) {
+    state.findIndex = -1;
+    $("findCount").textContent = "0 / 0";
+    return;
+  }
+  let offset = 0;
+  while (offset <= haystack.length - needle.length) {
+    const start = haystack.indexOf(needle, offset);
+    if (start < 0) break;
+    state.findMatches.push({ start, end: start + needle.length });
+    offset = start + Math.max(needle.length, 1);
+  }
+  if (!state.findMatches.length) {
+    state.findIndex = -1;
+    $("findCount").textContent = "0 / 0";
+    return;
+  }
+  let selected = previous
+    ? state.findMatches.findIndex((match) => match.start === previous.start)
+    : -1;
+  if (selected < 0) selected = state.findMatches.findIndex((match) => match.start >= editor.selectionStart);
+  if (selected < 0) selected = 0;
+  state.findIndex = selected;
+  $("findCount").textContent = (selected + 1) + " / " + state.findMatches.length;
+}
+
+function jumpToFindMatch(index) {
+  if (!state.findMatches.length) {
+    refreshFindMatches();
+    return false;
+  }
+  const wrapped = ((index % state.findMatches.length) + state.findMatches.length) % state.findMatches.length;
+  state.findIndex = wrapped;
+  const match = state.findMatches[wrapped];
+  setEditorMode();
+  const editor = $("codeEditor");
+  editor.focus();
+  editor.setSelectionRange(match.start, match.end);
+  $("findCount").textContent = (wrapped + 1) + " / " + state.findMatches.length;
+  updateCursorStatus();
+  return true;
+}
+
+function moveFindMatch(direction) {
+  refreshFindMatches();
+  if (!state.findMatches.length) return;
+  let next = state.findIndex;
+  if (next < 0) next = direction > 0 ? -1 : 0;
+  jumpToFindMatch(next + direction);
+}
+
+function openFindBar(showReplace = false) {
+  if (!activeTab()) {
+    writeOutput("Find in File", "Open a source file before finding text.");
+    return;
+  }
+  const editor = $("codeEditor");
+  const selectedText = editor.value.slice(editor.selectionStart, editor.selectionEnd);
+  if (!$("findText").value && selectedText && !/[\r\n]/.test(selectedText)) {
+    $("findText").value = selectedText;
+  }
+  $("findBar").classList.remove("hidden");
+  refreshFindMatches();
+  if (state.findMatches.length) {
+    const offset = editor.selectionEnd;
+    let index = state.findMatches.findIndex((match) => match.start >= offset);
+    if (index < 0) index = 0;
+    jumpToFindMatch(index);
+  }
+  if (showReplace) {
+    $("replaceCurrentText").focus();
+    $("replaceCurrentText").select();
+  } else {
+    $("findText").focus();
+    $("findText").select();
+  }
+}
+
+function closeFindBar() {
+  $("findBar").classList.add("hidden");
+  if (activeTab()) $("codeEditor").focus();
+}
+
+function replaceCurrentMatch() {
+  const tab = activeTab();
+  if (!tab || state.busy) return;
+  refreshFindMatches();
+  if (state.findIndex < 0 || !state.findMatches.length) {
+    writeOutput("Replace in File", "No matches are available in the current file.");
+    return;
+  }
+  const match = state.findMatches[state.findIndex];
+  const replacement = $("replaceCurrentText").value;
+  const editor = $("codeEditor");
+  const content = editor.value;
+  editor.value = content.slice(0, match.start) + replacement + content.slice(match.end);
+  syncActiveTabFromEditor();
+  updateHighlight();
+  renderDirty();
+  const nextOffset = match.start + replacement.length;
+  refreshFindMatches();
+  const nextIndex = state.findMatches.findIndex((item) => item.start >= nextOffset);
+  if (nextIndex >= 0) jumpToFindMatch(nextIndex);
+  else if (state.findMatches.length) jumpToFindMatch(0);
+  writeOutput("Replace in File", "Replaced the selected match in the open buffer. Save the tab to write it to disk.");
+}
+
+function replaceAllCurrentMatches() {
+  const tab = activeTab();
+  if (!tab || state.busy) return;
+  refreshFindMatches();
+  const matches = state.findMatches.slice();
+  if (!matches.length) {
+    writeOutput("Replace in File", "No matches are available in the current file.");
+    return;
+  }
+  const find = $("findText").value;
+  const replacement = $("replaceCurrentText").value;
+  if (!window.confirm("Replace " + matches.length + " occurrence(s) in " + tab.path + "?\n\nThis changes only the open editor buffer. Save the tab to write changes to disk.")) return;
+  let content = $("codeEditor").value;
+  for (let index = matches.length - 1; index >= 0; index -= 1) {
+    const match = matches[index];
+    content = content.slice(0, match.start) + replacement + content.slice(match.end);
+  }
+  $("codeEditor").value = content;
+  syncActiveTabFromEditor();
+  updateHighlight();
+  renderDirty();
+  refreshFindMatches();
+  if (state.findMatches.length) jumpToFindMatch(0);
+  writeOutput("Replace in File", "Replaced " + matches.length + " occurrence(s) in the open buffer. Save the tab to write it to disk.");
 }
 
 function formatBytes(bytes) {
