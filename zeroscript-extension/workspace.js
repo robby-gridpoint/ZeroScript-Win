@@ -737,10 +737,50 @@ $("fileTree").addEventListener("click", (event) => {
 });
 $("codeEditor").addEventListener("input", () => {
   state.dirty = $("codeEditor").value !== state.savedContent;
+  updateHighlight();
   renderDirty();
 });
 $("codeEditor").addEventListener("keyup", updateCursorStatus);
 $("codeEditor").addEventListener("click", updateCursorStatus);
+$("codeEditor").addEventListener("scroll", () => {
+  $("lineNumbers").scrollTop = $("codeEditor").scrollTop;
+  $("syntaxHighlight").scrollTop = $("codeEditor").scrollTop;
+  $("syntaxHighlight").scrollLeft = $("codeEditor").scrollLeft;
+});
+$("codeEditor").addEventListener("keydown", (event) => {
+  const editor = $("codeEditor");
+  if (event.key === "Tab") {
+    event.preventDefault();
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const value = editor.value;
+    const inserted = "    ";
+    editor.value = value.slice(0, start) + inserted + value.slice(end);
+    editor.setSelectionRange(start + inserted.length, start + inserted.length);
+    updateHighlight();
+    state.dirty = editor.value !== state.savedContent;
+    renderDirty();
+    updateCursorStatus();
+  } else if (event.key === "Enter") {
+    const cursor = editor.selectionStart;
+    const lineStart = editor.value.lastIndexOf("\n", cursor - 1) + 1;
+    const prefix = editor.value.slice(lineStart, cursor);
+    const indent = (prefix.match(/^[ \t]*/) || [""])[0];
+    const extraIndent = /(?:\{| \(|\[|:|\bthen|\bdo)\s*$/.test(prefix) ? "    " : "";
+    if (indent || extraIndent) {
+      event.preventDefault();
+      const value = editor.value;
+      const insertion = "\n" + indent + extraIndent;
+      editor.value = value.slice(0, cursor) + insertion + value.slice(editor.selectionEnd);
+      const next = cursor + insertion.length;
+      editor.setSelectionRange(next, next);
+      updateHighlight();
+      state.dirty = editor.value !== state.savedContent;
+      renderDirty();
+      updateCursorStatus();
+    }
+  }
+});
 $("saveFile").addEventListener("click", saveFile);
 $("showOutline").addEventListener("click", loadOutline);
 $("showProjectInfo").addEventListener("click", loadProjectInfo);
@@ -775,10 +815,30 @@ document.addEventListener("keydown", (event) => {
     event.preventDefault();
     setView("search");
     $("searchQuery").focus();
-  } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "p") {
+  } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "p" && !event.shiftKey) {
     event.preventDefault();
-    setView("explorer");
-    $("searchQuery").focus();
+    if (state.workspace && state.workspace.configured) {
+      const path = window.prompt("Open workspace-relative file path:", state.currentFile || "");
+      if (path && path.trim()) openFile(path.trim());
+    } else {
+      chooseWorkspace();
+    }
+  } else if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "p") {
+    event.preventDefault();
+    const command = window.prompt("Command palette: save, open-file, search, project, git-status, outline, new-file, new-folder");
+    if (!command) return;
+    const key = command.trim().toLowerCase();
+    if (key === "save") saveFile();
+    else if (key === "open-file") {
+      const path = window.prompt("Workspace-relative path:");
+      if (path) openFile(path.trim());
+    } else if (key === "search") { setView("search"); $("searchQuery").focus(); }
+    else if (key === "project") loadProjectInfo();
+    else if (key === "git-status") loadGitStatus();
+    else if (key === "outline") loadOutline();
+    else if (key === "new-file") createFile();
+    else if (key === "new-folder") createFolder();
+    else writeOutput("Command palette", "Unknown command: " + command);
   }
 });
 
