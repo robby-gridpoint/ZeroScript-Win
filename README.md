@@ -45,6 +45,8 @@ The environment setting takes precedence over the saved folder. To change projec
 
 The local workspace root and the open Roblox place are not interchangeable. Use each domain only for the actions it actually controls; use both only when a task needs both.
 
+**Roblox MCP is enabled by default.** The checked-in `config.json` registers the bundled `launch_studio_mcp.py` launcher as the `roblox` MCP server. On Windows, `py -3 launch_studio_mcp.py` discovers the installed StudioMCP executable and forwards its stdio. Workspace tools remain available independently, even if Roblox Studio is closed or the Studio MCP toggle is disabled. To use live Roblox tools, open a place in Studio and enable **Assistant Settings > MCP Servers > Enable Studio as MCP server**. The bridge launches configured MCP servers in parallel, so Studio discovery does not block workspace tools or other integrations.
+
 ## Run the workspace tests
 
 Requires Python 3.10 or later.
