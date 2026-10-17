@@ -119,10 +119,18 @@ def export_tree(manager, args: dict[str, Any]) -> dict[str, Any]:
 
     root_path = args.get("root_path", "RobloxExport")
     overwrite = args.get("overwrite", False)
+    exclude = args.get("exclude", [])
+    max_script_bytes = args.get("max_script_bytes", 1024 * 1024)
     if not isinstance(root_path, str) or not root_path.strip():
         raise RuntimeError("root_path must be a non-empty workspace-relative directory.")
     if not isinstance(overwrite, bool):
         raise RuntimeError("overwrite must be a boolean.")
+    if not isinstance(exclude, list) or not all(isinstance(item, str) and item.strip() for item in exclude):
+        raise RuntimeError("exclude must be an array of non-empty path/name substrings.")
+    if len(exclude) > 100:
+        raise RuntimeError("exclude supports at most 100 entries.")
+    if not isinstance(max_script_bytes, int) or isinstance(max_script_bytes, bool) or not 1 <= max_script_bytes <= 1024 * 1024:
+        raise RuntimeError("max_script_bytes must be an integer between 1 and 1048576.")
     root = PurePosixPath(root_path.replace("\\", "/"))
     if not root.parts or root == PurePosixPath(".") or root.is_absolute() or any(part in ("", ".", "..") for part in root.parts):
         raise RuntimeError("root_path must be a safe workspace-relative directory.")
@@ -164,17 +172,36 @@ table.sort(items, function(a, b)
 end)
 local first = __FIRST__
 local limit = __LIMIT__
+local maxScriptBytes = __MAX_SCRIPT_BYTES__
+local excludes = HttpService:JSONDecode(__EXCLUDES_JSON__)
 local page = {}
 for i = first, math.min(#items, first + limit - 1) do
     local item = items[i]
-    local ok, source = pcall(function() return item.instance.Source end)
-    table.insert(page, {
-        index = i,
-        segments = item.segments,
-        className = item.className,
-        source = ok and source or "",
-        sourceError = ok and nil or tostring(source)
-    })
+    local hierarchy = table.concat(item.segments, "/")
+    local excluded = false
+    local lowerHierarchy = string.lower(hierarchy)
+    for _, needle in ipairs(excludes) do
+        if string.find(lowerHierarchy, string.lower(needle), 1, true) then
+            excluded = true
+            break
+        end
+    end
+    if excluded then
+        table.insert(page, {index = i, segments = item.segments, className = item.className, excluded = true})
+    else
+        local ok, source = pcall(function() return item.instance.Source end)
+        local sourceBytes = ok and #source or 0
+        local tooLarge = ok and sourceBytes > maxScriptBytes
+        table.insert(page, {
+            index = i,
+            segments = item.segments,
+            className = item.className,
+            source = (ok and not tooLarge) and source or "",
+            sourceBytes = sourceBytes,
+            oversized = tooLarge,
+            sourceError = ok and nil or tostring(source)
+        })
+    end
 end
 return HttpService:JSONEncode({total = #items, first = first, files = page})
 '''
@@ -183,7 +210,11 @@ return HttpService:JSONEncode({total = #items, first = first, files = page})
     total: int | None = None
     start = 1
     while total is None or start <= total:
-        code = code_template.replace("__FIRST__", str(start)).replace("__LIMIT__", str(page_size))
+        code = (code_template
+            .replace("__FIRST__", str(start))
+            .replace("__LIMIT__", str(page_size))
+            .replace("__MAX_SCRIPT_BYTES__", str(max_script_bytes))
+            .replace("__EXCLUDES_JSON__", json.dumps(json.dumps(exclude))))
         call_args = _build_execute_args(tool, code)
         if studio_key and studio_id:
             call_args[studio_key] = studio_id
@@ -206,15 +237,27 @@ return HttpService:JSONEncode({total = #items, first = first, files = page})
 
     output_files: list[dict[str, str]] = []
     used_paths: set[str] = set()
+    skipped_excluded: list[dict[str, Any]] = []
+    skipped_oversized: list[dict[str, Any]] = []
     for entry in all_entries:
         segments = entry.get("segments")
         source = entry.get("source")
         class_name = entry.get("className", "LuaSourceContainer")
         if not isinstance(segments, list) or not segments or not all(isinstance(part, str) for part in segments):
             raise RuntimeError("Studio returned a script with invalid hierarchy metadata.")
+        hierarchy = "/".join(segments)
+        if entry.get("excluded"):
+            skipped_excluded.append({"path": hierarchy, "reason": "matched exclude substring"})
+            continue
         if entry.get("sourceError"):
-            hierarchy = ".".join(segments)
             raise RuntimeError(f"Studio could not read source for {hierarchy}: {entry['sourceError']}")
+        if entry.get("oversized"):
+            skipped_oversized.append({
+                "path": hierarchy,
+                "bytes": entry.get("sourceBytes", 0),
+                "limit_bytes": max_script_bytes,
+            })
+            continue
         if not isinstance(source, str):
             raise RuntimeError(f"Studio did not return source text for script index {entry.get('index')}.")
         safe_segments = [_safe_segment(part) for part in segments]
@@ -238,8 +281,13 @@ return HttpService:JSONEncode({total = #items, first = first, files = page})
     batch_bytes = 0
     for item in output_files:
         size = len(item["content"].encode("utf-8"))
-        if size > 1024 * 1024:
-            raise RuntimeError(f"Script exceeds the 1 MiB per-file limit: {item['path']}")
+        if size > max_script_bytes:
+            skipped_oversized.append({
+                "path": item["path"],
+                "bytes": size,
+                "limit_bytes": max_script_bytes,
+            })
+            continue
         if batch and (len(batch) >= MAX_FILES_PER_WRITE or batch_bytes + size > MAX_BYTES_PER_WRITE):
             batches.append(batch)
             batch, batch_bytes = [], 0
@@ -264,11 +312,19 @@ return HttpService:JSONEncode({total = #items, first = first, files = page})
         "scripts_discovered": len(all_entries),
         "files_written": written,
         "bytes_written": bytes_written,
+        "skipped_excluded_count": len(skipped_excluded),
+        "skipped_excluded": skipped_excluded,
+        "skipped_oversized_count": len(skipped_oversized),
+        "skipped_oversized": skipped_oversized,
+        "max_script_bytes": max_script_bytes,
+        "exclude": exclude,
         "overwrite": overwrite,
         "batches": batch_results,
         "notes": [
             "Script, LocalScript, and ModuleScript source is preserved with .server.lua, .client.lua, and .module.lua suffixes.",
             "Non-script instances are not exported; hierarchy is preserved through directory paths.",
             "Roblox instance names are sanitized for Windows-compatible filenames.",
+            "Oversized scripts and excluded hierarchy paths are skipped and reported; they do not abort the export.",
+            "exclude entries are case-insensitive substrings matched against slash-separated instance hierarchy paths.",
         ],
     }
