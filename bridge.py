@@ -1190,7 +1190,9 @@ class MCPManager:
             "description": "Export all Script, LocalScript, and ModuleScript source from the connected Roblox Studio place into the selected local workspace. Traverses the full DataModel, preserves hierarchy as directories, keeps server/client/module suffixes, and writes locally in bounded batches without sending script contents through the agent conversation. Requires a configured workspace and Roblox Studio MCP connection. Existing files are protected unless overwrite=true.",
             "inputSchema": {"type": "object", "properties": {
                 "root_path": {"type": "string", "default": "RobloxExport", "description": "Workspace-relative directory to create the export under."},
-                "overwrite": {"type": "boolean", "default": False, "description": "Explicitly replace matching existing files."}
+                "overwrite": {"type": "boolean", "default": False, "description": "Explicitly replace matching existing files."},
+                "exclude": {"type": "array", "items": {"type": "string", "minLength": 1}, "maxItems": 100, "default": [], "description": "Case-insensitive substrings matched against slash-separated instance hierarchy paths; matching scripts are skipped before source is read."},
+                "max_script_bytes": {"type": "integer", "minimum": 1, "maximum": 1048576, "default": 1048576, "description": "Skip and report scripts larger than this UTF-8 byte limit; oversized scripts do not abort the export."}
             }, "additionalProperties": False},
             "server": "roblox-export"
         })
