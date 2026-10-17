@@ -435,19 +435,24 @@ class Workspace:
         for item in inventory["files"]:
             suffix = Path(item["path"]).suffix.lower() or "[no extension]"
             extensions[suffix] = extensions.get(suffix, 0) + 1
-        if not package_path.is_symlink() and package_path.is_file():
+
+        def is_root_file(name: str) -> bool:
+            candidate = self.root / name
+            return not candidate.is_symlink() and candidate.is_file()
+
+        if is_root_file("package.json"):
             project_type = "Node.js / JavaScript / TypeScript"
-        elif (self.root / "pyproject.toml").is_file() or (self.root / "requirements.txt").is_file():
+        elif is_root_file("pyproject.toml") or is_root_file("requirements.txt"):
             project_type = "Python"
-        elif (self.root / "Cargo.toml").is_file():
+        elif is_root_file("Cargo.toml"):
             project_type = "Rust"
-        elif (self.root / "go.mod").is_file():
+        elif is_root_file("go.mod"):
             project_type = "Go"
         elif any(name.endswith((".sln", ".csproj")) for name in root_files):
             project_type = ".NET / C#"
-        elif (self.root / "CMakeLists.txt").is_file():
+        elif is_root_file("CMakeLists.txt"):
             project_type = "C / C++ (CMake)"
-        elif (self.root / "pom.xml").is_file() or (self.root / "build.gradle").is_file():
+        elif is_root_file("pom.xml") or is_root_file("build.gradle"):
             project_type = "Java / JVM"
         else:
             project_type = "mixed or undetected"
