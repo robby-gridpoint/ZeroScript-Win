@@ -21,7 +21,9 @@ var ZS = (() => {
   // Classifies workspace tools and optional app-specific integrations. Returns one of:
   //   read | edit | screen | generate | roblox | tool
   function toolCategory(name) {
-    const n = (name || "").includes("/") ? name.split("/").pop() : (name || "");
+    const rawName = String(name || "");
+    if (rawName.startsWith("roblox/")) return "roblox";
+    const n = rawName.includes("/") ? rawName.split("/").pop() : rawName;
     if (/^(workspace_info|workspace_project_info|workspace_tree|workspace_file_outline|workspace_list_files|workspace_read_file|workspace_search|workspace_find_files|workspace_symbols|workspace_git_status|workspace_git_diff|workspace_git_branches|workspace_git_log|list_tools|list_commands)$/.test(n)) return "read";
     if (/^(workspace_write_file|workspace_apply_patch|workspace_create_file|workspace_create_directory|workspace_move_path|workspace_delete_file|multi_edit|insert_from_creator_store|store_image)$/.test(n)) return "edit";
     if (/^(workspace_run_command|execute_luau)$/.test(n)) return "edit";
