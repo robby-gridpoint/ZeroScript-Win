@@ -637,6 +637,37 @@ class Workspace:
         return {"path": target.relative_to(self.root).as_posix(), "total_lines": len(lines),
                 "outline": outline, "truncated": len(outline) >= limit}
 
+    def git_stage_file(self, path: str) -> dict[str, Any]:
+        """Stage one workspace-relative file in Git without executing a shell."""
+        if not isinstance(path, str) or not path.strip() or path.strip() in (".", "./"):
+            raise WorkspaceError("Select a single workspace-relative file to stage.")
+        target = self._resolve(path)
+        if target.exists() and target.is_dir():
+            raise WorkspaceError("Only one file can be staged with this tool; directories are refused.")
+        relative = target.relative_to(self.root).as_posix()
+        return self._run(["git", "add", "--", relative], timeout=30)
+
+    def git_unstage_file(self, path: str) -> dict[str, Any]:
+        """Remove one path from the Git index without changing working-tree contents."""
+        if not isinstance(path, str) or not path.strip() or path.strip() in (".", "./"):
+            raise WorkspaceError("Select a single workspace-relative file to unstage.")
+        target = self._resolve(path)
+        if target.exists() and target.is_dir():
+            raise WorkspaceError("Only one file can be unstaged with this tool; directories are refused.")
+        relative = target.relative_to(self.root).as_posix()
+        return self._run(["git", "restore", "--staged", "--", relative], timeout=30)
+
+    def git_commit(self, message: str) -> dict[str, Any]:
+        """Create a local Git commit from already-staged changes. Does not push."""
+        if not isinstance(message, str) or not message.strip():
+            raise WorkspaceError("A non-empty commit message is required.")
+        cleaned = message.strip()
+        if len(cleaned) > 500:
+            raise WorkspaceError("Commit messages are limited to 500 characters.")
+        if any(ord(character) < 32 and character not in "\\t" for character in cleaned):
+            raise WorkspaceError("Commit message contains unsupported control characters.")
+        return self._run(["git", "commit", "-m", cleaned], timeout=60)
+
     def git_branches(self) -> dict[str, Any]:
         """List local and remote Git refs without changing repository state."""
         return self._run(["git", "branch", "--all", "--no-color"], timeout=15)
