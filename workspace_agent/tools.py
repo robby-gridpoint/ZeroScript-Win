@@ -495,6 +495,38 @@ class Workspace:
             "top_level_files": root_files[:100],
         }
 
+    def run_task(self, task: str, timeout: int = 300) -> dict[str, Any]:
+        """Run a script explicitly declared in the workspace package.json."""
+        if not isinstance(task, str) or not task.strip():
+            raise WorkspaceError("A package script name is required.")
+        package_path = self.root / "package.json"
+        if package_path.is_symlink() or not package_path.is_file():
+            raise WorkspaceError("This workspace has no regular root package.json.")
+        try:
+            package = json.loads(package_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise WorkspaceError(f"Could not read package.json: {exc}") from exc
+        scripts = package.get("scripts") or {}
+        name = task.strip()
+        if not isinstance(scripts, dict) or name not in scripts:
+            available = ", ".join(str(key) for key in scripts) if isinstance(scripts, dict) else ""
+            raise WorkspaceError(
+                f"Package script '{name}' is not declared in package.json."
+                + (f" Available scripts: {available}" if available else "")
+            )
+        details = self.project_info()
+        manager = details.get("package_manager")
+        if manager not in {"npm", "pnpm", "yarn", "bun"}:
+            raise WorkspaceError("No supported package manager could be detected for this project.")
+        command = [manager, "run", name]
+        result = self._run(command, timeout=max(1, min(int(timeout), 300)))
+        return {
+            "task": name,
+            "script": str(scripts[name]),
+            "package_manager": manager,
+            **result,
+        }
+
     def symbols(self, query: str = "", path: str = ".", max_results: int = 200) -> dict[str, Any]:
         """Find likely function/type/variable declarations using language-neutral patterns."""
         base = self._resolve(path)
