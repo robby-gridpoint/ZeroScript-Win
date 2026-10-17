@@ -896,7 +896,7 @@
     if (!name) return ZS.FEEDBACK.parseError("malformed");
     // NEVER execute while the AI tab is backgrounded/minimized. This is the single
     // choke point for ALL execution (agentLoop's tool dispatch AND the bootstrap's
-    // list_commands), so it closes the hole the loop-entry gate alone left open:
+    // tool calls), so it closes the hole the loop-entry gate alone left open:
     // the tab is foreground when a cycle starts, the model then generates for
     // 30-120s, the user minimizes MID-generation, and waitForResponse returns a
     // tool call that fired into Studio off-screen (observed live: GLM minimized
@@ -1651,7 +1651,7 @@
   // answering "I can't invoke those commands in this session" while the
   // extension sits there ready and waiting. Observed repeatedly on ChatGPT.
   //
-  // The periodic tools reminder does NOT fix this: it re-anchors command NAMES,
+  // The periodic tools reminder does NOT fix this: it re-anchors tool names,
   // but it never restates that the commands actually run. So providers that need
   // it set `resendSystemEvery`, and the whole prompt goes back in.
   //
