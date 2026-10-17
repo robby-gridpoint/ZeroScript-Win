@@ -1074,13 +1074,21 @@ class MCPManager:
         # treated as an intentional project selection.
         self.workspace_settings_path = os.path.join(HERE, ".zs-workspace.json")
         env_root = os.environ.get("ZS_WORKSPACE_ROOT", "").strip()
-        saved_root = ""
-        if not env_root:
-            try:
-                with open(self.workspace_settings_path, "r", encoding="utf-8") as fp:
-                    saved_root = str(json.load(fp).get("root", "")).strip()
-            except (OSError, ValueError, TypeError):
-                saved_root = ""
+        settings = {}
+        try:
+            with open(self.workspace_settings_path, "r", encoding="utf-8") as fp:
+                loaded_settings = json.load(fp)
+            if isinstance(loaded_settings, dict):
+                settings = loaded_settings
+        except (OSError, ValueError, TypeError):
+            settings = {}
+        saved_root = str(settings.get("root", "")).strip()
+        recent_roots = settings.get("recent_roots", [])
+        self.workspace_history = []
+        if isinstance(recent_roots, list):
+            for entry in recent_roots:
+                if isinstance(entry, str) and entry.strip() and entry.strip() not in self.workspace_history:
+                    self.workspace_history.append(entry.strip())
         self.workspace_root = env_root or saved_root or HERE
         self.workspace_configured = bool(env_root or saved_root)
         self.workspace_source = "environment" if env_root else ("saved" if saved_root else "default")
