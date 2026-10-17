@@ -86,6 +86,17 @@ ok("new user content unit is classified as a user turn", P.isUserItem(modernUser
 ok("new assistant content unit is classified as an assistant turn", P.isAssistantItem(modernAssistant));
 ok("new assistant unit supplies a stable turn identity", P.itemKey(modernAssistant) === "turn-abc:assistant");
 ok("new assistant unit is a readable reply fallback", P.replyNodes(modernAssistant)[0] === modernAssistant);
+const stopIconPath = "M4.5 5.75C4.5 5.05964 5.05964 4.5 5.75 4.5H14.25C14.9404 4.5 15.5 5.05964 15.5 5.75V14.25C15.5 14.9404 14.9404 15.5 14.25 15.5H5.75C5.05964 15.5 4.5 14.9404 4.5 14.25V5.75Z";
+const modernStopButton = {
+  getAttribute: () => null,
+  matches: (selector) => selector.includes(stopIconPath),
+};
+const modernSendButton = {
+  getAttribute: (name) => name === "data-testid" ? "send-button" : null,
+  matches: () => false,
+};
+ok("new icon-based Stop button is recognised", P.isStopBtn(modernStopButton));
+ok("new-layout Send button is not mistaken for Stop", !P.isStopBtn(modernSendButton));
 querySelectorAllHandler = (selector) => {
   if (selector.includes("data-message-author-role")) return [];
   if (selector.includes("data-content-search-unit-key")) return [modernUser, modernAssistant];
