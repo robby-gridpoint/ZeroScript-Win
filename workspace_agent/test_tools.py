@@ -220,6 +220,48 @@ class WorkspaceTests(unittest.TestCase):
         self.assertIn("declaration", kinds)
         self.assertEqual(result["path"], "src/app.py")
 
+    def test_replace_in_files_previews_then_applies_and_preserves_line_endings(self):
+        (self.root / "src").mkdir()
+        first = self.root / "src" / "first.txt"
+        second = self.root / "src" / "second.txt"
+        first.write_bytes(b"hello world\r\nhello universe\r\n")
+        second.write_bytes(b"HELLO there\n")
+        preview = self.ws.replace_in_files("hello", "hi", apply=False)
+        self.assertFalse(preview["applied"])
+        self.assertEqual(preview["files_changed"], 2)
+        self.assertEqual(preview["replacements"], 3)
+        self.assertTrue(preview["preview_hash"])
+        self.assertEqual(first.read_bytes(), b"hello world\r\nhello universe\r\n")
+        result = self.ws.replace_in_files("hello", "hi", apply=True, expected_hash=preview["preview_hash"])
+        self.assertTrue(result["applied"])
+        self.assertEqual(result["files_changed"], 2)
+        self.assertEqual(result["replacements"], 3)
+        self.assertEqual(first.read_bytes(), b"hi world\r\nhi universe\r\n")
+        self.assertEqual(second.read_bytes(), b"hi there\n")
+
+    def test_replace_in_files_rejects_stale_preview(self):
+        self.ws.write_file("main.py", "VALUE = 1\n")
+        preview = self.ws.replace_in_files("VALUE", "RESULT", apply=False)
+        self.ws.write_file("main.py", "VALUE = 2\n")
+        with self.assertRaisesRegex(WorkspaceError, "changed after the preview"):
+            self.ws.replace_in_files("VALUE", "RESULT", apply=True, expected_hash=preview["preview_hash"])
+        self.assertEqual(self.ws.read_file("main.py")["content"], "VALUE = 2\n")
+
+    def test_replace_in_files_supports_regex_groups_and_validates_query(self):
+        self.ws.write_file("src.py", "item_12 item_34\nITEM_56\n")
+        preview = self.ws.replace_in_files(r"item_(\d+)", r"value_\1", regex=True, case_sensitive=True)
+        self.assertEqual(preview["replacements"], 2)
+        result = self.ws.replace_in_files(
+            r"item_(\d+)", r"value_\1", regex=True, case_sensitive=True,
+            apply=True, expected_hash=preview["preview_hash"],
+        )
+        self.assertEqual(result["replacements"], 2)
+        self.assertEqual(self.ws.read_file("src.py")["content"], "value_12 value_34\nITEM_56\n")
+        with self.assertRaisesRegex(WorkspaceError, "must not be empty"):
+            self.ws.replace_in_files("", "x")
+        with self.assertRaisesRegex(WorkspaceError, "Invalid search regular expression"):
+            self.ws.replace_in_files("[", "x", regex=True)
+
     def test_multi_edit_updates_multiple_files_and_returns_diffs(self):
         self.ws.write_file("src/one.py", "VALUE = 1\n")
         self.ws.write_file("src/two.py", "VALUE = 2\n")
