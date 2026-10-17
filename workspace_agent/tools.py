@@ -395,10 +395,10 @@ class Workspace:
         limit = max(1, min(int(max_results), MAX_RESULTS))
         lines = result["content"].splitlines()
         patterns = [
-            ("heading", re.compile(r"^\\s*(?:#{1,6}\\s+.+|//[-=]{3,}.*)$")),
-            ("import", re.compile(r"^\\s*(?:import\\s|from\\s+\\S+\\s+import\\s|require\\s*\\(|using\\s+\\S+|#include\\s*[<\"]|local\\s+\\w+\\s*=\\s*require\\s*\\()")),
-            ("declaration", re.compile(r"^\\s*(?:(?:export|public|private|protected|static|async|local|pub|crate|abstract|sealed|data)\\s+)*(?:function|def|fn|class|interface|type|enum|struct|trait|record)\\s+[A-Za-z_$][\\w$]*")),
-            ("variable", re.compile(r"^\\s*(?:export\\s+)?(?:const|let|var|local)\\s+[A-Za-z_$][\\w$]*\\s*(?:[:=])")),
+            ("heading", re.compile(r"^\s*(?:#{1,6}\s+.+|//[-=]{3,}.*)$")),
+            ("import", re.compile(r"^\s*(?:import\s|from\s+\S+\s+import\s|require\s*\(|using\s+\S+|#include\s*[<\"]|local\s+\w+\s*=\s*require\s*\()")),
+            ("declaration", re.compile(r"^\s*(?:(?:export|public|private|protected|static|async|local|pub|crate|abstract|sealed|data)\s+)*(?:function|def|fn|class|interface|type|enum|struct|trait|record)\s+[A-Za-z_$][\w$]*")),
+            ("variable", re.compile(r"^\s*(?:export\s+)?(?:const|let|var|local)\s+[A-Za-z_$][\w$]*\s*(?:[:=])")),
         ]
         outline = []
         for number, line in enumerate(lines, 1):
