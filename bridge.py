@@ -1202,7 +1202,11 @@ class MCPManager:
                     pass
         if not chosen:
             return {"cancelled": True, "message": "Folder selection cancelled; the active workspace was not changed.", **self._workspace_description()}
-        return self._set_workspace(chosen, source="folder-picker", persist=True)
+        selected = Path(chosen).expanduser().resolve()
+        if not selected.is_dir():
+            raise RuntimeError("The selected workspace path is no longer an existing directory.")
+        return {"chosen": True, "selected_path": str(selected),
+                "message": "Folder selected but not yet activated. Call workspace_set_root with this exact selected_path to make it active."}
 
     def _call_workspace(self, name, arguments):
         args = arguments or {}
