@@ -1547,6 +1547,7 @@ async def handler(ws):
             "studio_proc": await asyncio.to_thread(_roblox_studio_app_running),
             "servers": mgr.health(),
             "tools": mgr.list_tools(),
+            "workspace": mgr._workspace_description(),
             "port": PORT,
         }))
         async for raw in ws:
