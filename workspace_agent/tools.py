@@ -239,7 +239,7 @@ class Workspace:
         for item in inventory["files"]:
             suffix = Path(item["path"]).suffix.lower() or "[no extension]"
             extensions[suffix] = extensions.get(suffix, 0) + 1
-        if package_path.is_file() and not package_path.is_symlink():
+        if not package_path.is_symlink() and package_path.is_file():
             project_type = "Node.js / JavaScript / TypeScript"
         elif (self.root / "pyproject.toml").is_file() or (self.root / "requirements.txt").is_file():
             project_type = "Python"
