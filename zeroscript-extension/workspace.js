@@ -357,28 +357,59 @@ function selectFileInTree(path) {
 }
 
 async function openFile(path, jumpLine = 1) {
-  if (state.dirty && !window.confirm("Discard unsaved changes to the current file?")) return;
+  const root = state.workspace && state.workspace.root;
+  if (!root || !state.workspace.configured) {
+    writeOutput("Open file", "Choose a project workspace before opening files.");
+    return;
+  }
+  const existing = state.openTabs.find((tab) => tab.key === tabKey(path, root) || (tab.root === root && tab.path === path));
+  if (existing) {
+    switchToTab(existing.key);
+    if (jumpLine > 1) {
+      const lines = existing.content.split("\n");
+      const index = lines.slice(0, jumpLine - 1).join("\n").length + (jumpLine > 1 ? 1 : 0);
+      $("codeEditor").focus();
+      $("codeEditor").setSelectionRange(index, index);
+      updateCursorStatus();
+    }
+    return;
+  }
   setBusy(true, `Opening ${path}…`);
   try {
     const result = await callTool("workspace_read_file", { path });
-    state.currentFile = result.path || path;
-    state.fileWorkspaceRoot = state.workspace && state.workspace.root;
-    state.savedContent = result.content || "";
+    const filePath = result.path || path;
+    const key = tabKey(filePath, root);
+    const content = result.content || "";
+    const tab = {
+      key,
+      path: filePath,
+      root,
+      content,
+      savedContent: content,
+      dirty: false,
+    };
+    state.openTabs.push(tab);
+    state.activeTabKey = key;
+    state.currentFile = filePath;
+    state.fileWorkspaceRoot = root;
+    state.savedContent = content;
     state.dirty = false;
-    $("codeEditor").value = state.savedContent;
+    $("codeEditor").value = content;
     setEditorMode();
-    $("activeFileName").textContent = state.currentFile.split("/").pop();
-    $("breadcrumb").textContent = `ZeroScript / ${state.currentFile}`;
-    $("statusFile").textContent = state.currentFile;
-    $("languageStatus").textContent = languageForPath(state.currentFile);
+    $("activeFileName").textContent = filePath.split("/").pop();
+    $("breadcrumb").textContent = `ZeroScript / ${filePath}`;
+    $("statusFile").textContent = filePath;
+    $("languageStatus").textContent = languageForPath(filePath);
     $("encodingStatus").textContent = "UTF-8";
-    $("eolStatus").textContent = state.savedContent.includes("\r\n") ? "CRLF" : "LF";
+    $("eolStatus").textContent = content.includes("\r\n") ? "CRLF" : "LF";
     renderDirty();
-    selectFileInTree(state.currentFile);
+    renderOpenTabs();
+    selectFileInTree(filePath);
+    updateHighlight();
     updateCursorStatus();
-    writeOutput("File opened", `${state.currentFile}\n${state.savedContent.split("\n").length} lines`);
+    writeOutput("File opened", `${filePath}\n${content.split("\n").length} lines`);
     if (jumpLine > 1) {
-      const lines = state.savedContent.split("\n");
+      const lines = content.split("\n");
       const index = lines.slice(0, jumpLine - 1).join("\n").length + (jumpLine > 1 ? 1 : 0);
       $("codeEditor").focus();
       $("codeEditor").setSelectionRange(index, index);
@@ -393,18 +424,23 @@ async function openFile(path, jumpLine = 1) {
 }
 
 async function saveFile() {
-  if (!state.currentFile || !state.dirty || state.busy) return;
-  if (!state.workspace || state.workspace.root !== state.fileWorkspaceRoot) {
-    errorOutput("Save blocked", "The selected workspace changed after this file was opened. Reopen the file from the current workspace before saving to avoid writing the wrong project.");
+  const tab = activeTab();
+  if (!tab || !tab.dirty || state.busy) return;
+  if (!state.workspace || state.workspace.root !== tab.root) {
+    errorOutput("Save blocked", "The selected workspace changed after this tab was opened. Switch back to the original workspace or copy the buffer elsewhere before saving.");
     return;
   }
   const content = $("codeEditor").value;
-  setBusy(true, `Saving ${state.currentFile}…`);
+  setBusy(true, `Saving ${tab.path}…`);
   try {
-    const result = await callTool("workspace_write_file", { path: state.currentFile, content });
+    const result = await callTool("workspace_write_file", { path: tab.path, content });
+    tab.content = content;
+    tab.savedContent = content;
+    tab.dirty = false;
     state.savedContent = content;
     state.dirty = false;
     renderDirty();
+    renderOpenTabs();
     writeOutput("File saved", result);
     await refreshTree();
   } catch (error) {
