@@ -205,6 +205,10 @@ class Workspace:
         """Create a project-relative directory without overwriting existing paths."""
         if not isinstance(path, str) or not path.strip() or path.strip() in (".", "./"):
             raise WorkspaceError("A non-root directory path is required.")
+        raw = Path(path).expanduser()
+        raw = raw if raw.is_absolute() else self.root / raw
+        if raw.is_symlink():
+            raise WorkspaceError("Creating through a symbolic link is not supported.")
         target = self._resolve(path)
         if target == self.root:
             raise WorkspaceError("The workspace root cannot be created or replaced.")
