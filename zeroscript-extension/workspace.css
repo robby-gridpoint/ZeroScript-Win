@@ -90,6 +90,16 @@ input[type=checkbox] { margin: 0; accent-color: var(--accent); }
 .command-input { height: 80px; resize: vertical; font-family: Consolas, monospace; line-height: 1.5; }
 .editor-area { display: flex; flex-direction: column; min-width: 0; flex: 1; background: #0d121a; }
 .tab-strip { height: 39px; display: flex; align-items: stretch; flex-shrink: 0; border-bottom: 1px solid #222d3d; background: #111721; }
+.open-tabs { display: flex; align-items: stretch; min-width: 0; max-width: min(65%, 900px); overflow-x: auto; scrollbar-width: thin; }
+.editor-tab { display: flex; align-items: center; min-width: 105px; max-width: 220px; height: 38px; border-right: 1px solid #222d3d; border-bottom: 1px solid transparent; background: #101620; color: #8e9cb1; }
+.editor-tab.active { border-bottom-color: #7296fa; background: #0d121a; color: #e4ebf7; }
+.editor-tab-main { display: flex; align-items: center; gap: 7px; min-width: 0; flex: 1; height: 100%; padding: 0 7px 0 12px; border: 0; background: transparent; color: inherit; text-align: left; font-size: 10px; }
+.editor-tab-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.editor-tab-dirty { flex: 0 0 8px; color: #d9e1ef; font-size: 7px; }
+.editor-tab:not(.dirty) .editor-tab-dirty { color: transparent; }
+.editor-tab-close { display: grid; place-items: center; width: 22px; height: 24px; margin-right: 5px; border: 0; border-radius: 5px; background: transparent; color: #72829a; font-size: 14px; opacity: .7; }
+.editor-tab-close:hover { background: #2a3547; color: #eff4ff; opacity: 1; }
+.editor-tab.active .editor-tab-close { color: #b7c6de; }
 .file-tab { display: flex; align-items: center; gap: 8px; min-width: 145px; max-width: 320px; padding: 0 14px; border-right: 1px solid #222d3d; background: #0d121a; color: #e0e8f5; font-size: 11px; }
 .file-tab-icon { color: #83a6ff; }
 #activeFileName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
