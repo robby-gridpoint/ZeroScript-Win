@@ -48,9 +48,10 @@ function el(tag, opts, children) {
 }
 
 // ── Load the provider against the stub globals ──────────────────────────────
+let querySelectorAllHandler = () => [];
 global.document = {
   querySelector: () => null,
-  querySelectorAll: () => [],
+  querySelectorAll: (selector) => querySelectorAllHandler(selector),
   addEventListener: () => {},
   dispatchEvent: () => {},
   documentElement: { classList: { contains: () => false } },
@@ -66,6 +67,31 @@ const P = new Function(
 )();
 
 const ok = (name, cond) => { console.log((cond ? "PASS" : "FAIL") + "  " + name); if (!cond) process.exitCode = 1; };
+
+// ── Current ChatGPT composer and turn markup (October 2026) ────────────────
+// The signed-in Chat layout no longer always exposes data-message-author-role
+// or the old composer wrapper. These tests guard the new semantic attributes.
+const modernUser = {
+  getAttribute: (name) => name === "data-content-search-unit-key" ? "turn-abc:user" : null,
+  querySelector: () => null,
+};
+const modernAssistant = {
+  getAttribute: (name) => name === "data-content-search-unit-key" ? "turn-abc:assistant" : null,
+  querySelector: () => null,
+};
+ok("new user content unit is classified as a user turn", P.isUserItem(modernUser));
+ok("new assistant content unit is classified as an assistant turn", P.isAssistantItem(modernAssistant));
+ok("new assistant unit supplies a stable turn identity", P.itemKey(modernAssistant) === "turn-abc:assistant");
+ok("new assistant unit is a readable reply fallback", P.replyNodes(modernAssistant)[0] === modernAssistant);
+querySelectorAllHandler = (selector) => {
+  if (selector.includes("data-message-author-role")) return [];
+  if (selector.includes("data-content-search-unit-key")) return [modernUser, modernAssistant];
+  return [];
+};
+const modernItems = P.allItems();
+ok("new content-search units are enumerated as turns", modernItems.length === 2 &&
+  modernItems[0] === modernUser && modernItems[1] === modernAssistant);
+querySelectorAllHandler = () => [];
 
 // ── The CodeMirror line collapse (the 1.5.1 headline bug) ───────────────────
 // A code block is <div class="cm-content"> with one <div class="cm-line"> per
