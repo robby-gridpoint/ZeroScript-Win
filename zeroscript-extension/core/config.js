@@ -18,7 +18,7 @@ const ZS = (() => {
   const RESEND_MARKER = "⟦ZS-RE⟧";
 
   // ── Tool → visual category (icon + colour theme for the chips) ─────────
-  // Roblox Studio MCP only. Returns one of:
+  // Classifies workspace tools and optional app-specific integrations. Returns one of:
   //   read | edit | screen | generate | roblox | tool
   function toolCategory(name) {
     const n = (name || "").includes("/") ? name.split("/").pop() : (name || "");
@@ -315,8 +315,8 @@ On the first task, inspect the selected workspace and available tools before mak
   function toolsReminder(tools) {
     return (
       "\n\n────────────────────────────────\n" +
-      "(Automatic ZeroScript-Win tool reminder, not a user request. Do not reply to this note.)\\n" +
-      "Use only these currently available tools and exact parameter names:\\n" +
+      "(Automatic ZeroScript-Win tool reminder, not a user request. Do not reply to this note.)\n" +
+      "Use only these currently available tools and exact parameter names:\n" +
       compactTools(tools)
     );
   }
