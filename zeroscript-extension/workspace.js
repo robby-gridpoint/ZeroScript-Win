@@ -668,6 +668,7 @@ async function runCommand() {
     return;
   }
   const timeout = Math.max(1, Math.min(300, Number.parseInt($("commandTimeout").value, 10) || 60));
+  if (!window.confirm("Run this command in the selected workspace?\n\n" + JSON.stringify(command) + "\n\nCommands may modify project files, install packages, or access external services.")) return;
   setBusy(true, `Running ${command[0]}…`);
   try {
     const result = await callTool("workspace_run_command", { command, timeout }, timeout * 1000 + 15000);
@@ -862,4 +863,8 @@ chrome.runtime.onMessage.addListener((message) => {
   }
 });
 
-initialize();
+initialize().then(() => {
+  if (new URLSearchParams(window.location.search).get("openFolder") === "1") {
+    chooseWorkspace();
+  }
+});
