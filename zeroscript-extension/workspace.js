@@ -91,7 +91,7 @@ function updateWorkspaceHeader() {
 
 function showWelcome() {
   $("welcomeScreen").classList.remove("hidden");
-  $("codeEditor").classList.add("hidden");
+  $("codeSurface").classList.add("hidden");
   $("infoView").classList.add("hidden");
   $("activeFileName").textContent = "Welcome";
   $("breadcrumb").textContent = "ZeroScript / Workspace";
@@ -104,12 +104,13 @@ function showWelcome() {
 function setEditorMode() {
   $("welcomeScreen").classList.add("hidden");
   $("infoView").classList.add("hidden");
-  $("codeEditor").classList.remove("hidden");
+  $("codeSurface").classList.remove("hidden");
+  updateHighlight();
 }
 
 function setInfoMode(title, data, path = "") {
   $("welcomeScreen").classList.add("hidden");
-  $("codeEditor").classList.add("hidden");
+  $("codeSurface").classList.add("hidden");
   const info = $("infoView");
   info.replaceChildren();
   const h = document.createElement("h2");
