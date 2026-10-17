@@ -144,6 +144,15 @@ class WorkspaceTests(unittest.TestCase):
             self.ws.create_file("src/new.txt", "do not overwrite")
         self.assertEqual(self.ws.read_file("src/new.txt")["content"], "hello\n")
 
+    def test_create_file_refuses_overwrite(self):
+        result = self.ws.create_file("src/new.py", "print('new')\n")
+        self.assertTrue(result["created"])
+        self.assertEqual(self.ws.read_file("src/new.py")["content"], "print('new')\n")
+        with self.assertRaises(WorkspaceError):
+            self.ws.create_file("src/new.py", "replace me")
+        with self.assertRaises(WorkspaceError):
+            self.ws.create_file("src/missing/nested.py", "no parents created")
+
     def test_create_move_and_delete_paths(self):
         created = self.ws.create_directory("src/generated")
         self.assertEqual(created["type"], "directory")
