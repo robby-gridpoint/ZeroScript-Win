@@ -91,7 +91,19 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(result["project_type"], "Node.js / JavaScript / TypeScript")
         self.assertEqual(result["package_scripts"]["test"], "vitest run")
         self.assertEqual(result["package_manager"], "npm")
+        self.assertEqual(result["package_name"], "sample-project")
+        self.assertIn("Vitest", result["framework_hints"])
         self.assertIn("package.json", result["manifest_files"])
+
+    def test_project_info_detects_framework_hints(self):
+        (self.root / "package.json").write_text(
+            '{"name":"web-app","dependencies":{"next":"15.0.0","react":"19.0.0","tailwindcss":"4.0.0"},'
+            '"devDependencies":{"@playwright/test":"1.0.0","typescript":"5.0.0"}}',
+            encoding="utf-8",
+        )
+        result = self.ws.project_info()
+        self.assertEqual(result["package_name"], "web-app")
+        self.assertEqual(result["framework_hints"], ["Next.js", "React", "Tailwind CSS", "Playwright Test"])
 
     def test_project_info_uses_declared_package_manager(self):
         (self.root / "package.json").write_text(
