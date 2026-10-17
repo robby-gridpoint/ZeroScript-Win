@@ -36,6 +36,7 @@ class WorkspaceBridgeTests(unittest.TestCase):
         self.assertIn("workspace_git_stage_file", by_name)
         self.assertIn("workspace_git_unstage_file", by_name)
         self.assertIn("workspace_git_commit", by_name)
+        self.assertIn("workspace_git_changed_files", by_name)
         self.assertIn("workspace_run_task", by_name)
         self.assertIs(by_name["workspace_tree"]["inputSchema"]["properties"]["include_hidden"]["default"], False)
         self.assertIs(by_name["workspace_search"]["inputSchema"]["properties"]["regex"]["default"], False)
@@ -88,6 +89,13 @@ class WorkspaceBridgeTests(unittest.TestCase):
             result = self.manager._call_workspace("workspace_run_task", {"task": "test", "timeout": 30})
         self.assertEqual(result["task"], "test")
         run_task.assert_called_once_with("test", 30)
+
+    def test_bridge_routes_changed_file_status(self):
+        self.manager.workspace_configured = True
+        with mock.patch.object(self.manager.workspace, "git_changed_files", return_value={"exit_code": 0, "count": 1, "files": []}) as changed:
+            result = self.manager._call_workspace("workspace_git_changed_files", {})
+        self.assertEqual(result["count"], 1)
+        changed.assert_called_once_with()
 
     def test_bridge_routes_git_stage_and_commit_tools(self):
         self.manager.workspace_configured = True
