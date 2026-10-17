@@ -37,6 +37,45 @@ class WorkspaceTests(unittest.TestCase):
         self.ws.write_file("source.txt", self.ws.read_file("source.txt")["content"].replace("second", "updated"))
         self.assertEqual(target.read_bytes(), b"first\r\nupdated\r\n")
 
+
+    def test_bulk_write_imports_multiple_files(self):
+        result = self.ws.write_files([
+            {"path": "src/Main.luau", "content": "print('main')\\n"},
+            {"path": "src/modules/Config.luau", "content": "return {}\\n"},
+        ])
+        self.assertEqual(result["files_written"], 2)
+        self.assertEqual(result["overwritten"], 0)
+        self.assertEqual(self.ws.read_file("src/Main.luau")["content"], "print('main')\\n")
+        self.assertEqual(self.ws.read_file("src/modules/Config.luau")["content"], "return {}\\n")
+
+    def test_bulk_write_protects_existing_files_before_any_write(self):
+        self.ws.write_file("existing.luau", "return 'old'\\n")
+        with self.assertRaisesRegex(WorkspaceError, "overwrite=true"):
+            self.ws.write_files([
+                {"path": "new.luau", "content": "return true\\n"},
+                {"path": "existing.luau", "content": "return 'new'\\n"},
+            ])
+        self.assertFalse((self.root / "new.luau").exists())
+        self.assertEqual(self.ws.read_file("existing.luau")["content"], "return 'old'\\n")
+
+    def test_bulk_write_can_explicitly_overwrite_existing_files(self):
+        self.ws.write_file("existing.luau", "return 'old'\\n")
+        result = self.ws.write_files([
+            {"path": "existing.luau", "content": "return 'new'\\n"},
+        ], overwrite=True)
+        self.assertEqual(result["overwritten"], 1)
+        self.assertEqual(self.ws.read_file("existing.luau")["content"], "return 'new'\\n")
+
+    def test_bulk_write_rejects_traversal_and_duplicate_paths(self):
+        with self.assertRaises(WorkspaceError):
+            self.ws.write_files([{"path": "../outside.luau", "content": "bad"}])
+        with self.assertRaisesRegex(WorkspaceError, "Duplicate"):
+            self.ws.write_files([
+                {"path": "same.luau", "content": "one"},
+                {"path": "same.luau", "content": "two"},
+            ])
+        self.assertFalse((self.root / "same.luau").exists())
+
     def test_blocks_path_traversal(self):
         with self.assertRaises(WorkspaceError):
             self.ws.read_file("../outside.txt")
