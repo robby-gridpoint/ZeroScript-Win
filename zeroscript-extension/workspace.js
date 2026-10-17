@@ -53,6 +53,7 @@ function setBusy(busy, label) {
   state.busy = busy;
   document.body.classList.toggle("is-busy", busy);
   if (label) $("connectionLabel").textContent = label;
+  renderDirty();
 }
 
 function renderOutputBuffer() {
@@ -127,6 +128,8 @@ function setInfoMode(title, data, path = "") {
 function renderDirty() {
   $("dirtyDot").classList.toggle("hidden", !state.dirty);
   $("saveFile").disabled = !state.currentFile || !state.dirty || state.busy;
+  $("renamePath").disabled = !state.currentFile || state.busy;
+  $("deleteFile").disabled = !state.currentFile || state.busy;
   $("activeFileName").textContent = state.currentFile
     ? state.currentFile.split("/").pop() + (state.dirty ? " •" : "")
     : "Welcome";
@@ -277,6 +280,70 @@ async function refreshTree() {
     }
   } catch (error) {
     errorOutput("Project tree failed", error);
+  }
+}
+
+async function createFolder() {
+  if (!state.workspace || !state.workspace.configured) {
+    writeOutput("Create folder", "Choose a project workspace first.");
+    return;
+  }
+  if (!mayReplaceEditorView()) return;
+  const suggestion = state.folder && state.folder !== "." ? state.folder + "/new-folder" : "new-folder";
+  const path = window.prompt("New folder path, relative to the selected workspace:", suggestion);
+  if (!path || !path.trim()) return;
+  setBusy(true, "Creating folder…");
+  try {
+    const result = await callTool("workspace_create_directory", { path: path.trim() });
+    state.folder = path.trim().split("/").slice(0, -1).join("/") || ".";
+    await refreshTree();
+    writeOutput("Folder created", result);
+  } catch (error) {
+    errorOutput("Create folder failed", error);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function renameCurrentFile() {
+  if (!state.currentFile || state.busy || !mayReplaceEditorView()) return;
+  const source = state.currentFile;
+  const destination = window.prompt("New workspace-relative path:", source);
+  if (!destination || !destination.trim() || destination.trim() === source) return;
+  setBusy(true, "Moving file…");
+  try {
+    const result = await callTool("workspace_move_path", { source, destination: destination.trim() });
+    state.folder = destination.trim().split("/").slice(0, -1).join("/") || ".";
+    await refreshTree();
+    await openFile(destination.trim());
+    writeOutput("File moved", result);
+  } catch (error) {
+    errorOutput("Rename / move failed", error);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function deleteCurrentFile() {
+  if (!state.currentFile || state.busy || !mayReplaceEditorView()) return;
+  const path = state.currentFile;
+  if (!window.confirm(`Delete ${path}? This removes the file from disk and cannot be undone by ZeroScript.`)) return;
+  setBusy(true, "Deleting file…");
+  try {
+    const result = await callTool("workspace_delete_file", { path });
+    state.currentFile = null;
+    state.fileWorkspaceRoot = null;
+    state.savedContent = "";
+    state.dirty = false;
+    $("codeEditor").value = "";
+    showWelcome();
+    renderDirty();
+    await refreshTree();
+    writeOutput("File deleted", result);
+  } catch (error) {
+    errorOutput("Delete failed", error);
+  } finally {
+    setBusy(false);
   }
 }
 
@@ -546,6 +613,9 @@ $("refreshWorkspace").addEventListener("click", loadWorkspaceDetails);
 $("welcomeSearch").addEventListener("click", () => { setView("search"); $("searchQuery").focus(); });
 $("welcomeGit").addEventListener("click", () => setView("source"));
 $("newFile").addEventListener("click", createFile);
+$("newFolder").addEventListener("click", createFolder);
+$("renamePath").addEventListener("click", renameCurrentFile);
+$("deleteFile").addEventListener("click", deleteCurrentFile);
 $("collapseTree").addEventListener("click", () => { state.folder = "."; refreshTree(); });
 $("rootRow").addEventListener("click", () => { state.folder = "."; refreshTree(); });
 $("treeReload").addEventListener("click", refreshTree);
