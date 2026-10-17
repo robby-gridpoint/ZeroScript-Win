@@ -145,6 +145,7 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(self.ws.read_file("src/new.txt")["content"], "hello\n")
 
     def test_create_file_refuses_overwrite(self):
+        self.ws.create_directory("src")
         result = self.ws.create_file("src/new.py", "print('new')\n")
         self.assertTrue(result["created"])
         self.assertEqual(self.ws.read_file("src/new.py")["content"], "print('new')\n")
