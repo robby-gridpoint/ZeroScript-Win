@@ -326,9 +326,9 @@
       // nudge catches it). See preHideWholeItems.
       A.injectPreUser = preUser;
       A.injectHideUntil = Date.now() + 2500;
-      // "Landed" = a new turn appeared in the DOM. In long chats, list
-      // virtualisation can keep counts flat even when our message landed - the
-      // textarea-cleared signal below is the primary fast gate.
+      // Prefer proof that this exact payload is present in a newly rendered turn.
+      // Fall back to counts for providers whose DOM does not expose readable turn
+      // text. Counts alone are insufficient on virtualised ChatGPT histories.
       const landedByCount = () => P.userCount() > preUser || P.assistantCount() > base;
       const landed = () => matchingNewPayload() || landedByCount();
       // CRITICAL: never type/send while the tab is HIDDEN. Background tabs throttle
