@@ -1411,7 +1411,7 @@ function renderProjectTasks(project) {
   const host = $("taskList");
   host.replaceChildren();
   const catalogue = project && Array.isArray(project.task_catalogue) ? project.task_catalogue : [];
-  const longRunning = /^(?:dev|start|serve|watch|preview|storybook|docs:dev|dev:.*|watch:.*)$/i;
+  const longRunning = /(?:^|:)(?:dev|start|serve|watch|preview|storybook)(?:$|:)/i;
   const riskyOneClick = /(?:^|[:._-])(?:deploy|publish|release|upload|migrate|destroy|reset|seed|clean:all)(?:$|[:._-])/i;
   const packageTasks = catalogue.filter((item) =>
     item.kind === "package" && !longRunning.test(item.name || "") && !riskyOneClick.test(item.name || "")
