@@ -18,6 +18,7 @@ ZeroScript-Win exposes a local-first coding workspace independently from its opt
 | `workspace_set_root` | Validate and persist a folder explicitly supplied by the user. |
 | `workspace_browse` | Open the native folder picker and save the selected folder. |
 | `workspace_project_info` | Detect common manifests, project-type hints, package scripts, Git presence, and file-extension inventory. |
+| `workspace_create_file` | Create a UTF-8 file without overwriting an existing path; its parent directory must already exist. |
 | `workspace_create_directory` | Create a workspace-relative directory without overwriting an existing path. |
 | `workspace_move_path` | Move/rename a file or directory within the workspace without overwriting a destination. |
 | `workspace_delete_file` | Delete a single regular file; directories and symbolic links are refused. Use only after an explicit user request. |
