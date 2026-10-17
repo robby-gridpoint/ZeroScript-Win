@@ -30,7 +30,8 @@ ZeroScript-Win exposes a local-first coding workspace independently from its opt
 | `workspace_search` | Text search with optional case sensitivity and regular expressions; matches include line and column. |
 | `workspace_symbols` | Best-effort discovery of function, type, and variable declarations across multiple language families. |
 | `workspace_write_file` | Create or replace a UTF-8 file and return a unified diff. |
-| `workspace_apply_patch` | Apply exact source replacements; repeated matches are rejected unless the caller explicitly opts into replace-all. |
+| `workspace_apply_patch` | Apply one exact source replacement; repeated matches are rejected unless the caller explicitly opts into replace-all. |
+| `workspace_multi_edit` | Validate and apply a batch of exact replacements across multiple files, refusing ambiguous/missing matches before writes and returning per-file diffs. |
 | `workspace_git_status` | Read Git branch and working-tree status. |
 | `workspace_git_diff` | Read staged or unstaged diffs, optionally for one path. |
 | `workspace_git_branches` | List local and remote Git branches. |
@@ -62,11 +63,11 @@ Legacy conversations calling bare Roblox tool names are routed to the matching R
 From the repository root:
 
 ```powershell
-py -3 -m unittest workspace_agent.test_tools -v
+py -3 -m unittest workspace_agent.test_tools workspace_agent.test_bridge -v
 ```
 
 ## Workspace Explorer interface
 
-Open **Workspace Explorer** from the extension popup to use the local tree, source editor, lightweight language-token highlighting and line numbers, search panel, outline/project panes, Git views, and command runner. The editor supports Tab indentation, basic Enter auto-indent, Ctrl+S, Ctrl+P quick open, and Ctrl+Shift+P command palette. It is not a full language-server-backed IDE: semantic highlighting, language servers, inline diagnostics, completion, breakpoints, and debugger integration are not implemented in this remaster stage. The command runner confirms each manually launched command. Unsaved files are not saved to a different workspace if the selected root changes.
+Open **Workspace Explorer** from the extension popup to use the local tree, source editor, lightweight language-token highlighting and line numbers, fuzzy Quick Open, searchable Command Palette, search panel, outline/project panes, Git views, and command runner. The editor supports Tab indentation, basic Enter auto-indent, Ctrl+S, Ctrl+P quick open, and Ctrl+Shift+P command palette. Project metadata exposes detected package scripts as one-click Test/Build/Lint/Check tasks, each confirmed before running. It is not a full language-server-backed IDE: semantic highlighting, language servers, inline diagnostics, completion, breakpoints, and debugger integration are not implemented in this remaster stage. Unsaved files are not saved to a different workspace if the selected root changes.
 
 This tool layer remains independent from the Roblox MCP package.
