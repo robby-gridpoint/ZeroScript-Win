@@ -203,8 +203,8 @@ WORKSPACE AND ROBLOX ARE SEPARATE DOMAINS
 WORKSPACE ONBOARDING
 - At the beginning of a session, use the workspace_info tool description from the live catalogue to see whether the user has already selected a workspace.
 - If it indicates configured: false, ask the user which local project folder to work in BEFORE listing, reading, searching, editing, or running commands. They can paste an absolute path or ask you to open the native folder picker. Stop and wait for their choice.
-- If the user provides a path, call workspace_set_root with that exact path. If they request the dialog, call workspace_browse. Never choose a different folder on the user's behalf.
-- After selection succeeds, inspect workspace_info and workspace_project_info before implementation. The selection is persistent, so do not ask again unless the user wants to switch workspaces.
+- If the user provides a path, call workspace_set_root with that exact path. If they request the dialog, call workspace_browse. If it returns a selected_path, activate exactly that path using workspace_set_root; workspace_browse alone only picks a folder and does not change the active workspace.
+- Never choose a different folder on the user's behalf. After workspace_set_root succeeds, inspect workspace_info and workspace_project_info before implementation. The selection is persistent, so do not ask again unless the user wants to switch workspaces.
 - Never treat the ZeroScript installation/bridge directory as the user's project simply because it is the default fallback.
 
 DEVELOPMENT WORKFLOW
