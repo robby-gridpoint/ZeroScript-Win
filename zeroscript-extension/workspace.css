@@ -257,3 +257,20 @@ input[type=checkbox] { margin: 0; accent-color: var(--accent); }
 #applyReplace:disabled { cursor: not-allowed; opacity: .45; }
 
 .field-muted { color: #66768e; font-size: 9px; font-weight: 400; }
+
+.find-bar { display: flex; flex-direction: column; gap: 5px; padding: 8px 12px; border-bottom: 1px solid #28364b; background: #101722; }
+.find-bar.hidden { display: none; }
+.find-line { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.find-line > input { min-width: 0; height: 28px; flex: 1; padding: 5px 8px; border-radius: 5px; font-size: 10px; }
+.find-case { display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto; color: #8393ac; font-size: 9px; white-space: nowrap; }
+.find-case input { width: 12px; height: 12px; margin: 0; }
+.find-count { min-width: 42px; color: #8f9eb4; font-family: Consolas, monospace; font-size: 9px; text-align: center; white-space: nowrap; }
+.find-button { display: inline-flex; align-items: center; justify-content: center; min-width: 27px; height: 27px; padding: 3px 7px; border: 1px solid #2c3a50; border-radius: 5px; background: #172130; color: #a7b7ce; font-size: 10px; white-space: nowrap; }
+.find-button:hover { border-color: #526b99; background: #1d2d44; color: #f0f5ff; }
+.find-close { font-size: 14px; }
+.find-replace-line { padding-left: 0; }
+@media (max-width: 760px) {
+  .find-line { gap: 3px; }
+  .find-count { min-width: 34px; font-size: 8px; }
+  .find-button { padding: 3px 5px; }
+}
