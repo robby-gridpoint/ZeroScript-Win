@@ -89,7 +89,17 @@ class WorkspaceTests(unittest.TestCase):
         result = self.ws.project_info()
         self.assertEqual(result["project_type"], "Node.js / JavaScript / TypeScript")
         self.assertEqual(result["package_scripts"]["test"], "vitest run")
+        self.assertEqual(result["package_manager"], "npm")
         self.assertIn("package.json", result["manifest_files"])
+
+    def test_project_info_uses_declared_package_manager(self):
+        (self.root / "package.json").write_text(
+            '{"name":"sample-project","packageManager":"pnpm@9.0.0","scripts":{"test":"vitest run"}}',
+            encoding="utf-8",
+        )
+        result = self.ws.project_info()
+        self.assertEqual(result["package_manager"], "pnpm")
+        self.assertEqual(result["package_scripts"]["test"], "vitest run")
 
     def test_symbols_finds_function_and_type(self):
         (self.root / "src").mkdir()
