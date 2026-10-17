@@ -346,6 +346,7 @@ function renderDirty() {
   const tabWorkspaceActive = !!tab && !!state.workspace && state.workspace.root === tab.root;
   $("renamePath").disabled = !tabWorkspaceActive || state.busy;
   $("deleteFile").disabled = !tabWorkspaceActive || state.busy;
+  $("reloadFile").disabled = !tabWorkspaceActive || state.busy;
   $("stageCurrentFile").disabled = !tabWorkspaceActive || state.busy;
   $("unstageCurrentFile").disabled = !tabWorkspaceActive || state.busy;
   $("commitStaged").disabled = !state.workspace || !state.workspace.configured || state.busy;
@@ -538,6 +539,42 @@ async function saveFile() {
   } finally {
     setBusy(false);
     updateWorkspaceHeader();
+  }
+}
+
+async function reloadCurrentFile() {
+  const tab = activeTab();
+  if (!tab || state.busy) return;
+  if (!state.workspace || state.workspace.root !== tab.root) {
+    errorOutput("Reload blocked", "Switch back to the workspace that owns this tab before reloading it.");
+    return;
+  }
+  syncActiveTabFromEditor();
+  if (tab.dirty && !window.confirm("Discard unsaved edits to " + tab.path + " and reload the latest file from disk?")) return;
+  setBusy(true, "Reloading " + tab.path + "…");
+  try {
+    const result = await callTool("workspace_read_file", { path: tab.path });
+    const content = result.content || "";
+    tab.content = content;
+    tab.savedContent = content;
+    tab.dirty = false;
+    if (state.activeTabKey === tab.key) {
+      state.currentFile = tab.path;
+      state.savedContent = content;
+      state.dirty = false;
+      $("codeEditor").value = content;
+      $("eolStatus").textContent = content.includes("\r\n") ? "CRLF" : "LF";
+      updateHighlight();
+      updateCursorStatus();
+    }
+    renderDirty();
+    renderOpenTabs();
+    await refreshTree();
+    writeOutput("File reloaded", tab.path + "\n" + content.split("\n").length + " lines loaded from disk.");
+  } catch (error) {
+    errorOutput("Reload failed", error);
+  } finally {
+    setBusy(false);
   }
 }
 
@@ -858,6 +895,7 @@ const COMMAND_PALETTE_ITEMS = [
   { title: "Choose Workspace Folder", detail: "Pick and activate a local project folder", icon: "▱", action: "workspace", shortcut: "" },
   { title: "Switch Recent Workspace", detail: "Switch between previously selected project folders", icon: "⌂", action: "recent-workspaces", shortcut: "" },
   { title: "Save Current File", detail: "Save the open source file", icon: "↓", action: "save", shortcut: "Ctrl+S" },
+  { title: "Reload Current File", detail: "Discard or protect unsaved edits and read the latest disk contents", icon: "↻", action: "reload-file", shortcut: "" },
   { title: "Save All Open Files", detail: "Save every modified tab in the active workspace", icon: "⇩", action: "save-all", shortcut: "" },
   { title: "Close Current Tab", detail: "Close the active editor tab", icon: "×", action: "close-tab", shortcut: "Ctrl+W" },
   { title: "Close Other Tabs", detail: "Close all tabs except the current one", icon: "⊟", action: "close-other-tabs", shortcut: "" },
@@ -1094,6 +1132,8 @@ async function activateModalItem(item) {
     }
   } else if (item.action === "save") {
     await saveFile();
+  } else if (item.action === "reload-file") {
+    await reloadCurrentFile();
   } else if (item.action === "save-all") {
     await saveAllTabs();
   } else if (item.action === "close-tab") {
@@ -1556,6 +1596,7 @@ $("codeEditor").addEventListener("keydown", (event) => {
   }
 });
 $("saveFile").addEventListener("click", saveFile);
+$("reloadFile").addEventListener("click", reloadCurrentFile);
 $("showOutline").addEventListener("click", loadOutline);
 $("showProjectInfo").addEventListener("click", loadProjectInfo);
 $("searchQuery").addEventListener("keydown", (event) => {
