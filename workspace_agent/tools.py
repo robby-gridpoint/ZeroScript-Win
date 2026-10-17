@@ -336,6 +336,84 @@ class Workspace:
         count = max(1, min(int(limit), 30))
         return self._run(["git", "log", f"-{count}", "--oneline", "--decorate"], timeout=15)
 
+    def tree(self, path: str = ".", max_depth: int = 4, max_results: int = 300, include_hidden: bool = False) -> dict[str, Any]:
+        """Return a bounded, readable project tree without following directory symlinks."""
+        base = self._resolve(path)
+        if not base.is_dir():
+            raise WorkspaceError(f"Not a directory: {path}")
+        depth_limit = max(0, min(int(max_depth), 12))
+        limit = max(1, min(int(max_results), MAX_RESULTS))
+        entries: list[dict[str, Any]] = []
+        truncated = False
+        def walk(directory: Path, depth: int) -> None:
+            nonlocal truncated
+            if truncated or depth > depth_limit:
+                return
+            try:
+                children = sorted(directory.iterdir(), key=lambda item: (not item.is_dir(), item.name.casefold()))
+            except OSError:
+                return
+            directories = []
+            for item in children:
+                if item.is_symlink():
+                    continue
+                if not include_hidden and item.name.startswith("."):
+                    continue
+                if item.is_dir():
+                    if item.name in DEFAULT_IGNORES:
+                        continue
+                    directories.append(item)
+                elif item.is_file():
+                    pass
+                else:
+                    continue
+                try:
+                    relative = item.relative_to(self.root).as_posix()
+                    size = item.stat().st_size if item.is_file() else None
+                except OSError:
+                    continue
+                entries.append({"name": item.name, "path": relative,
+                                "type": "directory" if item.is_dir() else "file",
+                                "depth": depth, "size": size})
+                if len(entries) >= limit:
+                    truncated = True
+                    return
+            if depth < depth_limit:
+                for child in directories:
+                    walk(child, depth + 1)
+                    if truncated:
+                        return
+        walk(base, 0)
+        return {"root": str(base), "entries": entries, "max_depth": depth_limit, "truncated": truncated}
+
+    def file_outline(self, path: str, max_results: int = 300) -> dict[str, Any]:
+        """Extract likely imports, headings, types, and declarations from one text file."""
+        target = self._resolve(path)
+        if not target.is_file():
+            raise WorkspaceError(f"Not a file: {path}")
+        result = self.read_file(path)
+        limit = max(1, min(int(max_results), MAX_RESULTS))
+        lines = result["content"].splitlines()
+        patterns = [
+            ("heading", re.compile(r"^\\s*(?:#{1,6}\\s+.+|//[-=]{3,}.*)$")),
+            ("import", re.compile(r"^\\s*(?:import\\s|from\\s+\\S+\\s+import\\s|require\\s*\\(|using\\s+\\S+|#include\\s*[<\"]|local\\s+\\w+\\s*=\\s*require\\s*\\()")),
+            ("declaration", re.compile(r"^\\s*(?:(?:export|public|private|protected|static|async|local|pub|crate|abstract|sealed|data)\\s+)*(?:function|def|fn|class|interface|type|enum|struct|trait|record)\\s+[A-Za-z_$][\\w$]*")),
+            ("variable", re.compile(r"^\\s*(?:export\\s+)?(?:const|let|var|local)\\s+[A-Za-z_$][\\w$]*\\s*(?:[:=])")),
+        ]
+        outline = []
+        for number, line in enumerate(lines, 1):
+            for kind, expression in patterns:
+                if expression.search(line):
+                    outline.append({"line": number, "kind": kind, "text": line.strip()[:500]})
+                    break
+            if len(outline) >= limit:
+                break
+        return {"path": target.relative_to(self.root).as_posix(), "total_lines": len(lines),
+                "outline": outline, "truncated": len(outline) >= limit}
+
+    def git_branches(self) -> dict[str, Any]:
+        """List local and remote Git refs without changing repository state."""
+        return self._run(["git", "branch", "--all", "--no-color"], timeout=15)
     def git_status(self) -> dict[str, Any]:
         result = self._run(["git", "status", "--short", "--branch"], timeout=15)
         return {"exit_code": result["exit_code"], "output": result["output"]}
