@@ -350,7 +350,7 @@ class Workspace:
             if truncated or depth > depth_limit:
                 return
             try:
-                children = sorted(directory.iterdir(), key=lambda item: (not item.is_dir(), item.name.casefold()))
+                children = sorted(directory.iterdir(), key=lambda item: item.name.casefold())
             except OSError:
                 return
             directories = []
