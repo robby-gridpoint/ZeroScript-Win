@@ -601,7 +601,7 @@ class Workspace:
         if not isinstance(new_string, str):
             raise WorkspaceError("new_string must be a string.")
         try:
-            content = target.read_text(encoding="utf-8")
+            content = self._read_text_exact(target)
         except UnicodeDecodeError as exc:
             raise WorkspaceError("Refusing to patch a non-UTF-8 file.") from exc
         occurrences = content.count(old_string)
