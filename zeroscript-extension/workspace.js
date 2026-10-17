@@ -20,6 +20,7 @@ const state = {
   modalItems: [],
   modalFiltered: [],
   modalIndex: 0,
+  problemDiagnostics: [],
   outputs: {
     output: "ZeroScript local workspace ready. Select a folder to begin.",
     problems: "No reported problems.",
@@ -73,6 +74,173 @@ function renderOutputBuffer() {
     tab.classList.toggle("active", tab.dataset.output === state.activeOutput);
   }
   $("outputText").textContent = state.outputs[state.activeOutput] || "";
+  renderProblemDiagnostics();
+  $("problemList").classList.toggle(
+    "hidden",
+    state.activeOutput !== "problems" || state.problemDiagnostics.length === 0
+  );
+}
+
+function workspaceRelativeDiagnosticPath(rawPath) {
+  let path = String(rawPath || "").trim().replace(/^["']|["']$/g, "").replace(/\\/g, "/");
+  if (!path) return null;
+  path = path.replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, "");
+  const root = state.workspace && state.workspace.root
+    ? String(state.workspace.root).replace(/\\/g, "/").replace(/\/+$/, "")
+    : "";
+  if (root && path.toLowerCase().startsWith((root + "/").toLowerCase())) {
+    path = path.slice(root.length + 1);
+  } else if (root && path.toLowerCase() === root.toLowerCase()) {
+    return null;
+  } else if (/^(?:[a-zA-Z]:\/|\/|\/\/)/.test(path)) {
+    // Never turn an absolute path outside the selected project into a clickable
+    // workspace path. Diagnostics are navigation hints, not permission grants.
+    return null;
+  }
+  path = path.replace(/^\.\//, "");
+  const stack = [];
+  for (const segment of path.split("/")) {
+    if (!segment || segment === ".") continue;
+    if (segment === "..") {
+      if (!stack.length) return null;
+      stack.pop();
+    } else {
+      stack.push(segment);
+    }
+  }
+  return stack.length ? stack.join("/") : null;
+}
+
+function parseTaskDiagnostics(rawOutput) {
+  const lines = String(rawOutput || "").split(/\r?\n/);
+  const diagnostics = [];
+  const seen = new Set();
+  let previousSeverity = "error";
+  let previousDiagnosticMessage = "";
+  let pythonFrame = null;
+  let eslintFile = null;
+
+  const add = (rawPath, lineNumber, columnNumber, severity, message, sourceLine) => {
+    const path = workspaceRelativeDiagnosticPath(rawPath);
+    const line = Number.parseInt(lineNumber, 10);
+    const column = Number.parseInt(columnNumber || "1", 10);
+    const safeSeverity = /warn/i.test(severity || "") ? "warning" : /note|info/i.test(severity || "") ? "info" : "error";
+    const diagnostic = {
+      path,
+      line: Number.isInteger(line) && line > 0 ? line : null,
+      column: Number.isInteger(column) && column > 0 ? column : 1,
+      severity: safeSeverity,
+      message: String(message || sourceLine || "Diagnostic reported").trim(),
+      source: String(sourceLine || "").trim(),
+    };
+    const key = [diagnostic.path, diagnostic.line, diagnostic.column, diagnostic.severity, diagnostic.message].join("|");
+    if (seen.has(key)) return;
+    seen.add(key);
+    diagnostics.push(diagnostic);
+  };
+
+  const patterns = [
+    /^\s*(.+?)\((\d+),(\d+)\):\s*(error|warning|info)\s*(?:[A-Z]+\d+)?\s*:?\s*(.*)$/i,
+    /^\s*(.+):(\d+):(\d+):\s*(fatal error|error|warning|note):?\s*(.*)$/i,
+    /^\s*(.+):(\d+):(\d+)\s*-\s*(error|warning)\s+(.+)$/i,
+    /^\s*(.+):(\d+):\s*(error|warning|note):\s*(.*)$/i,
+    /^\s*(.+\.py):(\d+):\s*(.+)$/i,
+  ];
+
+  for (const rawLine of lines) {
+    const line = rawLine.replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, "");
+    const severityContext = line.match(/^\s*(error(?:\[[^\]]+\])?|warning|note)\s*:\s*(.*)$/i);
+    if (severityContext) {
+      previousSeverity = /warning/i.test(severityContext[1]) ? "warning" : /note/i.test(severityContext[1]) ? "info" : "error";
+      previousDiagnosticMessage = severityContext[2] || severityContext[1];
+    }
+
+    const rustLocation = line.match(/^\s*-->\s+(.+):(\d+):(\d+)\s*$/);
+    if (rustLocation && previousDiagnosticMessage) {
+      add(rustLocation[1], rustLocation[2], rustLocation[3], previousSeverity, previousDiagnosticMessage, rawLine);
+      continue;
+    }
+
+    const frame = line.match(/File ["'](.+?)["'], line (\d+)/);
+    if (frame) {
+      pythonFrame = { path: frame[1], line: frame[2] };
+      continue;
+    }
+    const pythonError = line.trim().match(/^([A-Za-z_][\w.]*(?:Error|Exception)):\s*(.*)$/);
+    if (pythonError && pythonFrame) {
+      add(pythonFrame.path, pythonFrame.line, "1", "error", pythonError[1] + ": " + pythonError[2], rawLine);
+      pythonFrame = null;
+    }
+
+    const fileHeader = line.trim().match(/^(.+\.(?:js|jsx|mjs|cjs|ts|tsx|py|pyw|go|rs|java|cs|cpp|c|h|hpp|luau|lua|rb|php|sql))\s*$/i);
+    if (fileHeader) eslintFile = fileHeader[1];
+
+    const eslintRow = line.match(/^\s*(\d+):(\d+)\s+(error|warning)\s+(.+)$/i);
+    if (eslintRow && eslintFile) {
+      add(eslintFile, eslintRow[1], eslintRow[2], eslintRow[3], eslintRow[4], rawLine);
+      continue;
+    }
+
+    for (const pattern of patterns) {
+      const match = line.match(pattern);
+      if (!match) continue;
+      if (pattern === patterns[0]) add(match[1], match[2], match[3], match[4], match[5], rawLine);
+      else if (pattern === patterns[1]) add(match[1], match[2], match[3], match[4], match[5], rawLine);
+      else if (pattern === patterns[2]) add(match[1], match[2], match[3], match[4], match[5], rawLine);
+      else if (pattern === patterns[3]) add(match[1], match[2], "1", match[3], match[4], rawLine);
+      else add(match[1], match[2], "1", "error", match[3], rawLine);
+      break;
+    }
+  }
+  return diagnostics.slice(0, 250);
+}
+
+function renderProblemDiagnostics() {
+  const host = $("problemList");
+  host.replaceChildren();
+  const diagnostics = state.problemDiagnostics || [];
+  if (!diagnostics.length) {
+    const empty = document.createElement("div");
+    empty.className = "problem-empty";
+    empty.textContent = "No file/line diagnostics were detected in the latest result.";
+    host.append(empty);
+    return;
+  }
+  for (const diagnostic of diagnostics) {
+    const item = document.createElement(diagnostic.path && diagnostic.line ? "button" : "div");
+    item.className = "problem-item";
+    if (item.tagName === "BUTTON") {
+      item.type = "button";
+      item.title = "Open " + diagnostic.path + " at line " + diagnostic.line;
+      item.addEventListener("click", () => {
+        if (!state.workspace || !state.workspace.configured) return;
+        openFile(diagnostic.path, diagnostic.line);
+      });
+    }
+    const severity = document.createElement("span");
+    severity.className = "problem-severity " + diagnostic.severity;
+    severity.textContent = diagnostic.severity === "warning" ? "!" : diagnostic.severity === "info" ? "i" : "×";
+    const copy = document.createElement("span");
+    copy.className = "problem-copy";
+    const message = document.createElement("span");
+    message.className = "problem-message";
+    message.textContent = diagnostic.message;
+    copy.append(message);
+    if (diagnostic.path) {
+      const location = document.createElement("span");
+      location.className = "problem-location";
+      location.textContent = diagnostic.path + (diagnostic.line ? ":" + diagnostic.line + ":" + diagnostic.column : "");
+      copy.append(location);
+    }
+    if (diagnostic.source) {
+      const source = document.createElement("span");
+      source.className = "problem-source";
+      source.textContent = diagnostic.source;
+      copy.append(source);
+    }
+    item.append(severity, copy);
+    host.append(item);
+  }
 }
 
 function writeOutput(title, value, type = "output") {
@@ -85,7 +253,13 @@ function writeOutput(title, value, type = "output") {
 }
 
 function errorOutput(title, error) {
-  writeOutput(title, error instanceof Error ? error.message : String(error), "problems");
+  const message = error instanceof Error ? error.message : String(error);
+  const parsed = parseTaskDiagnostics(message);
+  state.problemDiagnostics = parsed.length ? parsed : [{
+    path: null, line: null, column: 1, severity: "error",
+    message, source: title || "ZeroScript",
+  }];
+  writeOutput(title, message, "problems");
 }
 
 function updateWorkspaceHeader() {
@@ -1478,7 +1652,16 @@ async function runProjectTask(task) {
     const result = await callTool("workspace_run_task", { task: taskName, timeout: 300 }, 315000);
     const status = result.timed_out ? "Timed out after 300 seconds" : "Exit code " + result.exit_code;
     const output = result.output || "(No output)";
-    writeOutput("Task · " + (task.name || taskName) + " · " + status, display + "\n\n" + output, result.exit_code === 0 ? "output" : "problems");
+    state.problemDiagnostics = parseTaskDiagnostics(output);
+    if (result.exit_code !== 0 && state.problemDiagnostics.length === 0) {
+      state.problemDiagnostics.push({
+        path: null, line: null, column: 1, severity: "error",
+        message: (task.name || taskName) + " failed: " + status,
+        source: output.slice(0, 500),
+      });
+    }
+    const outputType = result.exit_code !== 0 || state.problemDiagnostics.length ? "problems" : "output";
+    writeOutput("Task · " + (task.name || taskName) + " · " + status, display + "\n\n" + output, outputType);
   } catch (error) {
     errorOutput("Task failed · " + (task.name || taskName), error);
   } finally {
@@ -1786,6 +1969,7 @@ $("loadProjectInfo").addEventListener("click", loadProjectInfo);
 $("runCommand").addEventListener("click", runCommand);
 $("clearOutput").addEventListener("click", () => {
   state.outputs[state.activeOutput] = "";
+  if (state.activeOutput === "problems") state.problemDiagnostics = [];
   renderOutputBuffer();
 });
 for (const button of document.querySelectorAll(".activity-button")) {
