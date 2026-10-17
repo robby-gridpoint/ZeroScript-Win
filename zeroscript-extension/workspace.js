@@ -768,7 +768,7 @@ $("codeEditor").addEventListener("keydown", (event) => {
     const lineStart = editor.value.lastIndexOf("\n", cursor - 1) + 1;
     const prefix = editor.value.slice(lineStart, cursor);
     const indent = (prefix.match(/^[ \t]*/) || [""])[0];
-    const extraIndent = /(?:\{| \(|\[|:|\bthen|\bdo)\s*$/.test(prefix) ? "    " : "";
+    const extraIndent = /(?:\{|\(|\[|:|\bthen|\bdo)\s*$/.test(prefix) ? "    " : "";
     if (indent || extraIndent) {
       event.preventDefault();
       const value = editor.value;
