@@ -40,6 +40,7 @@ class WorkspaceTests(unittest.TestCase):
         try:
             outside.mkdir()
             (outside / "secret.txt").write_text("secret", encoding="utf-8")
+            (outside / "leak.py").write_text("def leaked_symbol():\\n    return 'outside'\\n", encoding="utf-8")
             link = self.root / "escape"
             try:
                 link.symlink_to(outside, target_is_directory=True)
@@ -47,6 +48,9 @@ class WorkspaceTests(unittest.TestCase):
                 self.skipTest("Symlink creation is not available")
             with self.assertRaises(WorkspaceError):
                 self.ws.read_file("escape/secret.txt")
+            self.assertEqual(self.ws.search("secret")["matches"], [])
+            found_symbols = {item["name"] for item in self.ws.symbols()["symbols"]}
+            self.assertNotIn("leaked_symbol", found_symbols)
         finally:
             if outside.exists():
                 shutil.rmtree(outside)
