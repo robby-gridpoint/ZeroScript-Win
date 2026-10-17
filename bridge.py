@@ -1155,6 +1155,8 @@ class MCPManager:
              "inputSchema": {"type": "object", "properties": {"edits": {"type": "array", "minItems": 1, "maxItems": 200, "items": {"type": "object", "properties": {"path": {"type": "string"}, "old_string": {"type": "string"}, "new_string": {"type": "string"}, "replace_all": {"type": "boolean", "default": False}, "whole_file": {"type": "boolean", "default": False}}, "required": ["path", "old_string", "new_string"], "additionalProperties": False}}}, "required": ["edits"], "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_apply_patch", "description": "Apply an exact old_string to new_string edit to an existing UTF-8 file. Ambiguous matches are rejected unless replace_all is true. Prefer this to replacing whole files for targeted edits.",
              "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}, "old_string": {"type": "string"}, "new_string": {"type": "string"}, "replace_all": {"type": "boolean", "default": False}}, "required": ["path", "old_string", "new_string"], "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_write_files", "description": "Import many UTF-8 text files into the selected workspace in one call. Use this to transfer source captured from Roblox Studio MCP into local project files. Paths must be workspace-relative. Existing files are protected unless overwrite=true. Validates the entire batch before writing; returns per-file byte counts. Maximum 200 files and 10 MB total.",
+             "inputSchema": {"type": "object", "properties": {"files": {"type": "array", "minItems": 1, "maxItems": 200, "items": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"], "additionalProperties": False}}, "overwrite": {"type": "boolean", "default": False}}, "required": ["files"], "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_write_file", "description": "Create or replace a UTF-8 text file inside the selected project. Returns a unified diff. This modifies files.",
              "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"], "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_git_changed_files", "description": "List changed files with staged, unstaged, untracked, added, deleted, or renamed state. Use for source-control browsing; it does not mutate Git.",
@@ -1355,6 +1357,8 @@ class MCPManager:
             return self.workspace.multi_edit(args["edits"])
         if name == "workspace_apply_patch":
             return self.workspace.apply_patch(args["path"], args["old_string"], args["new_string"], args.get("replace_all", False))
+        if name == "workspace_write_files":
+            return self.workspace.write_files(args["files"], args.get("overwrite", False))
         if name == "workspace_write_file":
             return self.workspace.write_file(args["path"], args["content"])
         if name == "workspace_git_changed_files":
