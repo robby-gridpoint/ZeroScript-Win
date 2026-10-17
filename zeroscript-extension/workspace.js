@@ -12,6 +12,7 @@ const state = {
   activeTabKey: null,
   currentView: "explorer",
   busy: false,
+  busyDepth: 0,
   fileWorkspaceRoot: null,
   treeEntries: [],
   projectInfo: null,
@@ -58,9 +59,11 @@ function callTool(name, args = {}, timeout = 120000) {
 }
 
 function setBusy(busy, label) {
-  state.busy = busy;
-  document.body.classList.toggle("is-busy", busy);
-  $("codeEditor").readOnly = busy;
+  if (busy) state.busyDepth += 1;
+  else state.busyDepth = Math.max(0, state.busyDepth - 1);
+  state.busy = state.busyDepth > 0;
+  document.body.classList.toggle("is-busy", state.busy);
+  $("codeEditor").readOnly = state.busy;
   if (label) $("connectionLabel").textContent = label;
   renderDirty();
 }
@@ -1221,7 +1224,7 @@ async function commitStagedChanges() {
     }
     const preview = String(staged.output).split("\n").slice(0, 12).join("\n");
     if (!window.confirm("Create a local commit with this message?\n\n" + message + "\n\nStaged diff preview:\n" + preview + "\n\nThis commit will not be pushed to a remote.")) return;
-    setBusy(true, "Creating local commit…");
+    $("connectionLabel").textContent = "Creating local commit…";
     const result = await callTool("workspace_git_commit", { message });
     if (result.exit_code !== 0) throw new Error(result.output || "Git commit exited with code " + result.exit_code);
     const status = await callTool("workspace_git_status", {});
