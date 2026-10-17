@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "ZeroScript Free × Roblox Studio Agent",
-  "version": "1.5.5",
-  "description": "Turn ChatGPT, DeepSeek, Gemini, Kimi, GLM, Qwen, Arena or Meta AI into a Roblox Studio agent that drives Studio through a local bridge.",
+  "name": "ZeroScript-Win — Local Coding Agent",
+  "version": "1.6.0",
+  "description": "Turn supported AI chat sites into a local-first coding agent for Windows projects, with optional MCP and Roblox Studio integrations.",
   "permissions": ["storage"],
   "host_permissions": [
     "https://chat.deepseek.com/*",
@@ -30,7 +30,7 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "ZeroScript Free",
+    "default_title": "ZeroScript-Win",
     "default_icon": {
       "16": "icon.png",
       "48": "icon.png",
