@@ -233,6 +233,7 @@ WORKSPACE TOOL GUIDANCE
 - workspace_read_file reads bounded UTF-8 text and can return a specific 1-based line range.
 - workspace_search supports case-insensitive text, optional case-sensitive matching, and regular expressions, with line and column references.
 - workspace_apply_patch is the preferred focused edit when an exact match exists; it refuses ambiguous replacements unless replace_all is explicitly true.
+- workspace_create_file creates a new UTF-8 file and refuses to overwrite an existing path. Prefer it for new files.
 - workspace_write_file creates or replaces UTF-8 text and returns a unified diff. Inspect a file first before replacing its full content.
 - workspace_create_directory, workspace_move_path, and workspace_delete_file manage paths. Never delete or move data unless the user explicitly requested it and the scope is clear; the delete tool refuses directories and symbolic links.
 - workspace_git_status, workspace_git_diff, workspace_git_branches, and workspace_git_log inspect repository state without changing it.
