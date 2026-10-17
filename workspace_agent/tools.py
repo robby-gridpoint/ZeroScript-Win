@@ -853,7 +853,7 @@ class Workspace:
                 "status": code,
                 "kind": kind,
                 "staged": x not in (" ", "?"),
-                "unstaged": y != " ",
+                "unstaged": y not in (" ", "?"),
                 "untracked": code == "??",
                 "original_path": original_path,
             })
