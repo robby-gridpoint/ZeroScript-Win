@@ -29,7 +29,7 @@ var ZS = (() => {
     if (rawName.startsWith("roblox/")) return "roblox";
     if (/^(workspace_info|workspace_recent_roots|workspace_project_info|workspace_tree|workspace_file_outline|workspace_list_files|workspace_read_file|workspace_search|workspace_find_files|workspace_symbols|workspace_git_status|workspace_git_diff|workspace_git_branches|workspace_git_log|list_tools|list_commands)$/.test(n)) return "read";
     if (/^(workspace_write_file|workspace_apply_patch|workspace_multi_edit|workspace_open_recent|workspace_set_root|workspace_create_file|workspace_create_directory|workspace_move_path|workspace_delete_file|workspace_git_stage_file|workspace_git_unstage_file|workspace_git_commit|multi_edit|insert_from_creator_store|store_image)$/.test(n)) return "edit";
-    if (/^(workspace_run_command|execute_luau)$/.test(n)) return "edit";
+    if (/^(workspace_run_command|workspace_run_task|execute_luau)$/.test(n)) return "edit";
     if (/capture|screenshot|screen/i.test(n)) return "screen";
     if (/^(generate_|create_)/i.test(n)) return "generate";
     if (/roblox|studio|luau|instance|datamodel/i.test(n)) return "roblox";
@@ -246,6 +246,7 @@ WORKSPACE TOOL GUIDANCE
 - workspace_git_status, workspace_git_diff, workspace_git_branches, and workspace_git_log inspect repository state without changing it.
 - workspace_git_stage_file and workspace_git_unstage_file affect one file in the Git index. Only use them after the user explicitly asks to stage/unstage.
 - workspace_git_commit creates a local commit from staged changes and does not push. Only use it when the user explicitly requests a commit and has confirmed the commit message.
+- workspace_run_task runs a named script already declared in the root package.json using the detected npm/pnpm/yarn/bun manager; package scripts execute project code, so choose a relevant task and do not run arbitrary or destructive scripts without user intent.
 - workspace_run_command runs an argv array from the selected root with a bounded timeout and output. Use it for relevant tests/builds, and ask before commands that are destructive, install packages, expose secrets, incur charges, or change external production systems.
 The available tools may include additional MCP integrations. Use the live catalogue and their descriptions for those.
 
