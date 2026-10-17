@@ -99,9 +99,15 @@ class Workspace:
             raise WorkspaceError("File is not valid UTF-8 text.") from exc
         return {"path": target.relative_to(self.root).as_posix(), "content": content}
 
-    def search(self, query: str, path: str = ".", max_results: int = 100) -> dict[str, Any]:
+    def search(self, query: str, path: str = ".", max_results: int = 100,
+               case_sensitive: bool = False, regex: bool = False) -> dict[str, Any]:
         if not isinstance(query, str) or not query:
             raise WorkspaceError("Search query must not be empty.")
+        try:
+            expression = re.compile(query if regex else re.escape(query),
+                                    0 if case_sensitive else re.IGNORECASE)
+        except re.error as exc:
+            raise WorkspaceError(f"Invalid search regular expression: {exc}") from exc
         base = self._resolve(path)
         if not base.is_dir():
             raise WorkspaceError(f"Not a directory: {path}")
@@ -125,15 +131,19 @@ class Workspace:
                     continue
                 visited += 1
                 for line_number, line in enumerate(content.splitlines(), 1):
-                    if query.casefold() in line.casefold():
+                    found = expression.search(line)
+                    if found:
                         matches.append({
                             "path": candidate.relative_to(self.root).as_posix(),
                             "line": line_number,
+                            "column": found.start() + 1,
                             "text": line[:500],
                         })
                         if len(matches) >= limit:
-                            return {"query": query, "matches": matches, "truncated": True, "files_scanned": visited}
-        return {"query": query, "matches": matches, "truncated": False, "files_scanned": visited}
+                            return {"query": query, "case_sensitive": case_sensitive, "regex": regex,
+                                    "matches": matches, "truncated": True, "files_scanned": visited}
+        return {"query": query, "case_sensitive": case_sensitive, "regex": regex,
+                "matches": matches, "truncated": False, "files_scanned": visited}
 
     def write_file(self, path: str, content: str) -> dict[str, Any]:
         target = self._resolve(path)
