@@ -176,6 +176,31 @@ class Workspace:
             "diff": diff[:MAX_OUTPUT_CHARS],
         }
 
+    def create_file(self, path: str, content: str = "") -> dict[str, Any]:
+        """Create a new UTF-8 file, refusing to overwrite any existing path."""
+        if not isinstance(path, str) or not path.strip() or path.strip() in (".", "./"):
+            raise WorkspaceError("A non-root file path is required.")
+        if not isinstance(content, str):
+            raise WorkspaceError("File content must be a string.")
+        if len(content.encode("utf-8")) > MAX_READ_BYTES:
+            raise WorkspaceError(f"File content exceeds the {MAX_READ_BYTES}-byte creation limit.")
+        target = self._resolve(path)
+        raw = Path(path).expanduser()
+        raw = raw if raw.is_absolute() else self.root / raw
+        if raw.is_symlink():
+            raise WorkspaceError("Creating through a symbolic link is not supported.")
+        if target.exists():
+            raise WorkspaceError(f"Path already exists: {path}")
+        if not target.parent.is_dir():
+            raise WorkspaceError("Parent directory does not exist. Create it first.")
+        try:
+            with target.open("x", encoding="utf-8", newline="") as handle:
+                handle.write(content)
+        except FileExistsError as exc:
+            raise WorkspaceError(f"Path already exists: {path}") from exc
+        return {"path": target.relative_to(self.root).as_posix(), "created": True,
+                "type": "file", "bytes": len(content.encode("utf-8"))}
+
     def create_directory(self, path: str) -> dict[str, Any]:
         """Create a project-relative directory without overwriting existing paths."""
         if not isinstance(path, str) or not path.strip() or path.strip() in (".", "./"):
@@ -194,8 +219,10 @@ class Workspace:
             raise WorkspaceError("Both source and destination paths are required.")
         raw_source = Path(source).expanduser()
         raw_source = raw_source if raw_source.is_absolute() else self.root / raw_source
-        if raw_source.is_symlink():
-            raise WorkspaceError("Moving symbolic links is not supported.")
+        raw_destination = Path(destination).expanduser()
+        raw_destination = raw_destination if raw_destination.is_absolute() else self.root / raw_destination
+        if raw_source.is_symlink() or raw_destination.is_symlink():
+            raise WorkspaceError("Moving symbolic links or replacing symlinks is not supported.")
         old = self._resolve(source)
         new = self._resolve(destination)
         if old == self.root:
