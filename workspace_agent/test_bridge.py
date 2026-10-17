@@ -30,6 +30,8 @@ class WorkspaceBridgeTests(unittest.TestCase):
         self.assertIn("workspace_search", by_name)
         self.assertIn("workspace_multi_edit", by_name)
         self.assertIn("workspace_create_file", by_name)
+        self.assertIn("workspace_recent_roots", by_name)
+        self.assertIn("workspace_open_recent", by_name)
         self.assertIs(by_name["workspace_tree"]["inputSchema"]["properties"]["include_hidden"]["default"], False)
         self.assertIs(by_name["workspace_search"]["inputSchema"]["properties"]["regex"]["default"], False)
         self.assertIn("configured: false", by_name["workspace_info"]["description"])
@@ -41,6 +43,22 @@ class WorkspaceBridgeTests(unittest.TestCase):
             self.manager._call_workspace("workspace_list_files", {})
         with self.assertRaisesRegex(RuntimeError, "No project workspace has been selected"):
             self.manager._call_workspace("workspace_run_command", {"command": ["python", "--version"]})
+
+    def test_recent_workspace_list_and_activation(self):
+        first = self.root / "first"
+        second = self.root / "second"
+        first.mkdir()
+        second.mkdir()
+        self.manager._call_workspace("workspace_set_root", {"path": str(first)})
+        self.manager._call_workspace("workspace_set_root", {"path": str(second)})
+        recent = self.manager._call_workspace("workspace_recent_roots", {})["recent_roots"]
+        self.assertEqual([item["path"] for item in recent[:2]], [str(second), str(first)])
+        self.assertTrue(recent[0]["current"])
+        activated = self.manager._call_workspace("workspace_open_recent", {"path": str(first)})
+        self.assertEqual(activated["root"], str(first))
+        self.assertEqual(self.manager.workspace_source, "recent")
+        with self.assertRaisesRegex(RuntimeError, "not in the saved recent-workspace list"):
+            self.manager._call_workspace("workspace_open_recent", {"path": str(self.root)})
 
     def test_bridge_routes_multi_edit_to_selected_workspace(self):
         self.manager.workspace_configured = True
