@@ -83,72 +83,10 @@ function refresh() {
   });
 }
 
-document.getElementById("chooseWorkspace").addEventListener("click", (event) => {
-  const button = event.currentTarget;
-  const original = button.textContent;
-  button.disabled = true;
-  button.textContent = "Opening folder picker…";
-  document.getElementById("workspaceHint").textContent = "Select the local project folder in the Windows dialog.";
-
-  const finish = () => {
-    button.disabled = false;
-    button.textContent = original;
-    refresh();
-  };
-  const activate = (path) => {
-    document.getElementById("workspaceHint").textContent = "Saving selected workspace…";
-    chrome.runtime.sendMessage({
-      type: "call_tool",
-      name: "workspace_set_root",
-      arguments: { path },
-      timeout: 120000,
-    }, (savedResponse) => {
-      if (chrome.runtime.lastError || !savedResponse || !savedResponse.ok) {
-        document.getElementById("workspaceHint").textContent =
-          savedResponse && savedResponse.error ? savedResponse.error : "The folder was picked but could not be saved as the active workspace.";
-      } else {
-        const saved = parseToolText(savedResponse);
-        if (saved && saved.root && saved.configured) {
-          document.getElementById("workspaceRoot").textContent = saved.root;
-          document.getElementById("workspaceBadge").textContent = "Selected";
-          document.getElementById("workspaceBadge").className = "badge ready";
-          document.getElementById("workspaceHint").textContent = "Folder saved locally. New agent sessions will use this workspace.";
-        } else {
-          document.getElementById("workspaceHint").textContent = "Workspace activation returned an unexpected response. Refreshing status…";
-        }
-      }
-      finish();
-    });
-  };
-
-  chrome.runtime.sendMessage({
-    type: "call_tool",
-    name: "workspace_browse",
-    arguments: {},
-    timeout: 120000,
-  }, (response) => {
-    if (chrome.runtime.lastError) {
-      document.getElementById("workspaceHint").textContent = "Could not reach the bridge. Start it, then try again.";
-      finish();
-      return;
-    }
-    if (!response || !response.ok) {
-      document.getElementById("workspaceHint").textContent =
-        response && response.error ? response.error : "Folder picker failed. You can still paste an absolute path into the AI conversation.";
-      finish();
-      return;
-    }
-    const selected = parseToolText(response);
-    if (selected && selected.cancelled) {
-      document.getElementById("workspaceHint").textContent = "Selection cancelled. The active workspace was not changed.";
-      finish();
-    } else if (selected && selected.selected_path) {
-      activate(selected.selected_path);
-    } else {
-      document.getElementById("workspaceHint").textContent = "The bridge returned an unreadable folder selection.";
-      finish();
-    }
-  });
+document.getElementById("chooseWorkspace").addEventListener("click", () => {
+  // Keep the picker in a persistent extension tab. Native dialogs can steal
+  // focus from a toolbar popup and close its JavaScript context mid-selection.
+  chrome.tabs.create({ url: chrome.runtime.getURL("workspace.html?openFolder=1") });
 });
 
 document.getElementById("reconnect").addEventListener("click", () => {
