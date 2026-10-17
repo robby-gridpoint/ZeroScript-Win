@@ -24,8 +24,8 @@ var ZS = (() => {
     const rawName = String(name || "");
     if (rawName.startsWith("roblox/")) return "roblox";
     const n = rawName.includes("/") ? rawName.split("/").pop() : rawName;
-    if (/^(workspace_info|workspace_project_info|workspace_tree|workspace_file_outline|workspace_list_files|workspace_read_file|workspace_search|workspace_find_files|workspace_symbols|workspace_git_status|workspace_git_diff|workspace_git_branches|workspace_git_log|list_tools|list_commands)$/.test(n)) return "read";
-    if (/^(workspace_write_file|workspace_apply_patch|workspace_multi_edit|workspace_create_file|workspace_create_directory|workspace_move_path|workspace_delete_file|multi_edit|insert_from_creator_store|store_image)$/.test(n)) return "edit";
+    if (/^(workspace_info|workspace_recent_roots|workspace_project_info|workspace_tree|workspace_file_outline|workspace_list_files|workspace_read_file|workspace_search|workspace_find_files|workspace_symbols|workspace_git_status|workspace_git_diff|workspace_git_branches|workspace_git_log|list_tools|list_commands)$/.test(n)) return "read";
+    if (/^(workspace_write_file|workspace_apply_patch|workspace_multi_edit|workspace_open_recent|workspace_set_root|workspace_create_file|workspace_create_directory|workspace_move_path|workspace_delete_file|multi_edit|insert_from_creator_store|store_image)$/.test(n)) return "edit";
     if (/^(workspace_run_command|execute_luau)$/.test(n)) return "edit";
     if (/capture|screenshot|screen/i.test(n)) return "screen";
     if (/^(generate_|create_)/i.test(n)) return "generate";
@@ -204,6 +204,7 @@ WORKSPACE AND ROBLOX ARE SEPARATE DOMAINS
 
 WORKSPACE ONBOARDING
 - At the beginning of a session, use the workspace_info() tool description from the live catalogue to see whether the user has already selected a workspace.
+- If the user asks to switch projects, call workspace_recent_roots() and present the saved folders. Only call workspace_open_recent with a path from that list after the user explicitly selects that project.
 - If it indicates configured: false, ask the user which local project folder to work in BEFORE listing, reading, searching, editing, or running commands. They can paste an absolute path or ask you to open the native folder picker. Stop and wait for their choice.
 - If the user provides a path, call workspace_set_root with that exact path. If they request the dialog, call workspace_browse. If it returns a selected_path, activate exactly that path using workspace_set_root; workspace_browse alone only picks a folder and does not change the active workspace.
 - Never choose a different folder on the user's behalf. After workspace_set_root succeeds, inspect workspace_info and workspace_project_info before implementation. The selection is persistent, so do not ask again unless the user wants to switch workspaces.
@@ -229,7 +230,7 @@ SAFETY AND SCOPE
 - For configured app-specific MCP tools, use them only when the request actually needs that app. Roblox Studio is an optional integration, not a prerequisite for general coding work.
 
 WORKSPACE TOOL GUIDANCE
-- workspace_info identifies the selected root and onboarding state.
+- workspace_info identifies the selected root and onboarding state. workspace_recent_roots lists locally saved project folders; workspace_open_recent switches only to a listed folder after the user chooses it.
 - workspace_tree and workspace_list_files explore project files while skipping generated folders and symbolic links by default.
 - workspace_find_files searches paths using globs; workspace_symbols and workspace_file_outline help locate declarations, imports, and headings.
 - workspace_read_file reads bounded UTF-8 text and can return a specific 1-based line range.
