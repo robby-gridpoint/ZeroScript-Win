@@ -11,7 +11,8 @@ The extension preserves the existing browser-provider integrations and Roblox St
 The bridge exposes an expanded, project-scoped toolset:
 
 - Persistent local workspace selection, native folder picker, and a recent-project list for switching between saved workspaces.
-- Project metadata, manifest/framework hints, package scripts, and source inventory.
+- Project metadata, detected package manager, popular framework/tooling hints, package scripts, and source inventory.
+- An agent-facing declared-task runner (`workspace_run_task`) that refuses scripts not present in the root `package.json`.
 - Bounded file reads, a depth-limited project tree, recursive file listing, glob search, regex/case-sensitive text search, and line/column matches.
 - Source-file outlines for imports, headings, variables, and declarations, plus cross-language declaration/symbol discovery.
 - Exact-match patch edits, validated multi-file edit batches that verify all replacements before writing, and complete-file writes that return unified diffs.
