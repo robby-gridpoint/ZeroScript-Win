@@ -8,7 +8,7 @@ The extension preserves the existing browser-provider integrations and Roblox St
 
 ## Autopilot
 
-The extension includes an opt-in, bounded Autopilot continuation toggle (off by default). The current first stage performs up to three role-guided review passes in the active AI conversation. It is **not yet a true multi-model team**. The target coordinator/worker architecture, shared task ledger, verification gates, and safety boundaries are documented in [`docs/AUTOPILOT_MULTI_AGENT.md`](docs/AUTOPILOT_MULTI_AGENT.md).
+The extension includes an opt-in, bounded Autopilot continuation toggle (off by default). The current workflow runs up to six bounded specialist phases (project management, QA, code review, security, documentation, and lead closeout) in the active AI conversation, with a local phase-status record and early-stop markers. It is **not yet a true multi-model team**. The target coordinator/worker architecture, shared task ledger, verification gates, and safety boundaries are documented in [`docs/AUTOPILOT_MULTI_AGENT.md`](docs/AUTOPILOT_MULTI_AGENT.md).
 
 ## Current status
 
