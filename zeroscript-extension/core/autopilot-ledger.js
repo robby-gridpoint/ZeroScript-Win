@@ -186,12 +186,17 @@
   function finalize(run) {
     validate(run);
     if (run.stopRequested) { run.state = "cancelled"; return run.state; }
-    if (run.tasks.some((t) => ["blocked", "failed", "needs_approval"].includes(t.status))) {
-      run.state = run.tasks.some((t) => t.status === "needs_approval") ? "needs_approval" : "blocked";
+    const unfinished = run.tasks.some((t) => ["queued", "ready", "leased", "running", "review"].includes(t.status));
+    if (unfinished) {
+      run.state = "verifying";
+    } else if (run.tasks.some((t) => t.status === "needs_approval")) {
+      run.state = "needs_approval";
+    } else if (run.tasks.some((t) => ["blocked", "failed", "cancelled"].includes(t.status))) {
+      run.state = "blocked";
     } else if (run.tasks.every((t) => t.status === "completed")) {
       const qa = run.tasks.find((t) => t.role === "qa");
       const lead = run.tasks.find((t) => t.role === "lead");
-      if (!qa || !qa.criteriaVerified || !run.acceptanceCriteria.every((c) => qa.criteriaVerified.includes(c))) run.state = "blocked";
+      if (!qa || !qa.criteriaVerified || !run.acceptanceCriteria.every((criterion) => qa.criteriaVerified.includes(criterion))) run.state = "blocked";
       else if (!lead || !lead.evidence.length) run.state = "blocked";
       else run.state = "completed";
     } else run.state = "verifying";
