@@ -95,6 +95,33 @@ L.refreshReady(partial);
 assert(partial.tasks.some((t) => t.role === "ideas_insights" && t.status === "ready"));
 assert.equal(L.finalize(partial), "verifying", "independent ready tasks must remain schedulable after a sibling task blocks");
 
+// The current architecture shares one workspace across browser-session workers.
+// A global writer lock must serialize implementation/documentation/lead tasks.
+const writerRun = L.createRun({ goal: "Serialize writers", acceptanceCriteria: ["Done"] });
+L.refreshReady(writerRun);
+const pmWriter = L.claimNext(writerRun, { id: "pm-writer", roles: ["project_manager"] });
+L.transition(writerRun, pmWriter.task.id, "running", { leaseToken: pmWriter.lease.token });
+L.transition(writerRun, pmWriter.task.id, "completed", { evidence: [{ summary: "Plan complete" }] });
+L.refreshReady(writerRun);
+const extraWriter = {
+  ...writerRun.tasks.find((t) => t.role === "implementation"),
+  id: writerRun.id + ":task:implementation-extra",
+  title: "Second implementation writer",
+  dependencies: [],
+  status: "ready",
+  attempts: 0,
+  lease: null,
+  ordinal: 99,
+};
+writerRun.tasks.push(extraWriter);
+const writerOne = L.claimNext(writerRun, { id: "writer-one", roles: ["implementation"] });
+assert(writerOne);
+assert.equal(L.hasActiveWriter(writerRun), true);
+assert.equal(L.claimNext(writerRun, { id: "writer-two", roles: ["implementation"] }), null,
+  "a second write-capable task must wait while a writer holds the shared workspace");
+assert(L.claimNext(writerRun, { id: "parallel-reader", roles: ["ideas_insights"] }),
+  "read-only work can still proceed alongside the active writer");
+
 const cyclic = L.createRun({ goal: "Cycle", acceptanceCriteria: ["Done"] });
 cyclic.tasks[0].dependencies.push(cyclic.tasks[1].id);
 cyclic.tasks[1].dependencies.push(cyclic.tasks[0].id);
