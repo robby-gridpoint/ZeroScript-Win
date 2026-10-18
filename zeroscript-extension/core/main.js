@@ -4294,19 +4294,31 @@
   // full navigation. Observe the URL independently of DOM mutations so session
   // ownership is recalculated even when React reuses the same message shell.
   let lastObservedHref = location.href;
-  setInterval(() => {
-    if (location.href === lastObservedHref) return;
+  function handleConversationNavigation(source) {
+    const nextHref = location.href;
+    if (nextHref === lastObservedHref && source !== "sidebar-mutation") {
+      decorateConversationIndicators();
+      return;
+    }
     const previous = lastObservedHref;
-    lastObservedHref = location.href;
-    diag("navigation.urlChanged", { from: previous, to: lastObservedHref });
+    lastObservedHref = nextHref;
+    diag("navigation.urlChanged", { from: previous, to: nextHref, source });
+    // Always reconcile the session state against the destination URL immediately.
+    // Do not wait for the provider's message observer: ChatGPT can reuse the same
+    // conversation shell while replacing its route and history asynchronously.
     syncSessionState();
+    decorateConversationIndicators();
     scheduleSweep();
-  }, 250);
-  window.addEventListener("popstate", () => {
-    lastObservedHref = location.href;
-    syncSessionState();
-    scheduleSweep();
-  });
+  }
+  setInterval(() => handleConversationNavigation("url-poll"), 250);
+  window.addEventListener("popstate", () => handleConversationNavigation("popstate"));
+  // ChatGPT mounts/recycles sidebar links asynchronously. Keep labels in sync
+  // with the actual rendered sidebar instead of relying only on message sweeps.
+  try {
+    const sidebarObserver = new MutationObserver(() => decorateConversationIndicators());
+    sidebarObserver.observe(document.documentElement, { childList: true, subtree: true });
+  } catch {}
+  decorateConversationIndicators();
 
   // Schedule a debounced sweep. requestAnimationFrame is PAUSED in a background
   // tab, so when hidden we fall back to a timer (throttled, but it runs).
