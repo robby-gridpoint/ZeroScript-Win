@@ -56,6 +56,8 @@ jobs:
           node --check zeroscript-extension/core/config.js 2>&1 | tee -a extension-test-results.txt
           node --check zeroscript-extension/core/autopilot-ledger.js 2>&1 | tee -a extension-test-results.txt
           node zeroscript-extension/core/autopilot-ledger.test.cjs 2>&1 | tee -a extension-test-results.txt
+          node --check zeroscript-extension/core/autopilot-policy.js 2>&1 | tee -a extension-test-results.txt
+          node zeroscript-extension/core/autopilot-policy.test.cjs 2>&1 | tee -a extension-test-results.txt
           node zeroscript-extension/core/config.test.cjs 2>&1 | tee -a extension-test-results.txt
           node --check zeroscript-extension/providers/chatgpt.js 2>&1 | tee -a extension-test-results.txt
           node zeroscript-extension/test-chatgpt.js 2>&1 | tee -a extension-test-results.txt
