@@ -4429,7 +4429,7 @@
           const criteriaEvidence = [];
           if (isQA) {
             for (const line of report.split("\n")) {
-              const match = line.match(/^CRITERION:\\s*(.*?)\\s*\\|\\s*STATUS:\\s*(VERIFIED|NOT VERIFIED)\\s*\\|\\s*TOOL:\\s*([^|]+)\\s*\\|\\s*EVIDENCE:\\s*(.+)$/i);
+              const match = line.match(/^CRITERION:\s*(.*?)\s*\|\s*STATUS:\s*(VERIFIED|NOT VERIFIED)\s*\|\s*TOOL:\s*([^|]+)\s*\|\s*EVIDENCE:\s*(.+)$/i);
               if (!match || match[2].toUpperCase() !== "VERIFIED") continue;
               const criterion = match[1].trim();
               const tool = match[3].trim();
