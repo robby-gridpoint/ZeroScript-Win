@@ -1,6 +1,6 @@
-# ZeroScript-Win — Local-First AI Development Environment
+# ArcScript-Win — Local-First AI Development Environment
 
-ZeroScript-Win is a GPL-3.0-or-later fork of ZeroScript Free evolving into a local-first, VS Code-inspired development environment powered through supported AI chat sites.
+ArcScript is a GPL-3.0-or-later, local-first, VS Code-inspired development environment powered through supported AI chat sites.
 
 The extension preserves the existing browser-provider integrations and Roblox Studio capabilities. General project editing and Roblox Studio automation are separate domains: the local workspace layer works with Studio closed, while live Roblox tools use the explicit `roblox/` namespace.
 
@@ -30,7 +30,7 @@ The bridge exposes an expanded, project-scoped toolset:
 
 ## Choose a workspace
 
-On a fresh install, the agent asks which project folder to use before inspecting or changing files. Reply with the absolute folder path, or use **Choose workspace folder** in the extension popup to open the native folder picker. The picker only proposes a folder; ZeroScript activates and saves it after the selection is confirmed. The choice is saved in a private local `.zs-workspace.json` file and reused on subsequent starts.
+On a fresh install, the agent asks which project folder to use before inspecting or changing files. Reply with the absolute folder path, or use **Choose workspace folder** in the extension popup to open the native folder picker. The picker only proposes a folder; ArcScript activates and saves it after the selection is confirmed. The choice is saved in a private local `.zs-workspace.json` file and reused on subsequent starts.
 
 An optional environment override is also supported:
 
@@ -69,6 +69,6 @@ See [Workspace Agent Remaster](docs/WORKSPACE_AGENT.md) for tool details and bou
 
 ## Upstream project
 
-This project is derived from [sebattfg/ZeroScript-Free](https://github.com/sebattfg/ZeroScript-Free). Preserve original license and copyright notices; identify modifications made in this fork.
+Upstream attribution: ArcScript is derived from the [original ZeroScript Free project](https://github.com/sebattfg/ZeroScript-Free). Preserve original license and copyright notices and identify modifications made in this fork.
 
 Licensed under [GNU GPL v3](LICENSE).

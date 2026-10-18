@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="dark" />
-  <title>ZeroScript Workspace</title>
+  <title>ArcScript Workspace</title>
   <link rel="stylesheet" href="workspace.css" />
 </head>
 <body>
@@ -12,7 +12,7 @@
     <header class="topbar">
       <div class="brand">
         <img src="icon.png" alt="" />
-        <div><strong>ZeroScript</strong><span>Workspace</span></div>
+        <div><strong>ArcScript</strong><span>Workspace</span></div>
       </div>
       <div class="workspace-meta">
         <span class="connection-dot" id="connectionDot"></span>
@@ -137,7 +137,7 @@
           <button class="toolbar-button" id="deleteFile" disabled>Delete</button>
           <button class="toolbar-button" id="saveFile" disabled>Save <kbd>Ctrl+S</kbd></button>
         </div>
-        <div class="breadcrumb" id="breadcrumb">ZeroScript / Workspace</div>
+        <div class="breadcrumb" id="breadcrumb">ArcScript / Workspace</div>
         <section id="findBar" class="find-bar hidden" aria-label="Find and replace in current file">
           <div class="find-line">
             <input id="findText" placeholder="Find in current file" autocomplete="off" spellcheck="false" />
@@ -156,10 +156,10 @@
         <div class="editor-host" id="editorHost">
           <div class="welcome-screen" id="welcomeScreen">
             <div class="welcome-symbol">Z</div>
-            <h1>Welcome to ZeroScript Workspace</h1>
+            <h1>Welcome to ArcScript Workspace</h1>
             <p>A focused local development surface paired with your AI agent.</p>
             <div class="welcome-grid">
-              <button class="welcome-card" id="welcomeOpen"><strong>Open a folder</strong><span>Select the project ZeroScript should work in.</span><kbd>Choose Folder</kbd></button>
+              <button class="welcome-card" id="welcomeOpen"><strong>Open a folder</strong><span>Select the project ArcScript should work in.</span><kbd>Choose Folder</kbd></button>
               <button class="welcome-card" id="welcomeSearch"><strong>Search source</strong><span>Find text, symbols, imports, and declarations.</span><kbd>Search</kbd></button>
               <button class="welcome-card" id="welcomeGit"><strong>Inspect Git</strong><span>Review status, branches, and file diffs.</span><kbd>Source Control</kbd></button>
             </div>
@@ -183,7 +183,7 @@
             <button class="tiny-button" id="clearOutput" title="Clear output">×</button>
           </div>
           <div id="problemList" class="problem-list hidden" aria-label="Task diagnostics"></div>
-          <pre id="outputText" class="output-text">ZeroScript local workspace ready. Select a folder to begin.</pre>
+          <pre id="outputText" class="output-text">ArcScript local workspace ready. Select a folder to begin.</pre>
         </section>
         <footer class="statusbar">
           <span id="statusWorkspace">No workspace</span>

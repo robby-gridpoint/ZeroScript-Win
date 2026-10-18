@@ -1,6 +1,6 @@
 # Workspace agent remaster
 
-ZeroScript-Win exposes a local-first coding workspace independently from its optional MCP integrations. The browser extension remains the agent UI and the loopback bridge owns local filesystem and process operations.
+ArcScript-Win exposes a local-first coding workspace independently from its optional MCP integrations. The browser extension remains the agent UI and the loopback bridge owns local filesystem and process operations.
 
 ## First-run selection
 

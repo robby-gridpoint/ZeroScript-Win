@@ -8,7 +8,7 @@ var ZS = (() => {
 
   // Display name + unique marker injected at the top of the system prompt so the
   // content script can reliably recognise (and camouflage) the bootstrap turn.
-  const APP_NAME = "ZeroScript-Win";
+  const APP_NAME = "ArcScript-Win";
   const SYS_MARKER = "⟦ZS-SYS⟧";
   // A re-statement of the system prompt mid-session (see withSysResend in
   // core/main.js). It carries SYS_MARKER TOO - that is what drives camouflage
@@ -57,12 +57,12 @@ var ZS = (() => {
       const objAlt = otherCmd ? "" : " (or ###...### block)";
       const notes = {
         malformed:
-          "ERROR: a ZeroScript command was detected in your reply but its JSON could not be parsed. " +
+          "ERROR: a ArcScript command was detected in your reply but its JSON could not be parsed. " +
           'Rewrite it as a single valid JSON object in plain text, exactly like {"command": "name", "params": {...}}' +
           luaMalformed + ". You may add a short note around it. " +
           "Please retry.",
         unclosed:
-          "ERROR: your ZeroScript command was cut off before it finished - the JSON object" +
+          "ERROR: your ArcScript command was cut off before it finished - the JSON object" +
           objAlt + " never closed, so it could not run. Rewrite the WHOLE command in one " +
           'piece as valid JSON, exactly like {"command": "name", "params": {...}}' +
           luaUnclosed + ". Please retry.",
@@ -77,7 +77,7 @@ var ZS = (() => {
           '"params". Please retry.',
         // The model named a REAL tool but under the wrong key - it wrote the call
         // the way a function-calling API would (e.g. {"toolName": "get_studio_state",
-        // "studio_id": "..."}) instead of ZeroScript's envelope. Seen live on
+        // "studio_id": "..."}) instead of ArcScript's envelope. Seen live on
         // ChatGPT in a long session. Naming the wrong keys explicitly matters: a
         // generic "bad JSON" note made the model rewrite the SAME shape.
         toolKey:
@@ -91,7 +91,7 @@ var ZS = (() => {
         // detector and loop the error forever. Describe it, don't reproduce it.
         dsml:
           "ERROR: you wrote that call in your own internal tool-call markup (the DSML invoke/parameter " +
-          "tags). ZeroScript cannot read that format, so the command did not run. Never use those tags " +
+          "tags). ArcScript cannot read that format, so the command did not run. Never use those tags " +
           "here. Write the call as a single plain-text JSON object instead, exactly like " +
           '{"command": "name", "params": { ...your parameters... }} - one command per reply. ' +
           "Please retry.",
@@ -121,13 +121,13 @@ var ZS = (() => {
     // burns the whole conversation re-issuing commands that can never run. See
     // isContextInvalidated in core/main.js.
     staleExtension:
-      "ERROR: the ZeroScript extension was reloaded or updated while this page was open, so this " +
+      "ERROR: the ArcScript extension was reloaded or updated while this page was open, so this " +
       "tab is running a version of it that no longer exists and NO command can reach the user's " +
       "machine from here. The bridge and Roblox Studio are NOT the problem - do not tell the user " +
       "to check them, and do not retry the command, because every retry will fail the same way. " +
       "Tell the user in one short sentence to RELOAD THIS PAGE (F5), then stop and wait.",
     bridgeOffline:
-      "ERROR: the local ZeroScript bridge is unreachable, so no command could run. " +
+      "ERROR: the local ArcScript bridge is unreachable, so no command could run. " +
       "This is an environment problem on the user's machine (the bridge is not " +
       "running, or Roblox Studio is closed), NOT your mistake. Tell the user in " +
       "one short sentence that the bridge or Roblox Studio is offline, then stop " +
@@ -181,10 +181,10 @@ var ZS = (() => {
 
     const toolsString = compactTools(tools);
 
-    const prompt = `You are operating as a general-purpose local software development agent through ZeroScript-Win.
+    const prompt = `You are operating as a general-purpose local software development agent through ArcScript-Win.
 
 RUNTIME CONTRACT
-ZeroScript-Win is a browser extension connected to a local Windows-first bridge. The bridge exposes project-scoped workspace tools plus any configured MCP integrations. Tool calls are plain text in your reply; the extension executes one call and sends the result back into this conversation. The live tool catalogue below is authoritative. Never invent a tool name or parameter.
+ArcScript-Win is a browser extension connected to a local Windows-first bridge. The bridge exposes project-scoped workspace tools plus any configured MCP integrations. Tool calls are plain text in your reply; the extension executes one call and sends the result back into this conversation. The live tool catalogue below is authoritative. Never invent a tool name or parameter.
 
 TOOL CALL FORMAT
 Every call must be a single JSON object inside a fenced code block:
@@ -211,7 +211,7 @@ WORKSPACE ONBOARDING
 - If it indicates configured: false, ask the user which local project folder to work in BEFORE listing, reading, searching, editing, or running commands. They can paste an absolute path or ask you to open the native folder picker. Stop and wait for their choice.
 - If the user provides a path, call workspace_set_root with that exact path. If they request the dialog, call workspace_browse. If it returns a selected_path, activate exactly that path using workspace_set_root; workspace_browse alone only picks a folder and does not change the active workspace.
 - Never choose a different folder on the user's behalf. After workspace_set_root succeeds, inspect workspace_info and workspace_project_info before implementation. The selection is persistent, so do not ask again unless the user wants to switch workspaces.
-- Never treat the ZeroScript installation/bridge directory as the user's project simply because it is the default fallback.
+- Never treat the ArcScript installation/bridge directory as the user's project simply because it is the default fallback.
 
 DEVELOPMENT WORKFLOW
 For implementation requests, do the work directly rather than merely explaining how the user could do it.
@@ -311,7 +311,7 @@ For a configured workspace, inspect it before making implementation assumptions.
     user_keyboard_input:
       "Simulates a real player typing during PLAY. REQUIRES \"datamodel_type\":\"Client\" AND the game RUNNING - the Client " +
       "datamodel only exists in play mode, so first call start_stop_play {\"is_start\": true}; in Edit mode this fails. " +
-      "(ZeroScript auto-fills datamodel_type:\"Client\" if you omit it, but the game must still be running.) " +
+      "(ArcScript auto-fills datamodel_type:\"Client\" if you omit it, but the game must still be running.) " +
       "\"actions\" is an ORDERED array of OBJECTS - each step MUST be {\"action\": ...}, NOT a bare string (a missing/misnamed action " +
       "gives 'Unknown ... action: nil'). action is one of: keyDown | keyUp | keyPress (down+up) | textInput | wait. " +
       "key_code uses Roblox KeyCode NAMES, not raw characters: Enter=\"Return\", digits=\"Zero\"..\"Nine\", letters=single uppercase " +
@@ -345,11 +345,11 @@ For a configured workspace, inspect it before making implementation assumptions.
   // A short, clearly-labelled reminder of the available commands, injected under
   // a tool result every so often so the model does not drift from the exact
   // command names over a long session. It is explicitly framed as an automatic
-  // ZeroScript reminder (NOT a user message and NOT a new command to run).
+  // ArcScript reminder (NOT a user message and NOT a new command to run).
   function toolsReminder(tools) {
     return (
       "\n\n────────────────────────────────\n" +
-      "(Automatic ZeroScript-Win tool reminder, not a user request. Do not reply to this note.)\n" +
+      "(Automatic ArcScript-Win tool reminder, not a user request. Do not reply to this note.)\n" +
       "Use only these currently available tools and exact parameter names:\n" +
       compactTools(tools)
     );

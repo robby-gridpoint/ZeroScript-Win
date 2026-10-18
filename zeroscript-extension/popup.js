@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-const KOFI_URL = "https://ko-fi.com/sebattfg";
 const SUPPORTED_HOSTS = [
   "chat.deepseek.com", "deepseek.com", "chatgpt.com", "chat.openai.com",
   "gemini.google.com", "www.kimi.ai", "kimi.ai",
@@ -102,9 +101,6 @@ document.getElementById("restart").addEventListener("click", (event) => {
     button.textContent = original;
     setTimeout(refresh, 900);
   });
-});
-document.getElementById("kofi").addEventListener("click", () => {
-  chrome.tabs.create({ url: KOFI_URL });
 });
 document.getElementById("openExplorer").addEventListener("click", () => {
   chrome.tabs.create({ url: chrome.runtime.getURL("workspace.html") });

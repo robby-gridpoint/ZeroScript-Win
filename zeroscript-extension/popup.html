@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ZeroScript-Win</title>
+  <title>ArcScript-Win</title>
   <style>
     :root { color-scheme: dark; font-family: "Segoe UI Variable", "Segoe UI", sans-serif; }
     * { box-sizing: border-box; }
@@ -47,8 +47,7 @@
     .secondary { min-width: 0; padding: 9px 8px; border: 1px solid #2c374a; border-radius: 9px; color: #d4dceb; background: #151c28; font-size: 10px; font-weight: 600; }
     .secondary:hover { border-color: #465b7d; background: #1a2534; }
     .wide { grid-column: 1 / -1; }
-    .kofi { color: #ffb2c0; border-color: rgba(255, 105, 135, .32); background: rgba(130, 38, 63, .14); }
-    .kofi:hover { background: rgba(130, 38, 63, .27); }
+
     .footer { margin-top: 15px; color: #657187; font-size: 9px; line-height: 1.5; text-align: center; }
   </style>
 </head>
@@ -57,8 +56,8 @@
     <header class="header">
       <img class="logo" src="icon.png" alt="" />
       <div class="brand">
-        <h1>ZeroScript-Win</h1>
-        <div class="subtitle">Local-first AI development environment</div>
+        <h1>ArcScript-Win</h1>
+        <div class="subtitle">Free, local-first AI development</div>
       </div>
       <span id="ver" class="version"></span>
     </header>
@@ -109,9 +108,8 @@
       <button class="secondary" id="restart">⟳ Restart MCP servers</button>
       <button class="secondary wide" id="openExplorer">⌘ Open Workspace Explorer</button>
       <button class="secondary wide" id="settings">⚙ Agent settings</button>
-      <button class="secondary kofi wide" id="kofi">♥ Support development</button>
-    </div>
-    <div class="footer">Run <code>start.bat</code> to launch the local bridge. Workspace selection does not require Roblox Studio.</div>
+      </div>
+    <div class="footer">ArcScript is free to use, with no subscriptions or paid unlocks. Run <code>start.bat</code> to launch the local bridge.</div>
   </main>
   <script src="popup.js"></script>
 </body>

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // core/main.js - the provider-agnostic agentic loop, UI and session state.
 // Drives any AI chat site through the ZSProvider interface (providers/*.js):
-// waits for the model's reply, parses ZeroScript commands (ZSParse), asks the
+// waits for the model's reply, parses ArcScript commands (ZSParse), asks the
 // background worker to execute them on the Roblox MCP bridge, and feeds the
 // result back. Camouflages the system prompt ("Starting Up") and tool JSON
 // behind animated chips, masks injected input, and exposes a Stop button.
@@ -16,11 +16,11 @@
   // Resolve the shared config export explicitly. Avoid relying on a global-object
   // property being visible as an unqualified identifier in every content-script context.
   const ZS = globalThis.ZS;
-  if (!ZS) throw new Error("ZeroScript config failed to load before core/main.js");
+  if (!ZS) throw new Error("ArcScript config failed to load before core/main.js");
   const P = ZSProvider;
   const T = P.timings;
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  const log = (...a) => console.log("[zeroscript]", ...a);
+  const log = (...a) => console.log("[arcscript]", ...a);
 
   // ── Anti-bot mitigation (EXPERIMENTAL) ──────────────────────────────────
   // Suspected contributor to Arena's captcha: the agentic loop sends turns
@@ -82,28 +82,15 @@
     }, EXPECT);
   }
 
-  // Ko-fi tip link.
-  const KOFI_URL = "https://ko-fi.com/sebattfg";
-  // GitHub releases page - where users download the Bridge + start.bat.
-  const GITHUB_URL = "https://github.com/sebattfg/ZeroScript-Free";
+  // ArcScript repository and release downloads.
+  const GITHUB_URL = "https://github.com/robby-gridpoint/ZeroScript-Win/releases";
   // Shown in the panel instead of a static "Free" label, so a user's screenshot
   // alone tells us which build they're on for debugging. Pulled from
   // manifest.json (single source of truth) rather than duplicated here.
   const EXT_VERSION = chrome.runtime.getManifest().version;
   // YouTube tutorial - how to set up the Bridge.
   const VIDEO_URL = "https://youtu.be/kPKiZLZ9_Ps";
-  // Work.ink locked link - free "watch an ad" support option. Set once the
-  // locker is created at https://work.ink; the button is hidden until then.
-  const WORKINK_URL = "https://work.ink/2JXi/zeroscript-free-roblox-ai-coding-tool";
-  // Roblox "tip" Game Passes - the native currency for the audience.
-  const ROBUX_PASSES = [
-    { robux: 30, id: 1865342947 },
-    { robux: 100, id: 1866782815 },
-    { robux: 300, id: 1869176990 },
-    { robux: 1000, id: 1865192973 },
-  ];
-  const passUrl = (id) => `https://www.roblox.com/game-pass/${id}`;
-  // AI chat sites ZeroScript works on. Keep in sync with manifest.json
+  // AI chat sites ArcScript works on. Keep in sync with manifest.json
   // content_scripts and background.js PROVIDER_URLS when adding a provider.
   const AI_SITES = [
     { name: "DeepSeek", url: "https://chat.deepseek.com/" },
@@ -762,7 +749,7 @@
         }
       }
       // The model answered in its OWN native tool-call markup instead of a
-      // ZeroScript command - DeepSeek's DSML invoke/parameter tags (reported by
+      // ArcScript command - DeepSeek's DSML invoke/parameter tags (reported by
       // users, 2026-08; DeepSeek is the only provider seen doing it). It carries
       // no "command"/"tool" key and no ###...### markers, so hasToolSignature is
       // false and every guard below misses it too: the turn finalized as a
@@ -840,7 +827,7 @@
   // problems with opposite fixes: a bridge outage is fixed by start.bat and
   // resolves itself, while this one can ONLY be fixed by reloading the page and
   // never recovers on its own. Lumping them together (the old behaviour) told
-  // the model "the local ZeroScript bridge is unreachable", which sent the user
+  // the model "the local ArcScript bridge is unreachable", which sent the user
   // to check a bridge that was perfectly healthy. Diagnosed 2026-08-14 by the
   // giveaway timing: a genuine outage takes 8s (background.js `send` waits via
   // waitForConnection first), an invalidated context comes back in ~1ms.
@@ -992,7 +979,7 @@
       }
       return `ERROR: the '${bareName}' command timed out and is unavailable in this environment. Do NOT call it again - complete the task yourself using the other commands (execute_luau, multi_edit, etc.).`;
     }
-    // Virtual command: list the MCP server(s) ZeroScript is currently connected
+    // Virtual command: list the MCP server(s) ArcScript is currently connected
     // to, with each one's REAL per-server health (from the bridge, never the
     // merged tool count - a dead server must not borrow another's numbers).
     if (name === "list_mcp_servers") {
@@ -1151,7 +1138,7 @@
         return `ERROR: '${bareName}' returned an image, but this assistant cannot see images. Do NOT call it again. Use a different command to get the information as text instead.`;
       }
       if (r.images && r.images.length) {
-        // Show the capture in a left-hand ZeroScript popup (from the in-memory
+        // Show the capture in a left-hand ArcScript popup (from the in-memory
         // base64 - simple and reliable on every site; no DOM-embedded preview).
         ui.showImages(r.images, name);
         // Do NOT attach the image here: submitAndGetBase/typeAndSend types the
@@ -1177,7 +1164,7 @@
     // that instead of blaming the bridge (see bg / isContextInvalidated).
     if (r.kind === "stale-extension") {
       ui.banner("warn", "Reload this page",
-        "ZeroScript was updated or reloaded while this tab was open, so this page is running an " +
+        "ArcScript was updated or reloaded while this tab was open, so this page is running an " +
         "old copy of it and commands can no longer run. Reload the page (F5) to reconnect - your " +
         "bridge and Roblox Studio are unaffected.");
       diag("bridge.staleExtension", { name, error: r.error });
@@ -1862,10 +1849,10 @@
     const rider =
       "\n\n────────────────────────────────\n" +
       ZS.RESEND_MARKER + "\n" +
-      "(System note from ZeroScript - an automatic re-statement of your operating " +
+      "(System note from ArcScript - an automatic re-statement of your operating " +
       "instructions, NOT a new request and NOT something to reply to. This conversation " +
       "may have been summarised, which drops the part explaining how you actually run " +
-      "commands. To be explicit: the ZeroScript extension IS running in this page right " +
+      "commands. To be explicit: the ArcScript extension IS running in this page right " +
       "now, it DOES read your replies, and the commands below DO execute for real - the " +
       "results you have been receiving are proof of it. Keep using them exactly as " +
       "described. Just carry on with the task; do not acknowledge this note.)\n" +
@@ -1891,7 +1878,7 @@
     // Existing conversations require an explicit user action ("Start agent in
     // this chat"). Never attach automatically during page load or navigation.
     if (!P.chatIsEmpty() && !A.started && !attachToExisting) {
-      ui.toast("Choose Start agent in this chat to attach ZeroScript here.");
+      ui.toast("Choose Start agent in this chat to attach ArcScript here.");
       return;
     }
     A.userStopped = false;
@@ -1908,7 +1895,7 @@
     A.toolCallsSinceReminder = 0; // fresh reminder cadence for the new session
     ui.setStarting(true);
     ui.updateStartGate(); // refresh the bar into its "starting" state
-    // Do not lock the native composer during bootstrap; users must retain normal\n    // editing keys (including Space and Delete) while ZeroScript initializes.
+    // Do not lock the native composer during bootstrap; users must retain normal\n    // editing keys (including Space and Delete) while ArcScript initializes.
     ui.inputCover(true);  // cover the composer ("Working…") for the WHOLE Starting Up
     try {
       await ensureTools(true); // boot: always take a fresh catalogue (the TTL then
@@ -1972,7 +1959,7 @@
       ui.setStarted(true);
       ui.toast(`Agent ready. Ask ${P.displayName} to work on your project.`);
     } catch (e) {
-      console.error("[zeroscript] Startup failed", e && e.stack ? e.stack : e);
+      console.error("[arcscript] Startup failed", e && e.stack ? e.stack : e);
       if (alive()) ui.banner("warn", "Startup failed", String((e && e.message) || e));
     } finally {
       // Only tear down our OWN starting state. If we were superseded (the user
@@ -2285,7 +2272,7 @@
       }
 
       // 3. Assistant command turns → live loading while streaming, ✓ when done.
-      // ONLY in a real ZeroScript session (started or bootstrapping). Without
+      // ONLY in a real ArcScript session (started or bootstrapping). Without
       // this gate, a plain never-started chat where the model merely EXPLAINS
       // the command format (a {"command":...} example in its answer) got the
       // example MASKED behind a tool chip - hiding genuine content the user
@@ -2603,7 +2590,7 @@
   //  UI  (control panel, onboarding, stop button, banners, toast, input cover)
   // ════════════════════════════════════════════════════════════════════════
   const ui = (() => {
-    let root, bar, dot, brandEl, stateEl, actionBtn, stopBtn, switchBtn, supportBtn, discordEl, menuEl, unstableEl;
+    let root, bar, dot, brandEl, stateEl, actionBtn, stopBtn, switchBtn, menuEl, unstableEl;
     let cover, coverRaf, barRaf;
     let openMenuFn = null; // set by build(); lets the popup force the panel open via runtime message
     let bridgeOk = false, studioDown = false, placeDown = false, appDown = false, addonOk = false, studioProcUp = false;
@@ -2620,13 +2607,11 @@
       root.innerHTML = `
         <div id="zs-bar">
           <span id="zs-dot" class="off" title=""></span>
-          <span id="zs-brand">ZeroScript <span class="zs-free">v${EXT_VERSION}</span></span>
+          <span id="zs-brand">ArcScript <span class="zs-free">v${EXT_VERSION}</span></span>
           <span id="zs-state"></span>
           <button id="zs-action"></button>
           <button id="zs-stop" hidden>■ Stop</button>
-          <a id="zs-discord" href="https://discord.gg/D5G2HAzX8z" target="_blank" rel="noopener" title="Need help? Join our Discord"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg></a>
-          <button id="zs-switch" aria-label="Switch AI and options" title="Switch AI, custom prompt, support"><span id="zs-switch-name"></span><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
-          <button id="zs-support" aria-label="Support ZeroScript" title="Support ZeroScript"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></button>
+          <button id="zs-switch" aria-label="Switch AI and options" title="Switch AI and options"><span id="zs-switch-name"></span><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
         </div>
         <div id="zs-menu" hidden></div>
         ${P.unstableWarning ? `<button id="zs-unstable" aria-label="Provider may be unstable" hidden>⚠ unstable</button>` : ""}
@@ -2639,8 +2624,6 @@
       actionBtn = root.querySelector("#zs-action");
       stopBtn = root.querySelector("#zs-stop");
       switchBtn = root.querySelector("#zs-switch");
-      supportBtn = root.querySelector("#zs-support");
-      discordEl = root.querySelector("#zs-discord");
       const swName = root.querySelector("#zs-switch-name");
       if (swName) swName.textContent = P.displayName || P.id;
       menuEl = root.querySelector("#zs-menu");
@@ -2661,8 +2644,7 @@
         unstableEl.addEventListener("click", (e) => { e.stopPropagation(); toast(P.unstableWarning); });
       }
       buildMenu();
-      // Both bar controls open the same panel; the heart lands on the Support
-      // section (last), the model button opens at the top with Switch AI.
+      // The model button opens the options menu.
       const toggleMenu = (toSupport) => {
         menuEl.hidden = !menuEl.hidden;
         if (!menuEl.hidden) {
@@ -2681,16 +2663,15 @@
           // placeBar's already-queued tick clip the box first, so there's real
           // scroll room by the time we set scrollTop.
           requestAnimationFrame(() => {
-            if (!menuEl.hidden) menuEl.scrollTop = toSupport ? menuEl.scrollHeight : 0;
+            if (!menuEl.hidden) menuEl.scrollTop = 0;
           });
         }
       };
       switchBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleMenu(false); });
-      supportBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleMenu(true); });
-      openMenuFn = (toSupport) => { if (menuEl.hidden) toggleMenu(toSupport); };
+      openMenuFn = () => { if (menuEl.hidden) toggleMenu(false); };
       document.addEventListener("click", (e) => {
         if (menuEl.hidden) return;
-        if (!menuEl.contains(e.target) && !switchBtn.contains(e.target) && !supportBtn.contains(e.target))
+        if (!menuEl.contains(e.target) && !switchBtn.contains(e.target))
           menuEl.hidden = true;
       }, true);
 
@@ -2812,7 +2793,7 @@
 
     // ── The "more" menu (⋯) ─────────────────────────────────────────────────
     // One popover holding every secondary control: other AI sites, the custom
-    // prompt, and support (Ko-fi + Robux). Opens above the bar.
+    // prompt and integration settings. Opens above the bar.
     function buildMenu() {
       const here = (P.displayName || "").toLowerCase();
       const hostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return ""; } };
@@ -2824,14 +2805,10 @@
           ? `<div class="zs-site-opt zs-site-here">${label}<span class="zs-site-badge">active</span></div>`
           : `<button class="zs-site-opt" data-u="${s.url}">${label}<span class="zs-site-go">&rarr;</span></button>`;
       }
-      let passes = "";
-      for (const p of ROBUX_PASSES) {
-        passes += `<button class="zs-tip-opt zs-tip-rbx" data-u="${passUrl(p.id)}"><span class="zs-rbx-cur">R$</span>${p.robux}</button>`;
-      }
       const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
       const mergedServers = mergedMcpServers();
       // Roblox always heads the list - greyed out, no health dot (its own status
-      // is already the main ZeroScript dot elsewhere) and no remove button (it's
+      // is already the main ArcScript dot elsewhere) and no remove button (it's
       // the primary server, protected bridge-side too).
       let mcpList =
         `<div class="zs-mcp-item zs-mcp-item-primary"><div class="zs-mcp-info"><span class="zs-mcp-name">Roblox Studio</span><span class="zs-mcp-url">primary - always connected</span></div></div>`;
@@ -2843,21 +2820,10 @@
         mcpList += `<div class="zs-mcp-item"><span class="zs-mcp-health zs-mcp-health-${healthClass}" title="${healthTitle}"></span><div class="zs-mcp-info"><span class="zs-mcp-name">${esc(s.name)}</span><span class="zs-mcp-url">${esc(s.command || s.id)}</span></div><button class="zs-mcp-remove" data-id="${esc(s.id)}" title="Remove">✕</button></div>`;
       });
       menuEl.innerHTML =
-        `<div class="zs-menu-head"><span class="zs-menu-logo">ZeroScript</span><span class="zs-menu-tag">v${EXT_VERSION}</span></div>
+        `<div class="zs-menu-head"><span class="zs-menu-logo">ArcScript</span><span class="zs-menu-tag">v${EXT_VERSION}</span></div>
          <section class="zs-menu-sec">
            <div class="zs-sec-label"><span>Switch AI</span></div>
            ${sites}
-         </section>
-         <section class="zs-menu-sec">
-           <div class="zs-sec-label"><span>Free Support</span></div>
-           <button class="zs-tip-opt zs-tip-star" data-u="${GITHUB_URL}"><span>Star on GitHub</span><span class="zs-tip-sub">free, helps a lot</span></button>
-           ${WORKINK_URL ? `<button class="zs-tip-opt zs-tip-ad" data-u="${WORKINK_URL}"><span>Watch an ad to support</span><span class="zs-tip-sub">free, takes a minute</span></button>` : ""}
-         </section>
-         <section class="zs-menu-sec">
-           <div class="zs-sec-label"><span>Support with Robux / Ko-fi</span></div>
-           <button class="zs-tip-opt zs-tip-kofi" data-u="${KOFI_URL}"><span>Tip on Ko-fi</span><span class="zs-tip-sub">any amount</span></button>
-           <div class="zs-tip-sep">or tip in Robux</div>
-           <div class="zs-rbx-grid">${passes}</div>
          </section>
          <section class="zs-menu-sec">
            <div class="zs-sec-label"><span>Custom prompt</span></div>
@@ -2875,7 +2841,7 @@
            <div class="zs-set-row"><button id="zs-mcp-add">Add server</button><span id="zs-mcp-status"></span></div>
          </section>`;
       const open = (url) => { try { window.open(url, "_blank", "noopener"); } catch {} menuEl.hidden = true; };
-      menuEl.querySelectorAll("button.zs-site-opt, .zs-tip-opt").forEach((b) =>
+      menuEl.querySelectorAll("button.zs-site-opt").forEach((b) =>
         b.addEventListener("click", () => open(b.dataset.u)));
       const ta = menuEl.querySelector("#zs-set-text");
       const saveBtn = menuEl.querySelector("#zs-set-save");
@@ -2965,7 +2931,7 @@
         ? `<a id="zs-setup-video" href="${VIDEO_URL}" target="_blank" rel="noopener">▶︎ Watch tutorial</a>`
         : "";
       setupCard.innerHTML =
-        `<div id="zs-setup-head"><span id="zs-setup-logo">ZeroScript</span><span id="zs-setup-tag">Setup</span></div>` +
+        `<div id="zs-setup-head"><span id="zs-setup-logo">ArcScript</span><span id="zs-setup-tag">Setup</span></div>` +
         `<div id="zs-setup-sub">The <b>Bridge</b> is what connects this chat to Roblox Studio. Three steps and you're running.</div>` +
         `<ol id="zs-setup-steps">` +
           `<li>Download the Bridge from GitHub</li>` +
@@ -3018,7 +2984,7 @@
     function refreshSetup(bridgeConnected) {
       if (setupSeen || bridgeConnected) { hideSetup(); return; }
       // Bridge is down, but if the user is just READING an existing
-      // conversation with no ZeroScript session (the "No agent here" state),
+      // conversation with no ArcScript session (the "No agent here" state),
       // a "bridge down" onboarding popup is pure noise - they may not want an
       // agent here at all (user request). Keep it for the states where the
       // bridge actually matters: a fresh/empty chat (the Start affordance is
@@ -3147,7 +3113,7 @@
         disabled = !bridgeOk && !addonOk;
       } else {
         // A populated chat can still host a session, but only after an explicit
-        // click. This is especially useful when the user opens ZeroScript from
+        // click. This is especially useful when the user opens ArcScript from
         // an existing ChatGPT conversation. Bootstrap instructions are appended
         // as a new turn; existing conversation history is left intact.
         toneClass = bridgeOk || addonOk ? "standby" : "warn";
@@ -3185,12 +3151,8 @@
       // every sweep; rewriting stateEl.innerHTML each time recreated the spinner
       // <span> and RESTARTED its CSS animation, so "Starting…" appeared to stutter.
       const busy = !stopBtn.hidden;
-      // Before a session is started, the bar stays minimal: only the Start action
-      // + Discord (help). The AI selector and the tips/support menu appear once the
-      // agent is actually running - so the pre-start bar isn't cluttered with
-      // options that only matter mid-session. (A.started is ambiguous with `warn`
-      // tone - which occurs both started-with-bridge-down and standby-with-bridge-
-      // down - so it's tracked explicitly in the signature.)
+      // Before a session is started, the bar stays minimal. The AI selector
+      // appears once the agent is running so the pre-start bar remains uncluttered.
       const showExtras = !!A.started;
       const sig = [toneClass, indicator, msg, label, kind, disabled, warn, busy, showExtras].join("|");
       if (sig === lastBarSig) return;
@@ -3209,10 +3171,8 @@
       // With no kind (e.g. agent active, or an existing chat) there's no primary
       // action to offer, so the button is hidden entirely.
       actionBtn.style.display = (busy || !kind) ? "none" : "";
-      // AI selector + tips/support: only once a session is live. Discord stays
-      // visible in every state (it's the help link).
+      // The AI selector is available once a session is live.
       if (switchBtn) switchBtn.style.display = showExtras ? "" : "none";
-      if (supportBtn) supportBtn.style.display = showExtras ? "" : "none";
     }
     let lastBarSig = "";
 
@@ -3224,7 +3184,7 @@
       A.bridge = s;
       if (!dot) return;
       const servers = s.servers || [];
-      // ZeroScript status tracks ONLY the primary Roblox MCP server. Every other
+      // ArcScript status tracks ONLY the primary Roblox MCP server. Every other
       // server is an addon and must NEVER make the dot/gate look connected while
       // Roblox itself is down. Old bridges don't send per-server health, so fall
       // back to the aggregate signals they do send (mcpAlive / total tools).
@@ -3310,8 +3270,8 @@
       if (root.querySelector(".zs-banner.zs-stale")) return;
       const b = document.createElement("div");
       b.className = "zs-banner limit zs-stale";
-      b.innerHTML = `<div class="zs-banner-t">⚠ Reload this page to reconnect ZeroScript</div>
-        <div class="zs-banner-m">ZeroScript was updated or reloaded while this tab was open, so this page is still running the old copy and commands can no longer run. Your bridge and Roblox Studio are fine - only this page needs refreshing.</div>
+      b.innerHTML = `<div class="zs-banner-t">⚠ Reload this page to reconnect ArcScript</div>
+        <div class="zs-banner-m">ArcScript was updated or reloaded while this tab was open, so this page is still running the old copy and commands can no longer run. Your bridge and Roblox Studio are fine - only this page needs refreshing.</div>
         <div class="zs-banner-acts"><button class="zs-banner-reload">Reload page</button></div>`;
       b.querySelector(".zs-banner-reload").addEventListener("click", () => location.reload());
       root.appendChild(b);
@@ -3332,8 +3292,8 @@
       const videoLink = VIDEO_URL
         ? `<a class="zs-banner-video" href="${VIDEO_URL}" target="_blank" rel="noopener">▶︎ Watch setup tutorial</a>`
         : "";
-      b.innerHTML = `<div class="zs-banner-t">⚠ Lost connection to ZeroScript</div>
-        <div class="zs-banner-m">The ZeroScript bridge stopped on your PC. Restart it (run start.bat and keep Roblox Studio open): the agent will reconnect automatically as soon as it is detected again.</div>
+      b.innerHTML = `<div class="zs-banner-t">⚠ Lost connection to ArcScript</div>
+        <div class="zs-banner-m">The ArcScript bridge stopped on your PC. Restart it (run start.bat and keep Roblox Studio open): the agent will reconnect automatically as soon as it is detected again.</div>
         <div class="zs-banner-acts">${videoLink}<button class="zs-banner-x">Close</button></div>`;
       b.querySelector(".zs-banner-x").addEventListener("click", () => { b.remove(); if (bridgeBannerEl === b) bridgeBannerEl = null; });
       root.appendChild(b);
@@ -3827,7 +3787,7 @@
       root.appendChild(b);
     }
 
-    // Left-hand ZeroScript popup showing the latest screen_capture. Fed from the
+    // Left-hand ArcScript popup showing the latest screen_capture. Fed from the
     // in-memory base64 (a data: URL always renders), so it works identically on
     // every provider and never touches the site's DOM. Only the most recent
     // capture is kept - a new one replaces the old.
@@ -3905,7 +3865,7 @@
   }
 
   // Timestamp of the user's last REAL click on the site (trusted event, outside
-  // ZeroScript's own UI). A genuine "regenerate ↻" is always such a click;
+  // ArcScript's own UI). A genuine "regenerate ↻" is always such a click;
   // DeepSeek's post-stop phantom generations and stop-button re-mount flickers
   // never are - this is what tells them apart (seen live: two false regenResume
   // fired 8s/2s after a Stop with no user action, un-stopping the halted turn).
@@ -4036,7 +3996,7 @@
     // - stopLoop both halts our loop AND clicks the site's native stop - and the
     // site's native stop likewise halts our loop via onNativeStop, so either one
     // fully stops everything. Two stop buttons at once is fine.
-    // The bare isHardGenerating() term is gated on a live ZeroScript session: on
+    // The bare isHardGenerating() term is gated on a live ArcScript session: on
     // a plain chat with no session, a user's own message makes the site generate,
     // and we must NOT briefly flash our Stop button over that.
     // Self-heal a stuck "Stopping…": if we flagged stopping but nothing is
@@ -4169,9 +4129,9 @@
       }
     });
   } catch {}
-  // A conversation IS a ZeroScript session if any rendered turn carries a
+  // A conversation IS a ArcScript session if any rendered turn carries a
   // telltale artefact: the system-prompt marker, an injected tool-result /
-  // system-note turn, or a ZeroScript command an assistant wrote. Works even
+  // system-note turn, or a ArcScript command an assistant wrote. Works even
   // after a full cold start and regardless of scroll position.
   function domHasZsSignal() {
     for (const it of P.allItems()) {
@@ -4221,7 +4181,7 @@
       }
     }
     // Same idea for a RUNNING loop: if the user opens a NEW, empty conversation
-    // via the SITE's own new-chat (not ZeroScript's button), the loop is bound to
+    // via the SITE's own new-chat (not ArcScript's button), the loop is bound to
     // a chat the user left, so abandon it. Otherwise A.running keeps this function
     // early-returning below and the stale "Agent active" / Stop button lingers on
     // the fresh chat instead of "Start Roblox agent". The "/app" → "/app/<id>" id
@@ -4496,5 +4456,5 @@
     }
   }, 5000);
 
-  log(`ZeroScript content script ready (provider: ${P.id})`);
+  log(`ArcScript content script ready (provider: ${P.id})`);
 })();

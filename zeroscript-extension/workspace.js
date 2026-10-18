@@ -26,7 +26,7 @@ const state = {
   problemDiagnostics: [],
   replacePreview: null,
   outputs: {
-    output: "ZeroScript local workspace ready. Select a folder to begin.",
+    output: "ArcScript local workspace ready. Select a folder to begin.",
     problems: "No reported problems.",
   },
   activeOutput: "output",
@@ -153,7 +153,7 @@ function errorOutput(title, error) {
   const parsed = parseTaskDiagnostics(message);
   state.problemDiagnostics = parsed.length ? parsed : [{
     path: null, line: null, column: 1, severity: "error",
-    message, source: title || "ZeroScript",
+    message, source: title || "ArcScript",
   }];
   writeOutput(title, message, "problems");
 }
@@ -264,7 +264,7 @@ function switchToTab(key) {
   $("codeEditor").value = tab.content;
   setEditorMode();
   $("activeFileName").textContent = tab.path.split("/").pop();
-  $("breadcrumb").textContent = "ZeroScript / " + tab.path;
+  $("breadcrumb").textContent = "ArcScript / " + tab.path;
   $("statusFile").textContent = tab.path;
   $("languageStatus").textContent = languageForPath(tab.path);
   $("encodingStatus").textContent = "UTF-8";
@@ -400,7 +400,7 @@ function showWelcome() {
   $("codeSurface").classList.add("hidden");
   $("infoView").classList.add("hidden");
   $("activeFileName").textContent = "Welcome";
-  $("breadcrumb").textContent = "ZeroScript / Workspace";
+  $("breadcrumb").textContent = "ArcScript / Workspace";
   $("saveFile").disabled = true;
   $("dirtyDot").classList.add("hidden");
   $("statusFile").textContent = "No file open";
@@ -426,7 +426,7 @@ function setInfoMode(title, data, path = "") {
   info.append(h, pre);
   info.classList.remove("hidden");
   $("activeFileName").textContent = title;
-  $("breadcrumb").textContent = path ? `ZeroScript / ${path}` : `ZeroScript / ${title}`;
+  $("breadcrumb").textContent = path ? `ArcScript / ${path}` : `ArcScript / ${title}`;
   $("statusFile").textContent = path || title;
   renderDirty();
 }
@@ -582,7 +582,7 @@ async function openFile(path, jumpLine = 1) {
     $("codeEditor").value = content;
     setEditorMode();
     $("activeFileName").textContent = filePath.split("/").pop();
-    $("breadcrumb").textContent = `ZeroScript / ${filePath}`;
+    $("breadcrumb").textContent = `ArcScript / ${filePath}`;
     $("statusFile").textContent = filePath;
     $("languageStatus").textContent = languageForPath(filePath);
     $("encodingStatus").textContent = "UTF-8";
@@ -963,7 +963,7 @@ async function renameCurrentFile() {
     state.fileWorkspaceRoot = tab.root;
     state.folder = tab.path.split("/").slice(0, -1).join("/") || ".";
     $("activeFileName").textContent = tab.path.split("/").pop();
-    $("breadcrumb").textContent = "ZeroScript / " + tab.path;
+    $("breadcrumb").textContent = "ArcScript / " + tab.path;
     $("statusFile").textContent = tab.path;
     $("languageStatus").textContent = languageForPath(tab.path);
     renderOpenTabs();
@@ -987,7 +987,7 @@ async function deleteCurrentFile() {
   syncActiveTabFromEditor();
   const path = tab.path;
   const dirtyWarning = tab.dirty ? "\n\nThe unsaved buffer for this file will also be discarded." : "";
-  if (!window.confirm(`Delete ${path}? This removes the file from disk and cannot be undone by ZeroScript.${dirtyWarning}`)) return;
+  if (!window.confirm(`Delete ${path}? This removes the file from disk and cannot be undone by ArcScript.${dirtyWarning}`)) return;
   setBusy(true, "Deleting file…");
   try {
     const result = await callTool("workspace_delete_file", { path });
@@ -1234,7 +1234,7 @@ function showModal(mode, items, initialQuery = "") {
   $("modalSubtitle").textContent = mode === "quickOpen"
     ? "Search project files by name or path"
     : mode === "recent" ? "Switch to a project folder you previously selected"
-    : "Search and run ZeroScript workspace commands";
+    : "Search and run ArcScript workspace commands";
   $("modalInput").placeholder = mode === "quickOpen" ? "Type a file name or path…" : mode === "recent" ? "Filter recent project folders…" : "Type a command…";
   $("modalInput").value = initialQuery;
   $("modalBackdrop").classList.remove("hidden");
@@ -2051,7 +2051,7 @@ function setNavigationList(title, items, defaultPath = "", emptyMessage = "No re
 
   info.classList.remove("hidden");
   $("activeFileName").textContent = title;
-  $("breadcrumb").textContent = "ZeroScript / " + title;
+  $("breadcrumb").textContent = "ArcScript / " + title;
   $("statusFile").textContent = summary || title;
   renderDirty();
 }
@@ -2407,7 +2407,7 @@ chrome.runtime.onMessage.addListener((message) => {
     if ((!previousRoot || previousRoot !== nextRoot) && message.workspace.configured) {
       const dirtyTabs = state.openTabs.filter((tab) => tab.dirty);
       if (dirtyTabs.length) {
-        errorOutput("Workspace changed", "The active folder changed in another ZeroScript window. Open tabs and unsaved buffers are preserved, but saving buffers from the prior folder is blocked.");
+        errorOutput("Workspace changed", "The active folder changed in another ArcScript window. Open tabs and unsaved buffers are preserved, but saving buffers from the prior folder is blocked.");
       } else {
         state.openTabs = [];
         state.activeTabKey = null;

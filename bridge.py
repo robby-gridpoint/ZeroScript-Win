@@ -1,7 +1,7 @@
 # # SPDX-License-Identifier: GPL-3.0-or-later
 # bridge.py
 # ──────────────────────────────────────────────────────────────────────────
-#  ZeroScript-Win Bridge
+#  ArcScript-Win Bridge
 #  Local WebSocket <-> workspace tools and optional MCP integrations.
 #  The browser extension talks to this over ws://127.0.0.1:<PORT>.
 #
@@ -485,9 +485,9 @@ def _reclaim_bridge_port():
     cmdline = _process_cmdline(pid_i)
     if "bridge.py" not in cmdline.lower():
         log(f"port {PORT} is held by pid {pid_i} ('{name}') but it does not look "
-            f"like a ZeroScript bridge - leaving it alone.", "yl")
+            f"like a ArcScript bridge - leaving it alone.", "yl")
         return False
-    log(f"port {PORT} is held by a leftover ZeroScript bridge (pid {pid_i}) from a "
+    log(f"port {PORT} is held by a leftover ArcScript bridge (pid {pid_i}) from a "
         "previous session - killing it so this one can start.", "yl")
     try:
         subprocess.run(["taskkill", "/F", "/PID", str(pid_i)],
@@ -864,7 +864,7 @@ class MCPClient:
                 self._request("initialize", {
                     "protocolVersion": "2024-11-05",
                     "capabilities": {},
-                    "clientInfo": {"name": "zeroscript-bridge", "version": "1.0"},
+                    "clientInfo": {"name": "arcscript-bridge", "version": "1.0"},
                 }, timeout=30)
                 self._notify("notifications/initialized")
                 # Some MCP servers (notably Roblox's StudioMCP) advertise 0 tools at
@@ -1258,7 +1258,7 @@ class MCPManager:
                 root.attributes("-topmost", True)
             except Exception:
                 pass
-            chosen = filedialog.askdirectory(parent=root, title="Choose a ZeroScript coding workspace",
+            chosen = filedialog.askdirectory(parent=root, title="Choose a ArcScript coding workspace",
                                             initialdir=self.workspace_root if os.path.isdir(self.workspace_root) else HERE,
                                             mustexist=True)
         except Exception as exc:
@@ -2160,7 +2160,7 @@ async def _supervised(name, coro_factory):
 
 
 async def main():
-    print(f"\n{C['cy']}  ZeroScript Bridge v{BRIDGE_VERSION}{C['reset']}  {C['dim']}- Roblox Studio - ws://{HOST}:{PORT}{C['reset']}\n")
+    print(f"\n{C['cy']}  ArcScript Bridge v{BRIDGE_VERSION}{C['reset']}  {C['dim']}- Roblox Studio - ws://{HOST}:{PORT}{C['reset']}\n")
     log(f"===== BRIDGE START  v{BRIDGE_VERSION}  pid={os.getpid()}  log={LOG_PATH} =====", "cy")
     await asyncio.to_thread(_kill_orphan_studio_mcp)
     killed_squatter = await asyncio.to_thread(check_studio_port)

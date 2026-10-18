@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "ZeroScript-Win — Local Coding Agent",
+  "name": "ArcScript — Local Coding Agent",
   "version": "1.11.1",
-  "description": "Turn supported AI chat sites into a local-first coding agent for Windows projects, with optional MCP and Roblox Studio integrations.",
+  "description": "Free, local-first AI development agent for Windows workspaces, with optional MCP and Roblox Studio integrations.",
   "permissions": ["storage"],
   "host_permissions": [
     "https://chat.deepseek.com/*",
@@ -30,7 +30,7 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "ZeroScript-Win",
+    "default_title": "ArcScript",
     "default_icon": {
       "16": "icon.png",
       "48": "icon.png",
