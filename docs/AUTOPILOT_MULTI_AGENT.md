@@ -15,40 +15,17 @@ Implemented runtime capabilities:
 
 The worker pool uses authenticated, already-started provider conversations in separate browser tabs; it does not provision provider accounts or bypass site authentication. If no idle worker tab is available, tasks remain ready and the run stays resumable. The extension still uses the shared selected workspace for every worker. Role-level read-only rules are prompt-enforced rather than OS-enforced, and there are not yet isolated Git worktrees, automatic patch conflict resolution, or a native multi-provider API runtime. Therefore, this is now a real multi-session task coordinator, but **not** a fully isolated/sandboxed worker system.
 
-## Target architecture
+## Remaining architecture gaps
 
-A genuine multi-agent mode should use a coordinator and isolated worker sessions:
+The task graph, leases, durable run ledger, worker dispatch, and evidence-gated closeout are implemented. The next hardening steps are:
 
-- **Lead developer / orchestrator** — owns the user goal, creates the task graph, delegates, merges results, and makes the completion decision.
-- **Project manager** — turns the request into acceptance criteria, dependencies, milestones, and a prioritized task queue.
-- **Implementation worker** — owns implementation tasks and reports changed files, decisions, and verification evidence.
-- **QA worker** — independently checks acceptance criteria, runs relevant tests, and files reproducible failures.
-- **Code reviewer** — inspects diffs for regressions, maintainability, and edge cases; should not rubber-stamp the implementation worker.
-- **Security reviewer** — evaluates tool permissions, untrusted input, secrets, and high-impact operations.
-- **Documentation worker** — updates setup, usage, and handoff documentation based on verified behavior.
-- **Ideas & insights agent** — independently searches for high-value improvements, simplifications, overlooked risks, and opportunities beyond the immediate acceptance criteria. It ranks ideas by impact, effort, risk, and relevance; the lead decides whether to implement or defer them. It must not turn speculative ideas into unapproved scope expansion.
+- **Workspace isolation:** worker sessions currently share the selected workspace. Add per-task Git worktrees or isolated copies before permitting concurrent write-capable tasks.
+- **Enforced capabilities:** role-specific read-only policies are currently prompt-enforced. Enforce permissions at the tool-dispatch boundary so analysis/review workers cannot call edit or command tools.
+- **Structured patch integration:** collect worker changes as patches or branch commits, detect file conflicts, serialize overlapping edits, and require the lead to resolve conflicts before verification.
+- **Criterion-level verification:** require structured QA evidence tied to each acceptance criterion (test command, exit status, output excerpt, and relevant files), rather than relying only on the worker report's VERIFIED labels plus successful tool-call records.
+- **Run management:** add explicit UI controls for retrying blocked tasks, inspecting full event/evidence history, and resuming a run from a stale browser session.
 
-Workers should be routed to separate provider sessions when available, with per-provider capability and availability checks. If only one provider is available, the UI must explicitly label the workflow as **single-provider role simulation** rather than claiming independent agents.
-
-## Shared task ledger
-
-Persist a project-scoped run record with:
-- run ID, original user goal, active workspace, current state, and stop/cancel status;
-- tasks with owner role, status, dependencies, acceptance criteria, and bounded retry count;
-- worker findings and references to relevant files, diffs, tool results, and test output;
-- unresolved questions, approval requests, and final verification summary.
-
-The ledger is the source of truth; agents must not infer completion merely from a confident final answer. Task state transitions should be validated and append a short event record so a failed or reloaded tab can recover safely.
-
-## Orchestration cycle
-
-1. Plan: the lead creates explicit, testable acceptance criteria.
-2. Delegate: independent analysis tasks can run in parallel; conflicting writes to the same files must be serialized or isolated in separate worktrees/patches.
-3. Implement: the implementation worker makes scoped changes.
-4. Verify: QA runs relevant checks and reports evidence, not just a pass/fail claim.
-5. Review: reviewer and security findings return to the lead.
-6. Resolve: the lead assigns targeted fixes or asks the user when a decision/approval is required.
-7. Close: finish only when acceptance criteria are verified, or report a precise blocker. Enforce run-wide time, task, and retry budgets.
+Do not claim workspace isolation, enforced role permissions, automatic patch merging, or criterion-level proof until those controls are implemented and tested.
 
 ## Safety and control boundaries
 
