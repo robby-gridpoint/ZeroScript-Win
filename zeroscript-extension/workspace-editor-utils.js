@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 "use strict";
 
-(function initZeroScriptEditorUtils(global) {
+(function initArcScriptEditorUtils(global) {
   function findAllMatches(content, query, matchCase = false) {
     const text = String(content == null ? "" : content);
     const needleText = String(query == null ? "" : query);

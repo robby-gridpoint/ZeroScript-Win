@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// core/parser.js - ZeroScript command parsing. PURE string logic, zero DOM:
+// core/parser.js - ArcScript command parsing. PURE string logic, zero DOM:
 // the provider extracts a turn's text from the site's DOM; everything here
 // operates on that text. The command formats (###LUA### blocks, {"command":…}
 // JSON) are defined by OUR system prompt, so they are the same on every AI site
@@ -62,7 +62,7 @@ const ZSParse = (() => {
   const FUNCTION_ENVELOPE_RE = /"function"\s*:\s*\{\s*"name"\s*:\s*"/;
 
   // DeepSeek's OWN agentic tool-call markup ("DSML"), which it sometimes emits
-  // instead of a ZeroScript command - seen live in user reports, DeepSeek only:
+  // instead of a ArcScript command - seen live in user reports, DeepSeek only:
   //   <|DSML|>tool_calls>
   //   <|DSML|>invoke name="script_read">
   //   <|DSML|>parameter name="target_file" string="true">…</|DSML|>parameter>
@@ -122,7 +122,7 @@ const ZSParse = (() => {
   }
 
   // Normalise a parsed JSON object into { tool, arguments }, accepting both the
-  // new ZeroScript schema ("command"/"params") and the legacy/function-calling
+  // new ArcScript schema ("command"/"params") and the legacy/function-calling
   // schema ("tool"/"arguments"/"name"/"args"). Returns null if not a valid call.
   function normalizeCall(o) {
     if (!o || typeof o !== "object") return null;
@@ -383,7 +383,7 @@ const ZSParse = (() => {
            /^\s*\(System note:/.test(txt);
   }
 
-  // The assistant emitted a ZeroScript command (JSON or a ###LUA### block), or a
+  // The assistant emitted a ArcScript command (JSON or a ###LUA### block), or a
   // command-turn ATTEMPT the camouflage sweep should still mask. DSML counts:
   // the turn IS the model calling a tool, just in the wrong dialect, so it gets a
   // chip like any other command turn instead of dumping raw markup at the user

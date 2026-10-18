@@ -55,4 +55,4 @@ assert.throws(() => replaceRanges("abcdef", [
   { start: 3, end: 5 },
 ], "x"), /valid, non-overlapping/);
 
-process.stdout.write("ZeroScript editor utility tests passed.\n");
+process.stdout.write("ArcScript editor utility tests passed.\n");

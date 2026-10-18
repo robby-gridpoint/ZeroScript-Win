@@ -65,4 +65,4 @@ const { parseTaskDiagnostics, workspaceRelativeDiagnosticPath } = require("./wor
   assert.equal(parseTaskDiagnostics("All tests passed; 12 tests completed", "/workspace").length, 0);
 }
 
-process.stdout.write("ZeroScript diagnostics tests passed.\n");
+process.stdout.write("ArcScript diagnostics tests passed.\n");

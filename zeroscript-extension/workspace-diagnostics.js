@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 "use strict";
 
-(function initZeroScriptDiagnostics(global) {
+(function initArcScriptDiagnostics(global) {
 function workspaceRelativeDiagnosticPath(rawPath, workspaceRoot = "") {
   let path = String(rawPath || "").trim().replace(/^["']|["']$/g, "").replace(/\\/g, "/");
   if (!path) return null;
