@@ -349,7 +349,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   (async () => {
     switch (msg.type) {
       case "autopilot_create_run": {
-        const run = ZSAutopilotLedger.createRun(msg.input || {});
+        const input = { ...(msg.input || {}) };
+        if (!input.workspace && workspaceCache && workspaceCache.root) input.workspace = workspaceCache.root;
+        const run = ZSAutopilotLedger.createRun(input);
         const runs = await readAutopilotRuns();
         runs[run.id] = run;
         await writeAutopilotRuns(runs);
@@ -394,7 +396,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           if (!worker || worker.available !== true) continue;
           const claimed = await mutateAutopilotRun(msg.runId, (value) =>
             ZSAutopilotLedger.claimNext(value, {
-              id: worker.workerId || (worker.provider + ":" + tab.id),
+              id: (worker.workerId || worker.provider || "worker") + ":" + tab.id,
               provider: worker.provider, tabId: tab.id, roles: worker.roles,
             })
           );
