@@ -5,6 +5,33 @@ from zeroscript_blender import mcp_server
 
 
 class BpyMcpProtocolTests(unittest.TestCase):
+    def test_texture_and_validation_tools_are_advertised(self):
+        names = {tool["name"] for tool in mcp_server.TOOLS}
+        self.assertIn("bpy_pack_textures", names)
+        self.assertIn("bpy_validate_glb", names)
+
+    def test_validate_glb_detects_external_texture_uri(self):
+        import json
+        import struct
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        document = {"asset": {"version": "2.0"}, "images": [{"uri": "textures/albedo.png"}], "buffers": [{"byteLength": 0, "uri": "mesh.bin"}]}
+        payload = json.dumps(document, separators=(",", ":")).encode("utf-8")
+        payload += b" " * ((4 - len(payload) % 4) % 4)
+        chunk = struct.pack("<II", len(payload), 0x4E4F534A) + payload
+        total = 12 + len(chunk)
+        data = struct.pack("<4sII", b"glTF", 2, total) + chunk
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "sample.glb"
+            path.write_bytes(data)
+            with patch.object(mcp_server, "WORKSPACE_ROOT", Path(directory)):
+                result = mcp_server._validate_glb({"path": "sample.glb"})
+        self.assertFalse(result["success"])
+        self.assertEqual(result["external_images"][0]["uri"], "textures/albedo.png")
+        self.assertEqual(result["external_buffers"][0]["uri"], "mesh.bin")
+
+
     def test_initialize_advertises_tools_capability(self):
         result = mcp_server._reply({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
         self.assertEqual(result["id"], 1)
