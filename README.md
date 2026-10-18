@@ -79,3 +79,8 @@ Licensed under [GNU GPL v3](LICENSE).
 The full remaster includes an optional native Blender `bpy` MCP integration. It runs Blender's Python module directly in a dedicated Python process rather than launching `blender.exe` for each task. Tools cover runtime status, scene inspection, script execution, `.blend` open/save, rendering, and model export.
 
 See [Native Blender bpy integration](docs/BLENDER_BPY.md) for the Windows setup and tool configuration. Install the `bpy` wheel in a dedicated Python environment compatible with the published wheel, then merge the entry in `config.bpy.example.json` into the existing `config.json` `mcpServers` object. Preserve the existing Roblox MCP entry and all other configured servers. This integration is optional and does not replace the remaster's workspace or Roblox tools.
+
+
+### Blender-to-Roblox asset pipeline
+
+The native `bpy` server supports texture packing, GLB export, and structural validation before upload. See [the Blender integration guide](docs/BLENDER_BPY.md) for the recommended pre-upload sequence and its limitations. GLB validation checks file structure and external references; visual material fidelity and Roblox import compatibility still require verification.
