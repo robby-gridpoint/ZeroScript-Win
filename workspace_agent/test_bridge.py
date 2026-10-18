@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import json
+import os
 import tempfile
 import unittest
 from unittest import mock
@@ -83,6 +84,12 @@ class WorkspaceBridgeTests(unittest.TestCase):
         with self.subTest(path=native_absolute):
             result = self.manager.call("workspace_preview_image", {"path": native_absolute}, 5)
             self.assertEqual(result["images"][0]["mimeType"], "image/png")
+
+        if os.name == "nt":
+            backslash_absolute = str(image_path).replace("/", "\\\\")
+            with self.subTest(path=backslash_absolute):
+                result = self.manager.call("workspace_preview_image", {"path": backslash_absolute}, 5)
+                self.assertEqual(result["images"][0]["mimeType"], "image/png")
 
     def test_workspace_preview_image_reports_path_and_signature_failures_separately(self):
         self.manager.workspace_configured = True
