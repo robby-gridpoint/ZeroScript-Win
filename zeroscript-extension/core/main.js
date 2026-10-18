@@ -1313,7 +1313,7 @@
       },
       {
         role: "QA engineer",
-        prompt: "INDEPENDENT QA PASS: Treat previous claims as unverified. Inspect the changed files and actual tool outputs. Run relevant safe tests/checks available in this environment; inspect results. Fix straightforward, in-scope defects and rerun the affected checks. Do not claim a test passed unless its result is visible. If no useful action remains, say AUTOPILOT_NO_ACTION_NEEDED."
+        prompt: "QA ENGINEER PASS: Treat previous claims as unverified. Inspect the changed files and actual tool outputs. Run relevant safe tests/checks available in this environment; inspect results. Fix straightforward, in-scope defects and rerun the affected checks. Do not claim a test passed unless its result is visible. If no useful action remains, say AUTOPILOT_NO_ACTION_NEEDED."
       },
       {
         role: "Code reviewer",
@@ -1446,8 +1446,19 @@
         if (res.kind === "text") {
           // Specialists can stop early when no useful action remains.
           if (A.autopilotEnabled && /AUTOPILOT_NO_ACTION_NEEDED|AUTOPILOT_COMPLETE/.test(res.text || "")) {
-            diag("autopilot.earlyClose", { pass: autopilotPasses, marker: /AUTOPILOT_COMPLETE/.test(res.text || "") ? "complete" : "no-action" });
-            ui.toast("Autopilot found no further actionable work.");
+            const completed = /AUTOPILOT_COMPLETE/.test(res.text || "");
+            const ledgerKey = "zsAutopilotRun:" + String(P.conversationKey() || "unknown");
+            const ledger = {
+              conversationKey: String(P.conversationKey() || "unknown"),
+              phase: completed ? "complete" : "stopped_early",
+              pass: autopilotPasses,
+              maxPasses: MAX_AUTOPILOT_PASSES,
+              state: completed ? "completed" : "completed_no_action",
+              updatedAt: new Date().toISOString()
+            };
+            try { chrome.storage.local.set({ [ledgerKey]: ledger }); } catch {}
+            diag("autopilot.earlyClose", { pass: autopilotPasses, marker: completed ? "complete" : "no-action" });
+            ui.toast(completed ? "Autopilot closeout complete." : "Autopilot found no further actionable work.");
             break;
           }
           if (A.autopilotEnabled && autopilotPasses < MAX_AUTOPILOT_PASSES && !A.stop) {
