@@ -1352,6 +1352,18 @@
     let autopilotPasses = 0;
     let autopilotCloseoutRetries = 0;
     const MAX_AUTOPILOT_CLOSEOUT_RETRIES = 1;
+    // Record evidence from actual tool responses in this run. This is not a
+    // substitute for task-specific acceptance criteria, but it prevents a
+    // formatted model report with zero inspected/tested outputs from closing
+    // Autopilot as successful.
+    const autopilotEvidence = {
+      toolCalls: 0,
+      successfulToolCalls: 0,
+      failedToolCalls: 0,
+      verificationCalls: 0,
+      records: [],
+    };
+    const VERIFICATION_TOOL_NAME = /(?:test|build|lint|type.?check|verify|inspect|read_file|git_diff|git_status|project_info|list_files|search|run_task|validate|check)/i;
     const AUTOPILOT_PHASES = [
       {
         role: "Project manager",
@@ -1505,7 +1517,9 @@
               /verification evidence|checks actually run/i.test(text) &&
               /unresolved risks/i.test(text);
             const contradictory = /AUTOPILOT_NO_ACTION_NEEDED/.test(text);
-            if (isLeadPass && hasReport && !contradictory) {
+            const hasObservedEvidence = autopilotEvidence.successfulToolCalls > 0 &&
+              autopilotEvidence.verificationCalls > 0;
+            if (isLeadPass && hasReport && !contradictory && hasObservedEvidence) {
               const ledgerKey = "zsAutopilotRun:" + String(P.conversationKey() || "unknown");
               const ledger = {
                 conversationKey: String(P.conversationKey() || "unknown"),
@@ -1513,7 +1527,14 @@
                 pass: autopilotPasses,
                 maxPasses: MAX_AUTOPILOT_PASSES,
                 state: "completed",
-                completionGate: "lead_pass_report_shape",
+                completionGate: "lead_report_and_observed_tool_evidence",
+                evidence: {
+                  toolCalls: autopilotEvidence.toolCalls,
+                  successfulToolCalls: autopilotEvidence.successfulToolCalls,
+                  failedToolCalls: autopilotEvidence.failedToolCalls,
+                  verificationCalls: autopilotEvidence.verificationCalls,
+                  records: autopilotEvidence.records.slice(),
+                },
                 updatedAt: new Date().toISOString()
               };
               try { chrome.storage.local.set({ [ledgerKey]: ledger }); } catch {}
@@ -1523,7 +1544,9 @@
             }
             diag("autopilot.completionRejected", {
               pass: autopilotPasses, max: MAX_AUTOPILOT_PASSES,
-              isLeadPass, hasReport, contradictory
+              isLeadPass, hasReport, contradictory, hasObservedEvidence,
+              successfulToolCalls: autopilotEvidence.successfulToolCalls,
+              verificationCalls: autopilotEvidence.verificationCalls
             });
             if (autopilotCloseoutRetries < MAX_AUTOPILOT_CLOSEOUT_RETRIES && !A.stop) {
               autopilotCloseoutRetries++;
@@ -1533,6 +1556,8 @@
                 "Only the final Lead developer pass may emit AUTOPILOT_COMPLETE. " +
                 "Return a concise report with headings Delivered work, Verification evidence, and Unresolved risks. " +
                 "List only checks whose actual tool output is visible; explicitly label unavailable or unrun checks NOT VERIFIED. " +
+                "The orchestrator observed " + autopilotEvidence.successfulToolCalls + " successful tool call(s), " +
+                autopilotEvidence.verificationCalls + " successful verification/read/inspection call(s). Do not claim checks beyond these records. " +
                 "Do not include AUTOPILOT_NO_ACTION_NEEDED in a completion report. " +
                 "If the evidence does not justify success, state BLOCKED or NOT VERIFIED and omit AUTOPILOT_COMPLETE."
               );
@@ -1640,6 +1665,21 @@
           }
           const isErr = feedbackIsError(feedback);
           const outBody = stripOutputPrefix(feedback);
+          if (A.autopilotEnabled) {
+            autopilotEvidence.toolCalls++;
+            if (isErr) autopilotEvidence.failedToolCalls++;
+            else autopilotEvidence.successfulToolCalls++;
+            if (!isErr && VERIFICATION_TOOL_NAME.test(String(call.tool || ""))) {
+              autopilotEvidence.verificationCalls++;
+              autopilotEvidence.records.push({
+                tool: String(call.tool || "unknown"),
+                outcome: "success",
+                summary: outSummary(feedback).slice(0, 240),
+                at: new Date().toISOString(),
+              });
+              if (autopilotEvidence.records.length > 20) autopilotEvidence.records.shift();
+            }
+          }
           // Trace the chip's DERIVED phase vs summary. Blender (and any MCP whose
           // output leads with a warning/diagnostic line) resolves ✓ done - the
           // payload starts "Output of…", not "ERROR" - yet outSummary shows its
