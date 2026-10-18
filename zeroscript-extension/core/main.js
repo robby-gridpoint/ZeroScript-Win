@@ -1538,7 +1538,7 @@
                 updatedAt: new Date().toISOString()
               };
               try { chrome.storage.local.set({ [ledgerKey]: ledger }); } catch {}
-              diag("autopilot.earlyClose", { pass: autopilotPasses, marker: "complete", gate: "lead_pass_report_shape" });
+              diag("autopilot.earlyClose", { pass: autopilotPasses, marker: "complete", gate: "lead_report_and_observed_tool_evidence" });
               ui.toast("Autopilot closeout accepted · tool evidence recorded.");
               break;
             }
