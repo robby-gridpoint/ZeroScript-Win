@@ -7,6 +7,50 @@
 // Contract with content.js: every sendMessage ALWAYS gets a response object,
 // even when the bridge is offline. The agentic loop must never hang waiting.
 
+importScripts("core/autopilot-ledger.js");
+
+const AUTOPILOT_RUNS_KEY = "zsAutopilotRuns";
+let autopilotStorageQueue = Promise.resolve();
+async function readAutopilotRuns() {
+  const result = await chrome.storage.local.get({ [AUTOPILOT_RUNS_KEY]: {} });
+  return result[AUTOPILOT_RUNS_KEY] && typeof result[AUTOPILOT_RUNS_KEY] === "object"
+    ? result[AUTOPILOT_RUNS_KEY] : {};
+}
+function writeAutopilotRuns(runs) {
+  autopilotStorageQueue = autopilotStorageQueue.then(() =>
+    chrome.storage.local.set({ [AUTOPILOT_RUNS_KEY]: runs })
+  );
+  return autopilotStorageQueue;
+}
+async function mutateAutopilotRun(runId, mutate) {
+  return autopilotStorageQueue = autopilotStorageQueue.then(async () => {
+    const runs = await readAutopilotRuns();
+    const run = runs[runId];
+    if (!run) throw new Error("Unknown Autopilot run: " + runId);
+    const value = await mutate(run);
+    runs[runId] = run;
+    await chrome.storage.local.set({ [AUTOPILOT_RUNS_KEY]: runs });
+    return value === undefined ? run : value;
+  });
+}
+async function recoverAutopilotRuns() {
+  const runs = await readAutopilotRuns();
+  let changed = false;
+  for (const [id, run] of Object.entries(runs)) {
+    try {
+      const recovered = ZSAutopilotLedger.recoverExpiredLeases(run);
+      if (recovered.length) changed = true;
+      ZSAutopilotLedger.refreshReady(run);
+      if (run.stopRequested) run.state = "cancelled";
+      runs[id] = run;
+    } catch (error) {
+      console.warn("[ArcScript] Autopilot ledger recovery skipped", id, String(error));
+    }
+  }
+  if (changed) await writeAutopilotRuns(runs);
+  return runs;
+}
+
 const PORT = 17613;
 const URL = `ws://127.0.0.1:${PORT}`;
 
@@ -304,6 +348,61 @@ function broadcastStatus() {
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   (async () => {
     switch (msg.type) {
+      case "autopilot_create_run": {
+        const run = ZSAutopilotLedger.createRun(msg.input || {});
+        const runs = await readAutopilotRuns();
+        runs[run.id] = run;
+        await writeAutopilotRuns(runs);
+        sendResponse({ ok: true, run });
+        break;
+      }
+      case "autopilot_get_run": {
+        const runs = await readAutopilotRuns();
+        sendResponse({ ok: !!runs[msg.runId], run: runs[msg.runId] || null });
+        break;
+      }
+      case "autopilot_list_runs": {
+        const runs = await recoverAutopilotRuns();
+        sendResponse({ ok: true, runs: Object.values(runs).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 50) });
+        break;
+      }
+      case "autopilot_refresh_ready": {
+        const run = await mutateAutopilotRun(msg.runId, (value) => ZSAutopilotLedger.refreshReady(value));
+        sendResponse({ ok: true, run });
+        break;
+      }
+      case "autopilot_claim_task": {
+        const result = await mutateAutopilotRun(msg.runId, (run) => {
+          ZSAutopilotLedger.recoverExpiredLeases(run);
+          const claim = ZSAutopilotLedger.claimNext(run, msg.worker || {});
+          return claim ? { task: claim.task, lease: claim.lease, runState: run.state } : { task: null, lease: null, runState: run.state };
+        });
+        sendResponse({ ok: true, ...result });
+        break;
+      }
+      case "autopilot_transition_task": {
+        const run = await mutateAutopilotRun(msg.runId, (value) => {
+          ZSAutopilotLedger.transition(value, msg.taskId, msg.nextState, msg.payload || {});
+          ZSAutopilotLedger.refreshReady(value);
+          return value;
+        });
+        sendResponse({ ok: true, run });
+        break;
+      }
+      case "autopilot_finalize_run": {
+        const run = await mutateAutopilotRun(msg.runId, (value) => {
+          ZSAutopilotLedger.refreshReady(value);
+          ZSAutopilotLedger.finalize(value);
+          return value;
+        });
+        sendResponse({ ok: true, run });
+        break;
+      }
+      case "autopilot_cancel_run": {
+        const run = await mutateAutopilotRun(msg.runId, (value) => ZSAutopilotLedger.cancelRun(value, msg.reason));
+        sendResponse({ ok: true, run });
+        break;
+      }
       case "status":
         if (!connected) connect(); // self-heal after a worker wake-up
         sendResponse(statusObj());
