@@ -210,7 +210,7 @@
   // long after they returned. visibilitychange fires immediately on unhide, so we
   // race it against a slow stop-poll (the stop path is not latency-critical).
   async function waitVisible() {
-    if (!document.hidden || A.stop) return !A.stop;
+    if (!document.hidden || A.stop || A.workerTask) return !A.stop;
     A.parked = true;
     try { ui.setStarting(); } catch {}
     try {
@@ -240,7 +240,7 @@
   // Studio for 5 minutes" into "No response from <site>, the loop has stopped"
   // and left the pending command showing a grey "not run".
   async function parkHidden() {
-    if (!document.hidden || A.stop) return 0;
+    if (!document.hidden || A.stop || A.workerTask) return 0;
     const t0 = Date.now();
     await waitVisible();
     const parked = Date.now() - t0;
@@ -380,7 +380,7 @@
       let tries = 0;
       let messageSent = false;
       while (!messageSent && !landed() && tries < 4 && !A.stop) {
-        if (document.hidden) {
+        if (document.hidden && !A.workerTask) {
           diag("send.waitVisible", { tries });
           if (!(await waitVisible()) || A.stop) break; // park (no cap) until foreground; break only on user stop
         }
@@ -533,7 +533,7 @@
       // fix for "I switched to Studio, came back and the command says 'not run'":
       // the loop used to burn its 5-minute inactivity budget off-screen, end with
       // "No response from <site>", and orphan the pending command.
-      if (document.hidden && !A.stop) {
+      if (document.hidden && !A.stop && !A.workerTask) {
         const parked = await parkHidden();
         if (A.stop) return { kind: "stopped" };
         if (parked) {
@@ -1019,7 +1019,7 @@
     // tool call that fired into Studio off-screen (observed live: GLM minimized
     // still ran execute_luau). Parking here (no time cap) means the call runs the
     // moment the tab is foreground again, instead of being lost or run blind.
-    if (document.hidden && !A.stop) {
+    if (document.hidden && !A.stop && !A.workerTask) {
       diag("tool.waitVisible", { name });
       // Only reachable via a user Stop while parked; agentLoop's post-runTool
       // A.stop check breaks the loop and discards this, so it just needs to be
@@ -1420,7 +1420,7 @@
         //    duplicate sends - see the send-side guard in submitAndGetBase).
         // Parking here means we never START a parse/exec cycle off-screen; the
         // send step re-checks too, so a switch-away mid-generation is covered.
-        if (document.hidden && !A.stop) {
+        if (document.hidden && !A.stop && !A.workerTask) {
           diag("loop.waitVisible");
           ui.inputCover(true); // keep the "Agent is working" cover up while parked
           if (!(await waitVisible()) || A.stop) break; // park (no cap) until foreground; break only on user stop
@@ -1643,7 +1643,7 @@
           //     the auto-resume watchdog refuses to re-fire an "executed" turn.
           // Parking first keeps all of that truthful: we only commit once we are
           // foreground and about to really dispatch.
-          if (document.hidden && !A.stop) {
+          if (document.hidden && !A.stop && !A.workerTask) {
             diag("tool.parkBeforeDispatch", { name: call.tool });
             if (!(await waitVisible()) || A.stop) break;
           }
