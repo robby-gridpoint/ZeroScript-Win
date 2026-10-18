@@ -4390,7 +4390,7 @@
             "Role-specific write policy: project_manager, qa, code_review, security, and ideas_insights are read-only; do not edit files in those roles. implementation owns implementation edits. documentation may edit only documentation after its dependencies are complete. lead integrates findings and may make a final narrow fix only after the review dependencies complete.",
             "Final response must include: Task outcome, Files changed, Verification evidence, Findings/blockers. For QA, list each overall acceptance criterion verbatim and label it VERIFIED only when supported by tool output; otherwise mark it NOT VERIFIED. Do not emit AUTOPILOT_COMPLETE.",
           ].join("\n\n");
-          const base = await submitAndGetBase(prompt);
+          const base = await submitAndGetBase(ZS.SYS_MARKER + "\n" + prompt);
           await agentLoop(base);
           const item = P.lastAssistant();
           const report = item ? String(P.itemText(item) || "") : "";
