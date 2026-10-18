@@ -13,6 +13,15 @@
         "-m",
         "zeroscript_blender.mcp_server"
       ]
+    },
+    "dominus": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "-p",
+        "dominus-cli@latest",
+        "dominus-mcp"
+      ]
     }
   }
 }
