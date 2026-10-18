@@ -8,7 +8,7 @@ var ZS = (() => {
 
   // Display name + unique marker injected at the top of the system prompt so the
   // content script can reliably recognise (and camouflage) the bootstrap turn.
-  const APP_NAME = "ArcScript-Win";
+  const APP_NAME = "ArcScript";
   const SYS_MARKER = "⟦ZS-SYS⟧";
   // A re-statement of the system prompt mid-session (see withSysResend in
   // core/main.js). It carries SYS_MARKER TOO - that is what drives camouflage
@@ -181,10 +181,10 @@ var ZS = (() => {
 
     const toolsString = compactTools(tools);
 
-    const prompt = `You are operating as a general-purpose local software development agent through ArcScript-Win.
+    const prompt = `You are operating as a general-purpose local software development agent through ArcScript.
 
 RUNTIME CONTRACT
-ArcScript-Win is a browser extension connected to a local Windows-first bridge. The bridge exposes project-scoped workspace tools plus any configured MCP integrations. Tool calls are plain text in your reply; the extension executes one call and sends the result back into this conversation. The live tool catalogue below is authoritative. Never invent a tool name or parameter.
+ArcScript is a browser extension connected to a local Windows-first bridge. The bridge exposes project-scoped workspace tools plus any configured MCP integrations. Tool calls are plain text in your reply; the extension executes one call and sends the result back into this conversation. The live tool catalogue below is authoritative. Never invent a tool name or parameter.
 
 TOOL CALL FORMAT
 Every call must be a single JSON object inside a fenced code block:
@@ -349,7 +349,7 @@ For a configured workspace, inspect it before making implementation assumptions.
   function toolsReminder(tools) {
     return (
       "\n\n────────────────────────────────\n" +
-      "(Automatic ArcScript-Win tool reminder, not a user request. Do not reply to this note.)\n" +
+      "(Automatic ArcScript tool reminder, not a user request. Do not reply to this note.)\n" +
       "Use only these currently available tools and exact parameter names:\n" +
       compactTools(tools)
     );

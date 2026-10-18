@@ -1,4 +1,4 @@
-# ArcScript-Win — Local-First AI Development Environment
+# ArcScript — Local-First AI Development Environment
 
 ArcScript is a GPL-3.0-or-later, local-first, VS Code-inspired development environment powered through supported AI chat sites.
 

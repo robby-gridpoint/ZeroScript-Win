@@ -74,7 +74,7 @@ All notable changes to ArcScript are documented here.
 ### Fixed
 - **DeepSeek: a reply written in DeepSeek's own tool-call markup no longer kills
   the turn.** DeepSeek sometimes answers with its internal DSML invoke tags
-  instead of a ArcScript command. That format carries none of the markers
+  instead of an ArcScript command. That format carries none of the markers
   ArcScript looks for, so nothing recognised it as a command attempt: the tool
   never ran, the raw tags were left on screen, and the agent silently stopped
   with the user waiting on a dead turn. It is now detected, the markup is hidden

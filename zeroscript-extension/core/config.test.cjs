@@ -46,4 +46,4 @@ assert.equal(ZS.toolCategory("roblox/screen_capture"), "screen");
 assert.match(ZS.toolsReminder(tools), /workspace_info/);
 assert.match(ZS.toolsReminder(tools), /\n\n/);
 
-process.stdout.write("ZeroScript-Win config tests passed.\n");
+process.stdout.write("ArcScript config tests passed.\n");

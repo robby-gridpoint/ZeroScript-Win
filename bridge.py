@@ -485,7 +485,7 @@ def _reclaim_bridge_port():
     cmdline = _process_cmdline(pid_i)
     if "bridge.py" not in cmdline.lower():
         log(f"port {PORT} is held by pid {pid_i} ('{name}') but it does not look "
-            f"like a ArcScript bridge - leaving it alone.", "yl")
+            f"like an ArcScript bridge - leaving it alone.", "yl")
         return False
     log(f"port {PORT} is held by a leftover ArcScript bridge (pid {pid_i}) from a "
         "previous session - killing it so this one can start.", "yl")
@@ -1258,7 +1258,7 @@ class MCPManager:
                 root.attributes("-topmost", True)
             except Exception:
                 pass
-            chosen = filedialog.askdirectory(parent=root, title="Choose a ArcScript coding workspace",
+            chosen = filedialog.askdirectory(parent=root, title="Choose an ArcScript coding workspace",
                                             initialdir=self.workspace_root if os.path.isdir(self.workspace_root) else HERE,
                                             mustexist=True)
         except Exception as exc:
