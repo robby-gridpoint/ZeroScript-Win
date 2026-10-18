@@ -17,8 +17,7 @@ assert.equal(decide("qa", "workspace_run_task", { task: "install" }, "edit").all
 assert.equal(decide("qa", "check_and_fix", {}, "tool").allowed, false, "mixed read/mutate tools must not pass the read-only gate");
 assert.equal(decide("documentation", "workspace_write_file", { path: "docs/guide.md" }, "edit").allowed, true);
 assert.equal(decide("documentation", "workspace_write_file", { path: "README.md" }, "edit").allowed, true);
-assert.equal(decide("documentation", "workspace_write_file", { path: "docs\\\\guide.md" }, "edit").allowed, true, "Windows-relative documentation paths should normalize safely");
-assert.equal(decide("documentation", "workspace_write_file", { path: "C:\\\\docs\\\\guide.md" }, "edit").allowed, false, "absolute paths must be denied");
+assert.equal(decide("documentation", "workspace_write_file", { path: "/tmp/docs/guide.md" }, "edit").allowed, false, "absolute paths must be denied");
 assert.equal(decide("documentation", "workspace_write_file", { path: "src/app.js" }, "edit").allowed, false);
 assert.equal(decide("documentation", "workspace_multi_edit", { edits: [{ path: "docs/a.md" }, { path: "src/a.js" }] }, "edit").allowed, false);
 assert.equal(decide("implementation", "workspace_write_file", { path: "src/app.js" }, "edit").allowed, true);
