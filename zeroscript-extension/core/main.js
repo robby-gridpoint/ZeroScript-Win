@@ -106,6 +106,8 @@
   const A = {
     running: false,
     autopilotEnabled: false,
+    workerTask: null,
+    workerEvidence: [],
     stop: false,
     // stopping: the user clicked Stop and we are winding the loop down. Set the
     // instant the button is clicked so the bar can show immediate "Stopping…"
@@ -1510,7 +1512,7 @@
           // with a minimally complete evidence report. A specialist cannot end
           // the run by emitting the marker, and contradictory terminal markers
           // are never treated as success.
-          if (A.autopilotEnabled && /AUTOPILOT_COMPLETE/.test(res.text || "")) {
+          if (A.autopilotEnabled && !A.workerTask && /AUTOPILOT_COMPLETE/.test(res.text || "")) {
             const text = String(res.text || "");
             const isLeadPass = autopilotPasses === MAX_AUTOPILOT_PASSES;
             const hasReport = /delivered work/i.test(text) &&
@@ -1564,10 +1566,10 @@
               continue;
             }
           }
-          if (A.autopilotEnabled && /AUTOPILOT_NO_ACTION_NEEDED/.test(res.text || "")) {
+          if (A.autopilotEnabled && !A.workerTask && /AUTOPILOT_NO_ACTION_NEEDED/.test(res.text || "")) {
             diag("autopilot.phaseNoAction", { pass: autopilotPasses });
           }
-          if (A.autopilotEnabled && autopilotPasses < MAX_AUTOPILOT_PASSES && !A.stop) {
+          if (A.autopilotEnabled && !A.workerTask && autopilotPasses < MAX_AUTOPILOT_PASSES && !A.stop) {
             const phase = AUTOPILOT_PHASES[autopilotPasses];
             autopilotPasses++;
             const ledgerKey = "zsAutopilotRun:" + String(P.conversationKey() || "unknown");
@@ -1589,7 +1591,7 @@
             );
             continue;
           }
-          if (A.autopilotEnabled && autopilotPasses >= MAX_AUTOPILOT_PASSES) {
+          if (A.autopilotEnabled && !A.workerTask && autopilotPasses >= MAX_AUTOPILOT_PASSES) {
             const ledgerKey = "zsAutopilotRun:" + String(P.conversationKey() || "unknown");
             const ledger = {
               conversationKey: String(P.conversationKey() || "unknown"),
@@ -1672,6 +1674,14 @@
           }
           const isErr = feedbackIsError(feedback);
           const outBody = stripOutputPrefix(feedback);
+          if (A.workerTask && !isErr) {
+            A.workerEvidence.push({
+              tool: String(call.tool || "unknown"),
+              summary: outSummary(feedback).slice(0, 240),
+              source: "tool:" + String(call.tool || "unknown"),
+            });
+            if (A.workerEvidence.length > 30) A.workerEvidence.shift();
+          }
           if (A.autopilotEnabled) {
             autopilotEvidence.toolCalls++;
             if (isErr) autopilotEvidence.failedToolCalls++;
@@ -4302,13 +4312,123 @@
       if (area === "local" && changes.autopilotEnabled) A.autopilotEnabled = changes.autopilotEnabled.newValue === true;
     });
   } catch {}
-  chrome.runtime.onMessage.addListener((msg) => {
+  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (msg && msg.type === "zs-autopilot-setting") A.autopilotEnabled = msg.enabled === true;
     if (msg && msg.type === "zs-status") {
       ui.setStatus({ connected: msg.connected, mcpAlive: msg.mcpAlive, studio: msg.studio, studioApp: msg.studioApp, studioProc: msg.studioProc, tools: msg.tools, servers: msg.servers });
     }
     if (msg && msg.type === "zs-open-menu") {
       ui.openMenu(false); // from the popup's Settings button — opens at the top (Switch AI / custom prompt)
+    }
+    if (msg && msg.type === "zs-autopilot-worker-probe") {
+      sendResponse({
+        available: A.started && !A.running && !A.starting && !A.injecting && !A.workerTask && !A.userStopped && !P.isGenerating(),
+        workerId: P.id + ":" + String(P.conversationKey() || "unassigned"),
+        provider: P.id,
+        roles: ["project_manager", "implementation", "qa", "code_review", "security", "documentation", "ideas_insights", "lead"],
+      });
+      return true;
+    }
+    if (msg && msg.type === "zs-autopilot-worker-dispatch") {
+      if (!A.started || A.running || A.starting || A.injecting || A.workerTask || A.userStopped || P.isGenerating()) {
+        sendResponse({ ok: false, error: "Worker session is not idle and ready." });
+        return true;
+      }
+      if (!msg.task || !msg.lease || !msg.runId || !msg.taskId) {
+        sendResponse({ ok: false, error: "Worker task or lease is missing." });
+        return true;
+      }
+      A.workerTask = { runId: msg.runId, taskId: msg.taskId, task: msg.task, lease: msg.lease };
+      A.workerEvidence = [];
+      sendResponse({ ok: true, accepted: true, provider: P.id });
+      (async () => {
+        const worker = A.workerTask;
+        try {
+          const running = await bg({
+            type: "autopilot_transition_task", runId: worker.runId, taskId: worker.taskId,
+            nextState: "running", payload: { leaseToken: worker.lease.token, workerId: worker.lease.workerId },
+          });
+          if (!running.ok) throw new Error(running.error || "Could not start leased task.");
+          const got = await bg({ type: "autopilot_get_run", runId: worker.runId });
+          if (!got.ok || !got.run) throw new Error("Autopilot run record is unavailable.");
+          const task = worker.task;
+          const dependencies = task.dependencies.map((id) => got.run.tasks.find((t) => t.id === id)).filter(Boolean);
+          const dependencyNotes = dependencies.map((t) =>
+            t.role + " (" + t.status + "): " + (t.evidence || []).map((e) => e.summary).join("; ")
+          ).join("\n");
+          const prompt = [
+            "ARCSCRIPT AUTOPILOT WORKER TASK. You are an independent worker session assigned exactly one bounded task. Do not perform other roles' work.",
+            "Run ID: " + worker.runId,
+            "Task ID: " + worker.taskId,
+            "Role: " + task.role,
+            "Task: " + task.title,
+            "Original user goal: " + got.run.goal,
+            "Acceptance criteria for the overall run:\n- " + got.run.acceptanceCriteria.join("\n- "),
+            "This task's acceptance criteria:\n- " + task.acceptanceCriteria.join("\n- "),
+            "Completed dependency evidence:\n" + (dependencyNotes || "(none)"),
+            "Use available tools to inspect and make scoped changes. Verify with actual tool output. Never claim a check passed unless its output is available. Do not publish, deploy, spend money, communicate externally, delete user data, change credentials/security settings, or perform irreversible actions.",
+            "Final response must include: Task outcome, Files changed, Verification evidence, Findings/blockers. For QA, list each overall acceptance criterion verbatim and label it VERIFIED only when supported by tool output; otherwise mark it NOT VERIFIED. Do not emit AUTOPILOT_COMPLETE.",
+          ].join("\n\n");
+          const base = await submitAndGetBase(prompt);
+          await agentLoop(base);
+          const item = P.lastAssistant();
+          const report = item ? String(P.itemText(item) || "") : "";
+          const evidence = A.workerEvidence.slice();
+          const isQA = task.role === "qa";
+          const criteriaVerified = isQA
+            ? got.run.acceptanceCriteria.filter((criterion) => {
+                const escaped = criterion.replace(/[.*+?^${}()|[\]\\]/g, "\\  chrome.runtime.onMessage.addListener((msg) => {
+    if (msg && msg.type === "zs-autopilot-setting") A.autopilotEnabled = msg.enabled === true;
+    if (msg && msg.type === "zs-status") {
+      ui.setStatus({ connected: msg.connected, mcpAlive: msg.mcpAlive, studio: msg.studio, studioApp: msg.studioApp, studioProc: msg.studioProc, tools: msg.tools, servers: msg.servers });
+    }
+    if (msg && msg.type === "zs-open-menu") {
+      ui.openMenu(false); // from the popup's Settings button — opens at the top (Switch AI / custom prompt)
+    }
+  });");
+                return new RegExp(escaped + "[^\\n]{0,100}VERIFIED", "i").test(report);
+              })
+            : [];
+          const allQACriteria = !isQA || criteriaVerified.length === got.run.acceptanceCriteria.length;
+          if (evidence.length && allQACriteria && report.trim()) {
+            await bg({
+              type: "autopilot_transition_task", runId: worker.runId, taskId: worker.taskId,
+              nextState: "completed",
+              payload: {
+                evidence: evidence.map((e) => ({ summary: e.tool + ": " + e.summary, source: e.source })),
+                findings: report.split("\n").filter((line) => /finding|blocker|not verified|needs approval/i.test(line)).slice(0, 20),
+                criteriaVerified,
+              },
+            });
+          } else {
+            await bg({
+              type: "autopilot_transition_task", runId: worker.runId, taskId: worker.taskId,
+              nextState: "blocked",
+              payload: { reason: !evidence.length ? "Worker produced no successful tool evidence." : !allQACriteria ? "QA did not explicitly verify every acceptance criterion with evidence." : "Worker produced no final report." },
+            });
+          }
+        } catch (error) {
+          try {
+            const state = await bg({ type: "autopilot_get_run", runId: worker.runId });
+            const current = state.ok && state.run && state.run.tasks.find((t) => t.id === worker.taskId);
+            if (current && ["leased", "running"].includes(current.status)) {
+              await bg({
+                type: "autopilot_transition_task", runId: worker.runId, taskId: worker.taskId,
+                nextState: "blocked", payload: { reason: String(error && error.message || error) },
+              });
+            }
+          } catch {}
+          diag("autopilot.workerFailed", { taskId: worker.taskId, error: String(error && error.message || error) });
+        } finally {
+          A.workerTask = null;
+          A.workerEvidence = [];
+          try {
+            await bg({ type: "autopilot_finalize_run", runId: worker.runId });
+            await bg({ type: "autopilot_dispatch_ready", runId: worker.runId });
+          } catch {}
+        }
+      })();
+      return true;
     }
   });
 
