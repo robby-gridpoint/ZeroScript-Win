@@ -105,6 +105,7 @@
 
   const A = {
     running: false,
+    autopilotEnabled: false,
     stop: false,
     // stopping: the user clicked Stop and we are winding the loop down. Set the
     // instant the button is clicked so the bar can show immediate "Stopping…"
@@ -1304,6 +1305,8 @@
     A.loopKey = null; // pinned by syncSessionState once this chat has an id + content
     A.loopAbandoned = false;
     let truncCount = 0;
+    let autopilotPasses = 0;
+    const MAX_AUTOPILOT_PASSES = 3;
     const MAX_TRUNC = 6;
     // Re-send the command list after this many successful tool calls. Kept high
     // so the reminder does not bloat the context too often.
@@ -1414,7 +1417,22 @@
           base = await submitAndGetBase(ZS.FEEDBACK.parseError(res.reason, failName));
           continue;
         }
-        if (res.kind === "text") break; // final answer
+        if (res.kind === "text") {
+          if (A.autopilotEnabled && autopilotPasses < MAX_AUTOPILOT_PASSES && !A.stop) {
+            autopilotPasses++;
+            diag("autopilot.continue", { pass: autopilotPasses, max: MAX_AUTOPILOT_PASSES });
+            ui.toast("Autopilot review " + autopilotPasses + "/" + MAX_AUTOPILOT_PASSES + "…");
+            base = await submitAndGetBase(
+              "AUTOPILOT TEAM REVIEW: Act as the lead developer coordinating a small engineering team. Review the original request and work completed. Perform one focused pass as the appropriate specialist (project manager, implementation engineer, QA/test engineer, code reviewer, security reviewer, or documentation owner). Use available tools to complete specific useful remaining work, run relevant safe tests, and inspect results. Do not repeat completed work or make needless cosmetic edits. Do not publish, deploy, spend money, delete user data, change credentials/security settings, or perform irreversible/high-impact actions without explicit user approval. If blocked, approval is needed, or the task is complete, stop and summarize the result and remaining risks concisely."
+            );
+            continue;
+          }
+          if (A.autopilotEnabled && autopilotPasses >= MAX_AUTOPILOT_PASSES) {
+            diag("autopilot.limit", { max: MAX_AUTOPILOT_PASSES });
+            ui.toast("Autopilot reached its review limit.");
+          }
+          break;
+        }
 
         if (res.kind === "tool") {
           const calls = res.calls;
@@ -4081,7 +4099,16 @@
   //  WIRING
   // ════════════════════════════════════════════════════════════════════════
 
+  try {
+    chrome.storage.local.get({ autopilotEnabled: false }, (value) => {
+      A.autopilotEnabled = value.autopilotEnabled === true;
+    });
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === "local" && changes.autopilotEnabled) A.autopilotEnabled = changes.autopilotEnabled.newValue === true;
+    });
+  } catch {}
   chrome.runtime.onMessage.addListener((msg) => {
+    if (msg && msg.type === "zs-autopilot-setting") A.autopilotEnabled = msg.enabled === true;
     if (msg && msg.type === "zs-status") {
       ui.setStatus({ connected: msg.connected, mcpAlive: msg.mcpAlive, studio: msg.studio, studioApp: msg.studioApp, studioProc: msg.studioProc, tools: msg.tools, servers: msg.servers });
     }
