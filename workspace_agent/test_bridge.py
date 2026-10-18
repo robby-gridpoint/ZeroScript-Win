@@ -62,11 +62,11 @@ class WorkspaceBridgeTests(unittest.TestCase):
         output = self.root / "output"
         output.mkdir()
         image_path = output / "pallet_town.png"
-        image_path.write_bytes(b"\\x89PNG\\r\\n\\x1a\\n" + b"test-payload")
+        image_path.write_bytes(b"\x89PNG\r\n\x1a\n" + b"test-payload")
         self.manager.workspace_configured = True
 
         # Workspace-relative paths should work with either separator style.
-        for path in ("output/pallet_town.png", "output\\\\pallet_town.png"):
+        for path in ("output/pallet_town.png", "output\\pallet_town.png"):
             with self.subTest(path=path):
                 result = self.manager.call("workspace_preview_image", {"path": path}, 5)
                 self.assertEqual(result["images"][0]["mimeType"], "image/png")
