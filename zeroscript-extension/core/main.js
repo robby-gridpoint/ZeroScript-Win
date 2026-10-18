@@ -1306,7 +1306,33 @@
     A.loopAbandoned = false;
     let truncCount = 0;
     let autopilotPasses = 0;
-    const MAX_AUTOPILOT_PASSES = 3;
+    const AUTOPILOT_PHASES = [
+      {
+        role: "Project manager",
+        prompt: "PROJECT MANAGER PASS: Reconstruct the user's original goal from this conversation. Compare work completed against explicit acceptance criteria. Identify concrete gaps, dependencies, and blockers. If a gap is actionable with available tools, create a short prioritized plan and complete the most important missing work now. Do not re-do verified work. If no useful action remains, say AUTOPILOT_NO_ACTION_NEEDED."
+      },
+      {
+        role: "QA engineer",
+        prompt: "INDEPENDENT QA PASS: Treat previous claims as unverified. Inspect the changed files and actual tool outputs. Run relevant safe tests/checks available in this environment; inspect results. Fix straightforward, in-scope defects and rerun the affected checks. Do not claim a test passed unless its result is visible. If no useful action remains, say AUTOPILOT_NO_ACTION_NEEDED."
+      },
+      {
+        role: "Code reviewer",
+        prompt: "CODE REVIEW PASS: Review the implementation and diffs as a skeptical reviewer. Look for regressions, edge cases, stale assumptions, duplicated work, compatibility problems, and error paths. Make targeted fixes only when evidence supports them; verify each fix with available checks. If no actionable issue remains, say AUTOPILOT_NO_ACTION_NEEDED."
+      },
+      {
+        role: "Security reviewer",
+        prompt: "SECURITY PASS: Inspect changes and tool usage for permission escalation, unsafe command execution, secret exposure, untrusted input, destructive side effects, and approval bypasses. Fix concrete in-scope problems. Never publish, deploy, spend money, send external communications, delete user data, change credentials/security settings, or perform irreversible/high-impact actions without explicit user approval. If no useful action remains, say AUTOPILOT_NO_ACTION_NEEDED."
+      },
+      {
+        role: "Documentation owner",
+        prompt: "DOCUMENTATION PASS: Compare docs and UI claims against behavior actually implemented and verified. Correct stale or misleading instructions, add essential setup/usage notes, and document known limits. Do not describe planned functionality as shipped or unverified checks as passing. If no useful action remains, say AUTOPILOT_NO_ACTION_NEEDED."
+      },
+      {
+        role: "Lead developer",
+        prompt: "LEAD DEVELOPER CLOSEOUT: Re-check the original request, acceptance criteria, work performed, and available verification evidence. Address one final concrete gap if it can be safely completed and verified. Otherwise conclude with a concise report separating delivered work, checks actually run, unresolved risks, and approval-gated actions. End the report with AUTOPILOT_COMPLETE. Do not restart completed work."
+      }
+    ];
+    const MAX_AUTOPILOT_PASSES = AUTOPILOT_PHASES.length;
     const MAX_TRUNC = 6;
     // Re-send the command list after this many successful tool calls. Kept high
     // so the reminder does not bloat the context too often.
@@ -1418,18 +1444,47 @@
           continue;
         }
         if (res.kind === "text") {
+          // Specialists can stop early when no useful action remains.
+          if (A.autopilotEnabled && /AUTOPILOT_NO_ACTION_NEEDED|AUTOPILOT_COMPLETE/.test(res.text || "")) {
+            diag("autopilot.earlyClose", { pass: autopilotPasses, marker: /AUTOPILOT_COMPLETE/.test(res.text || "") ? "complete" : "no-action" });
+            ui.toast("Autopilot found no further actionable work.");
+            break;
+          }
           if (A.autopilotEnabled && autopilotPasses < MAX_AUTOPILOT_PASSES && !A.stop) {
+            const phase = AUTOPILOT_PHASES[autopilotPasses];
             autopilotPasses++;
-            diag("autopilot.continue", { pass: autopilotPasses, max: MAX_AUTOPILOT_PASSES });
-            ui.toast("Autopilot review " + autopilotPasses + "/" + MAX_AUTOPILOT_PASSES + "…");
+            const ledgerKey = "zsAutopilotRun:" + String(P.conversationKey() || "unknown");
+            const ledger = {
+              conversationKey: String(P.conversationKey() || "unknown"),
+              phase: phase.role,
+              pass: autopilotPasses,
+              maxPasses: MAX_AUTOPILOT_PASSES,
+              state: "running",
+              updatedAt: new Date().toISOString()
+            };
+            try { chrome.storage.local.set({ [ledgerKey]: ledger }); } catch {}
+            diag("autopilot.phase", { role: phase.role, pass: autopilotPasses, max: MAX_AUTOPILOT_PASSES });
+            ui.toast("Autopilot · " + phase.role + " (" + autopilotPasses + "/" + MAX_AUTOPILOT_PASSES + ")");
             base = await submitAndGetBase(
-              "AUTOPILOT TEAM REVIEW: Act as the lead developer coordinating a small engineering team. Review the original request and work completed. Perform one focused pass as the appropriate specialist (project manager, implementation engineer, QA/test engineer, code reviewer, security reviewer, or documentation owner). Use available tools to complete specific useful remaining work, run relevant safe tests, and inspect results. Do not repeat completed work or make needless cosmetic edits. Do not publish, deploy, spend money, delete user data, change credentials/security settings, or perform irreversible/high-impact actions without explicit user approval. If blocked, approval is needed, or the task is complete, stop and summarize the result and remaining risks concisely."
+              "AUTOPILOT MULTI-ROLE WORKFLOW — " + phase.role.toUpperCase() + "\n" +
+              phase.prompt + "\n\n" +
+              "Operating contract: this extension currently runs role-separated passes in the same provider conversation; you are not an independent model or concurrent worker. Use only tools actually available here. Keep changes scoped to the selected project/session. Respect the normal Stop control. Do not repeat completed work, fabricate tool/test results, or bypass approval gates. If a concrete next action remains, perform it with tools before responding. If none remains, include AUTOPILOT_NO_ACTION_NEEDED. The lead closeout should include delivered work, actual verification evidence, unresolved risks, and any approval needed."
             );
             continue;
           }
           if (A.autopilotEnabled && autopilotPasses >= MAX_AUTOPILOT_PASSES) {
+            const ledgerKey = "zsAutopilotRun:" + String(P.conversationKey() || "unknown");
+            const ledger = {
+              conversationKey: String(P.conversationKey() || "unknown"),
+              phase: "complete",
+              pass: autopilotPasses,
+              maxPasses: MAX_AUTOPILOT_PASSES,
+              state: "completed",
+              updatedAt: new Date().toISOString()
+            };
+            try { chrome.storage.local.set({ [ledgerKey]: ledger }); } catch {}
             diag("autopilot.limit", { max: MAX_AUTOPILOT_PASSES });
-            ui.toast("Autopilot reached its review limit.");
+            ui.toast("Autopilot reached its six-phase limit.");
           }
           break;
         }
