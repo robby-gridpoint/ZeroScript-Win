@@ -977,3 +977,31 @@ html.zs-light #zs-set-save:hover,
 html.zs-light #zs-mcp-add:hover { background: rgba(0, 0, 0, 0.09); }
 html.zs-light #zs-set-status,
 html.zs-light #zs-mcp-status { color: #6b7280; }
+
+
+/* ChatGPT sidebar: identify conversations previously attached to ArcScript. */
+a.zs-has-conversation-indicator {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+.zs-conversation-indicator {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(130, 170, 255, 0.28);
+  border-radius: 5px;
+  padding: 1px 5px;
+  color: #a8c5ff;
+  background: rgba(90, 130, 210, 0.12);
+  font: 10px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  pointer-events: none;
+}
+html.zs-light .zs-conversation-indicator {
+  color: #315da8;
+  border-color: rgba(49, 93, 168, 0.24);
+  background: rgba(49, 93, 168, 0.08);
+}
