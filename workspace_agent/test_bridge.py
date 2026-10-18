@@ -50,13 +50,28 @@ class WorkspaceBridgeTests(unittest.TestCase):
         image_path = self.root / "preview.png"
         # Valid PNG signature and minimal payload are sufficient for this
         # transport-level test; image decoding is handled by the provider.
-        image_path.write_bytes(b"\\x89PNG\\r\\n\\x1a\\n" + b"test-payload")
+        image_path.write_bytes(b"\x89PNG\r\n\x1a\n" + b"test-payload")
         self.manager.workspace_configured = True
         result = self.manager.call("workspace_preview_image", {"path": "preview.png"}, 5)
         self.assertIn('"mime_type": "image/png"', result["text"])
         self.assertEqual(result["images"][0]["mimeType"], "image/png")
         import base64
         self.assertEqual(base64.b64decode(result["images"][0]["data"]), image_path.read_bytes())
+
+    def test_workspace_preview_image_accepts_safe_svg(self):
+        svg = b'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10" fill="red"/></svg>'
+        (self.root / "preview.svg").write_bytes(svg)
+        self.manager.workspace_configured = True
+        result = self.manager.call("workspace_preview_image", {"path": "preview.svg"}, 5)
+        self.assertEqual(result["images"][0]["mimeType"], "image/svg+xml")
+        import base64
+        self.assertEqual(base64.b64decode(result["images"][0]["data"]), svg)
+
+    def test_workspace_preview_image_rejects_active_svg(self):
+        (self.root / "unsafe.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>', encoding="utf-8")
+        self.manager.workspace_configured = True
+        with self.assertRaisesRegex(RuntimeError, "active script"):
+            self.manager.call("workspace_preview_image", {"path": "unsafe.svg"}, 5)
 
     def test_workspace_preview_image_rejects_text_and_oversized_files(self):
         (self.root / "notes.txt").write_text("not an image", encoding="utf-8")
