@@ -110,12 +110,6 @@ function refresh() {
   });
 }
 
-document.getElementById("chooseWorkspace").addEventListener("click", () => {
-  // Keep the picker in a persistent extension tab. Native dialogs can steal
-  // focus from a toolbar popup and close its JavaScript context mid-selection.
-  chrome.tabs.create({ url: chrome.runtime.getURL("workspace.html?openFolder=1") });
-});
-
 document.getElementById("reconnect").addEventListener("click", () => {
   chrome.runtime.sendMessage({ type: "reconnect" }, () => setTimeout(refresh, 600));
 });
@@ -129,9 +123,6 @@ document.getElementById("restart").addEventListener("click", (event) => {
     button.textContent = original;
     setTimeout(refresh, 900);
   });
-});
-document.getElementById("openExplorer").addEventListener("click", () => {
-  chrome.tabs.create({ url: chrome.runtime.getURL("workspace.html") });
 });
 document.getElementById("settings").addEventListener("click", () => {
   chrome.tabs.query({}, (tabs) => {
