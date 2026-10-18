@@ -1981,6 +1981,7 @@
         ui.inputCover(false); // lift the Starting Up composer cover
         P.setInputLock(false); // always unlock after bootstrap
         decorate.sweep();
+        decorateConversationIndicators();
       }
     }
   }
@@ -4132,6 +4133,34 @@
       }
     });
   } catch {}
+
+  // Mark known ArcScript conversations in ChatGPT's sidebar. This is deliberately
+  // an additive, tiny text badge; it never changes the native link target or title.
+  // Keys are the same /c/<id> paths persisted by rememberSession().
+  function decorateConversationIndicators() {
+    if (P.id !== "chatgpt") return;
+    const links = document.querySelectorAll('a[href^="/c/"]');
+    for (const link of links) {
+      let path = "";
+      try { path = new URL(link.href, location.origin).pathname; } catch {}
+      const known = !!path && startedSessions.has(path);
+      let badge = link.querySelector(":scope > .zs-conversation-indicator");
+      if (!known) {
+        if (badge) badge.remove();
+        link.classList.remove("zs-has-conversation-indicator");
+        continue;
+      }
+      if (!badge) {
+        badge = document.createElement("span");
+        badge.className = "zs-conversation-indicator";
+        badge.textContent = "ArcScript";
+        badge.setAttribute("aria-label", "ArcScript-enabled conversation");
+        badge.title = "ArcScript-enabled conversation";
+        link.appendChild(badge);
+      }
+      link.classList.add("zs-has-conversation-indicator");
+    }
+  }
   // A conversation IS a ArcScript session if any rendered turn carries a
   // telltale artefact: the system-prompt marker, an injected tool-result /
   // system-note turn, or a ArcScript command an assistant wrote. Works even
