@@ -19,7 +19,7 @@ The bridge exposes an expanded, project-scoped toolset:
 - Persistent local workspace selection, native folder picker, and a recent-project list for switching between saved workspaces.
 - Project metadata, detected package manager, popular framework/tooling hints, package scripts, and source inventory.
 - An agent-facing declared-task runner (`workspace_run_task`) that refuses scripts not present in the root `package.json`.
-- Bounded file reads that preserve original CRLF/LF line endings, a depth-limited project tree, recursive file listing, glob search, regex/case-sensitive text search, and line/column matches.
+- Bounded file reads that preserve original CRLF/LF line endings, a dedicated `workspace_preview_image` tool that returns PNG/JPEG/WebP/GIF files as real image content to vision-capable chat providers (8 MB maximum), a depth-limited project tree, recursive file listing, glob search, regex/case-sensitive text search, and line/column matches.
 - Source-file outlines for imports, headings, variables, and declarations, plus cross-language declaration/symbol discovery.
 - Exact-match patch edits, validated multi-file edit batches, preview-first Replace in Files for literal or regex replacements, stale-preview protection, and complete-file writes that return unified diffs.
 - Safe no-overwrite file/directory creation, rename/move, and single-file delete operations. Directory deletion and symbolic-link mutation are refused.
