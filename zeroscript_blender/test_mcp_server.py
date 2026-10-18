@@ -38,3 +38,23 @@ class BpyMcpProtocolTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BlenderExportSchemaTests(unittest.TestCase):
+    def test_glb_export_is_single_file_and_texture_capable(self):
+        from zeroscript_blender.mcp_server import TOOLS
+        tool = next(item for item in TOOLS if item["name"] == "bpy_export")
+        schema = tool["inputSchema"]
+        self.assertIn("selected_only", schema["properties"])
+        self.assertIn("export_cameras", schema["properties"])
+        self.assertIn("export_lights", schema["properties"])
+        self.assertIn("embedded", tool["description"].lower())
+        self.assertIn("textures", tool["description"].lower())
+
+    def test_export_handler_uses_glb_and_exports_materials(self):
+        from zeroscript_blender import mcp_server
+        import inspect
+        source = inspect.getsource(mcp_server._export)
+        self.assertIn('export_format="GLB"', source)
+        self.assertIn('export_materials="EXPORT"', source)
+        self.assertIn('export_image_format="AUTO"', source)
