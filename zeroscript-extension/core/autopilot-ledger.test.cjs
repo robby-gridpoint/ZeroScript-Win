@@ -59,7 +59,8 @@ L.transition(run, qa.id, "completed", {
 });
 assert.equal(qa.criteriaVerified.length, 2);
 assert.equal(qa.criteriaEvidence.length, 2);
-assert.equal(qa.evidence[0].output, "Test output: 12 passed");
+assert.equal(Object.hasOwn(qa.evidence[0], "output"), false, "raw tool output must not be retained in durable storage");
+assert.equal(qa.criteriaEvidence[1].excerpt, "12 passed");
 
 const leaseRun = L.createRun({ goal: "Test lease renewal", acceptanceCriteria: ["Done"] });
 L.refreshReady(leaseRun);
