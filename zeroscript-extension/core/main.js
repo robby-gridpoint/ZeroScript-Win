@@ -1183,18 +1183,13 @@
       r = { ok: false, error: r.text.replace(/^(?:\S*(?:ExecuteLuauTool|CommandExecution):\d+:\s*)+/, "").trim() || r.text };
     }
     if (r.ok) {
-      if (r.images && r.images.length && !P.supportsVision) {
-        // Any tool from ANY connected server can turn out to return images -
-        // we don't try to predict this from its name in advance. This is the
-        // generic catch: whatever just ran, if it handed back images and this
-        // provider's model can't see them, refuse cleanly instead of silently
-        // attaching a file it will never actually process.
-        return `ERROR: '${bareName}' returned an image, but this assistant cannot see images. Do NOT call it again. Use a different command to get the information as text instead.`;
-      }
       if (r.images && r.images.length) {
-        // Show the capture in a left-hand ArcScript popup (from the in-memory
-        // base64 - simple and reliable on every site; no DOM-embedded preview).
+        // Always show returned images in ArcScript's own preview panel, even
+        // when the active provider/model cannot accept image attachments.
         ui.showImages(r.images, name);
+        if (!P.supportsVision) {
+          return `Output of '${name}': ${r.images.length} image(s) displayed in the ArcScript preview panel. This provider cannot analyze image attachments, so do not claim visual analysis; use a vision-capable provider if analysis is required.`;
+        }
         // Do NOT attach the image here: submitAndGetBase/typeAndSend types the
         // feedback text into the editor LATER, and on providers whose editor is
         // rebuilt via select-all + insertText (e.g. Gemini's setEditorText),
