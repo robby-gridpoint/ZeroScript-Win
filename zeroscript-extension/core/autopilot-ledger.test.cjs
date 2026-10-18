@@ -37,7 +37,6 @@ assert(ready.some((t) => t.role === "code_review"));
 assert(ready.some((t) => t.role === "security"));
 
 const qa = run.tasks.find((t) => t.role === "qa");
-L.transition(run, qa.id, "ready");
 const qaClaim = L.claimNext(run, { id: "qa-worker", provider: "chatgpt", roles: ["qa"] });
 L.transition(run, qa.id, "running", { leaseToken: qaClaim.lease.token });
 assert.throws(() => L.transition(run, qa.id, "completed", {
