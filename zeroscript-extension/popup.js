@@ -8,6 +8,34 @@ const DEFAULT_AI_URL = "https://chat.deepseek.com/";
 
 document.getElementById("ver").textContent = `v${chrome.runtime.getManifest().version}`;
 
+function initAutopilot() {
+  const toggle = document.getElementById("autopilotToggle");
+  const badge = document.getElementById("autopilotBadge");
+  const broadcast = (enabled) => {
+    chrome.tabs.query({}, (tabs) => {
+      for (const tab of tabs) {
+        if (!tab.id || !tab.url || !SUPPORTED_HOSTS.some((host) => tab.url.includes(host))) continue;
+        chrome.tabs.sendMessage(tab.id, { type: "zs-autopilot-setting", enabled }, () => void chrome.runtime.lastError);
+      }
+    });
+  };
+  chrome.storage.local.get({ autopilotEnabled: false }, (value) => {
+    toggle.checked = value.autopilotEnabled === true;
+    badge.textContent = toggle.checked ? "On · 3 passes max" : "Off";
+    badge.className = "badge" + (toggle.checked ? " ready" : "");
+  });
+  toggle.addEventListener("change", () => {
+    const enabled = toggle.checked;
+    chrome.storage.local.set({ autopilotEnabled: enabled }, () => {
+      badge.textContent = enabled ? "On · 3 passes max" : "Off";
+      badge.className = "badge" + (enabled ? " ready" : "");
+      broadcast(enabled);
+    });
+  });
+}
+
+
+
 function parseToolText(response) {
   if (!response || !response.text) return null;
   try { return JSON.parse(response.text); } catch { return null; }
@@ -121,5 +149,6 @@ document.getElementById("settings").addEventListener("click", () => {
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg && msg.type === "zs-status") render(msg);
 });
+initAutopilot();
 refresh();
 setInterval(refresh, 2000);
