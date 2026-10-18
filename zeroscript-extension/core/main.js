@@ -1598,6 +1598,13 @@
               maxPasses: MAX_AUTOPILOT_PASSES,
               state: "blocked_unverified",
               reason: "phase_limit_without_valid_lead_closeout",
+              evidence: {
+                toolCalls: autopilotEvidence.toolCalls,
+                successfulToolCalls: autopilotEvidence.successfulToolCalls,
+                failedToolCalls: autopilotEvidence.failedToolCalls,
+                verificationCalls: autopilotEvidence.verificationCalls,
+                records: autopilotEvidence.records.slice(),
+              },
               updatedAt: new Date().toISOString()
             };
             try { chrome.storage.local.set({ [ledgerKey]: ledger }); } catch {}
