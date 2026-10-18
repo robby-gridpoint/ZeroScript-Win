@@ -844,15 +844,22 @@ const ZSProvider = (() => {
     images.forEach((img, i) => { try { dt.items.add(fileFromImage(img, i)); } catch {} });
     if (!dt.items.length) return false;
     ed.focus();
-    ed.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
-    // The real upload input (validated live 2026-08); the generic selector is a
-    // fallback in case the testid is renamed.
+    // Match DeepSeek's proven upload order: the real file input is PRIMARY
+    // because it starts the site's actual upload. Synthetic paste can create a
+    // local-only preview, and doing both can stage duplicate copies of an image.
     const fileInput = document.querySelector('input[data-testid="upload-photos-input"]') ||
       document.querySelector('input[type="file"]');
     if (fileInput) {
-      try { fileInput.files = dt.files; fileInput.dispatchEvent(new Event("change", { bubbles: true })); } catch {}
+      try {
+        fileInput.files = dt.files;
+        fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+      } catch {}
+    } else {
+      ed.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
     }
-    // An upload preview appearing near the composer is the success signal.
+    // Wait for an image preview near the composer; the provider send path runs
+    // only after this upload attempt, so the model receives the image with the
+    // inspection request rather than a text-only description of the attachment.
     return await waitFor(() => {
       const box = composerFrame();
       return !!(box && box.querySelector("img, [class*='preview'], [class*='thumbnail']"));
