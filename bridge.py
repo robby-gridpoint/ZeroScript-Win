@@ -19,6 +19,7 @@
 #     Nothing ever hangs the agentic loop silently.
 # ──────────────────────────────────────────────────────────────────────────
 import asyncio
+import base64
 import json
 import os
 from pathlib import Path
@@ -1152,6 +1153,8 @@ class MCPManager:
              "inputSchema": {"type": "object", "properties": {"path": {"type": "string", "default": "."}, "max_results": {"type": "integer", "minimum": 1, "maximum": 500}, "include_hidden": {"type": "boolean"}}, "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_read_file", "description": "Read a UTF-8 text file inside the selected project (maximum 1 MB). Optional 1-based start_line/end_line bounds the read.",
              "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}, "start_line": {"type": "integer", "minimum": 1}, "end_line": {"type": "integer", "minimum": 1}}, "required": ["path"], "additionalProperties": False}, "server": "workspace"},
+            {"name": "workspace_preview_image", "description": "Open and visually inspect a raster image from the selected workspace. Returns the image as actual image content for vision-capable chat providers, not text/base64. Supports PNG, JPEG, WebP, and GIF up to 8 MB. Use this instead of workspace_read_file for image files.",
+             "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"], "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_search", "description": "Search source text inside the selected project. Supports optional case-sensitive matching and regular expressions; results include line and column.",
              "inputSchema": {"type": "object", "properties": {"query": {"type": "string"}, "path": {"type": "string", "default": "."}, "max_results": {"type": "integer", "minimum": 1, "maximum": 500}, "case_sensitive": {"type": "boolean", "default": False}, "regex": {"type": "boolean", "default": False}}, "required": ["query"], "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_replace_in_files", "description": "Preview or apply literal/regex replacements across project files. First call with apply=false to inspect affected files/diffs; only apply after user confirmation by passing the returned preview_hash as expected_hash. Stale previews are rejected.",
@@ -1486,6 +1489,41 @@ class MCPManager:
                 raise RuntimeError("Roblox tree exporter could not be imported. Check workspace_agent/roblox_export.py.")
             result = export_roblox_tree(self, arguments or {})
             return {"text": json.dumps(result, ensure_ascii=False, indent=2), "images": []}
+        if name == "workspace_preview_image":
+            args = arguments or {}
+            if not self.workspace_configured or self.workspace is None:
+                raise RuntimeError("No project workspace has been selected. Select a workspace before previewing images.")
+            relative_path = args.get("path")
+            if not isinstance(relative_path, str) or not relative_path.strip():
+                raise RuntimeError("A workspace-relative image path is required.")
+            raw_target = self.workspace.root / relative_path
+            if raw_target.is_symlink():
+                raise RuntimeError("Symbolic-link image paths are not supported.")
+            target = self.workspace._resolve(relative_path)
+            if not target.is_file():
+                raise RuntimeError(f"Not a regular file: {relative_path}")
+            mime_types = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+                          ".webp": "image/webp", ".gif": "image/gif"}
+            mime_type = mime_types.get(target.suffix.lower())
+            if not mime_type:
+                raise RuntimeError("Unsupported image type. Supported formats: PNG, JPEG, WebP, GIF.")
+            size = target.stat().st_size
+            if size < 1 or size > 8 * 1024 * 1024:
+                raise RuntimeError(f"Image size must be between 1 byte and 8 MB; file is {size} bytes.")
+            data = target.read_bytes()
+            signatures = {
+                "image/png": data.startswith(b"\\x89PNG\\r\\n\\x1a\\n"),
+                "image/jpeg": data.startswith(b"\\xff\\xd8\\xff"),
+                "image/gif": data.startswith((b"GIF87a", b"GIF89a")),
+                "image/webp": len(data) >= 12 and data.startswith(b"RIFF") and data[8:12] == b"WEBP",
+            }
+            if not signatures[mime_type]:
+                raise RuntimeError("The file extension does not match a supported image signature or the image is invalid.")
+            metadata = {"path": target.relative_to(self.workspace.root).as_posix(),
+                        "mime_type": mime_type, "bytes": size,
+                        "message": "Image attached for visual inspection."}
+            return {"text": json.dumps(metadata, ensure_ascii=False, indent=2),
+                    "images": [{"data": base64.b64encode(data).decode("ascii"), "mimeType": mime_type}]}
         if name.startswith("workspace_"):
             result = self._call_workspace(name, arguments)
             return {"text": json.dumps(result, ensure_ascii=False, indent=2), "images": []}
