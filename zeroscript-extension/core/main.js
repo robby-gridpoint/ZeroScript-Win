@@ -1707,6 +1707,7 @@
             A.workerEvidence.push({
               tool: String(call.tool || "unknown"),
               summary: outSummary(feedback).slice(0, 240),
+              output: stripOutputPrefix(feedback).slice(0, 5000),
               source: "tool:" + String(call.tool || "unknown"),
             });
             if (A.workerEvidence.length > 30) A.workerEvidence.shift();
@@ -4417,7 +4418,7 @@
             "Completed dependency evidence:\n" + (dependencyNotes || "(none)"),
             "Use available tools to inspect and make scoped changes. Verify with actual tool output. Never claim a check passed unless its output is available. Do not publish, deploy, spend money, communicate externally, delete user data, change credentials/security settings, or perform irreversible actions.",
             "Role-specific write policy: project_manager, qa, code_review, security, and ideas_insights are read-only; do not edit files in those roles. implementation owns implementation edits. documentation may edit only documentation after its dependencies are complete. lead integrates findings and may make a final narrow fix only after the review dependencies complete.",
-            "Final response must include: Task outcome, Files changed, Verification evidence, Findings/blockers. For QA, list each overall acceptance criterion verbatim and label it VERIFIED only when supported by tool output; otherwise mark it NOT VERIFIED. Do not emit AUTOPILOT_COMPLETE.",
+            "Final response must include: Task outcome, Files changed, Verification evidence, Findings/blockers. For QA, emit exactly one structured line for EACH overall acceptance criterion: CRITERION: <criterion copied verbatim> | STATUS: VERIFIED or NOT VERIFIED | TOOL: <exact tool name observed in this worker session> | EVIDENCE: <at least 8 consecutive characters copied verbatim from that tool's successful output>. Do not mark a criterion VERIFIED unless the cited excerpt appears in the recorded output of that exact tool. Never invent a tool name or evidence excerpt. Do not emit AUTOPILOT_COMPLETE.",
           ].join("\n\n");
           const base = await submitAndGetBase(ZS.SYS_MARKER + "\n" + prompt);
           await agentLoop(base);
@@ -4425,22 +4426,39 @@
           const report = item ? String(P.itemText(item) || "") : "";
           const evidence = A.workerEvidence.slice();
           const isQA = task.role === "qa";
-          const criteriaVerified = isQA
-            ? got.run.acceptanceCriteria.filter((criterion) =>
-                report.split("\n").some((line) =>
-                  line.toLowerCase().includes(criterion.toLowerCase()) && /\bVERIFIED\b/i.test(line)
-                )
-              )
-            : [];
-          const allQACriteria = !isQA || criteriaVerified.length === got.run.acceptanceCriteria.length;
+          const criteriaEvidence = [];
+          if (isQA) {
+            for (const line of report.split("\n")) {
+              const match = line.match(/^CRITERION:\\s*(.*?)\\s*\\|\\s*STATUS:\\s*(VERIFIED|NOT VERIFIED)\\s*\\|\\s*TOOL:\\s*([^|]+)\\s*\\|\\s*EVIDENCE:\\s*(.+)$/i);
+              if (!match || match[2].toUpperCase() !== "VERIFIED") continue;
+              const criterion = match[1].trim();
+              const tool = match[3].trim();
+              const excerpt = match[4].trim();
+              const observed = evidence.find((entry) => entry.tool === tool &&
+                excerpt.length >= 8 && entry.output.toLowerCase().includes(excerpt.toLowerCase()));
+              if (got.run.acceptanceCriteria.includes(criterion) && observed) {
+                criteriaEvidence.push({ criterion, status: "VERIFIED", tool, excerpt });
+              }
+            }
+          }
+          const criteriaVerified = criteriaEvidence.map((entry) => entry.criterion);
+          const allQACriteria = !isQA || got.run.acceptanceCriteria.every((criterion) =>
+            criteriaEvidence.some((entry) => entry.criterion === criterion)
+          );
           if (evidence.length && allQACriteria && report.trim()) {
             await bg({
               type: "autopilot_transition_task", runId: worker.runId, taskId: worker.taskId,
               nextState: "completed",
               payload: {
-                evidence: evidence.map((e) => ({ summary: e.tool + ": " + e.summary, source: e.source })),
+                evidence: evidence.map((e) => ({
+                  summary: e.tool + ": " + e.summary,
+                  source: e.source,
+                  tool: e.tool,
+                  output: e.output,
+                })),
                 findings: report.split("\n").map((line) => line.trim()).filter(Boolean).slice(0, 30),
                 criteriaVerified,
+                criteriaEvidence,
               },
             });
           } else {
