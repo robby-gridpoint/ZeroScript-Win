@@ -1350,6 +1350,8 @@
     A.loopAbandoned = false;
     let truncCount = 0;
     let autopilotPasses = 0;
+    let autopilotCloseoutRetries = 0;
+    const MAX_AUTOPILOT_CLOSEOUT_RETRIES = 1;
     const AUTOPILOT_PHASES = [
       {
         role: "Project manager",
@@ -1492,23 +1494,50 @@
           continue;
         }
         if (res.kind === "text") {
-          // Only the lead's explicit completion marker ends the whole workflow.
-          // A specialist's no-action marker means that phase is done, not that
-          // the ideas, security, documentation, or closeout phases should be skipped.
+          // Completion is accepted only from the final lead-developer pass,
+          // with a minimally complete evidence report. A specialist cannot end
+          // the run by emitting the marker, and contradictory terminal markers
+          // are never treated as success.
           if (A.autopilotEnabled && /AUTOPILOT_COMPLETE/.test(res.text || "")) {
-            const ledgerKey = "zsAutopilotRun:" + String(P.conversationKey() || "unknown");
-            const ledger = {
-              conversationKey: String(P.conversationKey() || "unknown"),
-              phase: "complete",
-              pass: autopilotPasses,
-              maxPasses: MAX_AUTOPILOT_PASSES,
-              state: "completed",
-              updatedAt: new Date().toISOString()
-            };
-            try { chrome.storage.local.set({ [ledgerKey]: ledger }); } catch {}
-            diag("autopilot.earlyClose", { pass: autopilotPasses, marker: "complete" });
-            ui.toast("Autopilot closeout complete.");
-            break;
+            const text = String(res.text || "");
+            const isLeadPass = autopilotPasses === MAX_AUTOPILOT_PASSES;
+            const hasReport = /delivered work/i.test(text) &&
+              /verification evidence|checks actually run/i.test(text) &&
+              /unresolved risks/i.test(text);
+            const contradictory = /AUTOPILOT_NO_ACTION_NEEDED/.test(text);
+            if (isLeadPass && hasReport && !contradictory) {
+              const ledgerKey = "zsAutopilotRun:" + String(P.conversationKey() || "unknown");
+              const ledger = {
+                conversationKey: String(P.conversationKey() || "unknown"),
+                phase: "complete",
+                pass: autopilotPasses,
+                maxPasses: MAX_AUTOPILOT_PASSES,
+                state: "completed",
+                completionGate: "lead_pass_report_shape",
+                updatedAt: new Date().toISOString()
+              };
+              try { chrome.storage.local.set({ [ledgerKey]: ledger }); } catch {}
+              diag("autopilot.earlyClose", { pass: autopilotPasses, marker: "complete", gate: "lead_pass_report_shape" });
+              ui.toast("Autopilot closeout complete.");
+              break;
+            }
+            diag("autopilot.completionRejected", {
+              pass: autopilotPasses, max: MAX_AUTOPILOT_PASSES,
+              isLeadPass, hasReport, contradictory
+            });
+            if (autopilotCloseoutRetries < MAX_AUTOPILOT_CLOSEOUT_RETRIES && !A.stop) {
+              autopilotCloseoutRetries++;
+              base = await submitAndGetBase(
+                "AUTOPILOT CLOSEOUT REJECTED BY THE ORCHESTRATOR. Do not claim completion yet. " +
+                "You are at pass " + autopilotPasses + " of " + MAX_AUTOPILOT_PASSES + ". " +
+                "Only the final Lead developer pass may emit AUTOPILOT_COMPLETE. " +
+                "Return a concise report with headings Delivered work, Verification evidence, and Unresolved risks. " +
+                "List only checks whose actual tool output is visible; explicitly label unavailable or unrun checks NOT VERIFIED. " +
+                "Do not include AUTOPILOT_NO_ACTION_NEEDED in a completion report. " +
+                "If the evidence does not justify success, state BLOCKED or NOT VERIFIED and omit AUTOPILOT_COMPLETE."
+              );
+              continue;
+            }
           }
           if (A.autopilotEnabled && /AUTOPILOT_NO_ACTION_NEEDED/.test(res.text || "")) {
             diag("autopilot.phaseNoAction", { pass: autopilotPasses });
@@ -1542,12 +1571,13 @@
               phase: "complete",
               pass: autopilotPasses,
               maxPasses: MAX_AUTOPILOT_PASSES,
-              state: "completed",
+              state: "blocked_unverified",
+              reason: "phase_limit_without_valid_lead_closeout",
               updatedAt: new Date().toISOString()
             };
             try { chrome.storage.local.set({ [ledgerKey]: ledger }); } catch {}
-            diag("autopilot.limit", { max: MAX_AUTOPILOT_PASSES });
-            ui.toast("Autopilot reached its six-phase limit.");
+            diag("autopilot.limit", { max: MAX_AUTOPILOT_PASSES, state: "blocked_unverified" });
+            ui.toast("Autopilot stopped: no valid verified closeout.");
           }
           break;
         }
