@@ -149,6 +149,16 @@
     transition(run, task.id, "leased", { workerId: worker.id, provider: worker.provider, tabId: worker.tabId, leaseMs: worker.leaseMs });
     return { task, lease: { ...task.lease } };
   }
+  function renewLease(run, taskId, leaseToken, leaseMs = 600000) {
+    validate(run);
+    const task = run.tasks.find((t) => t.id === taskId);
+    assert(task && ["leased", "running"].includes(task.status), "Task is not actively leased.");
+    assert(task.lease && task.lease.token === leaseToken, "Worker lease token is invalid.");
+    task.lease.expiresAt = new Date(Date.now() + Math.max(30000, Math.min(Number(leaseMs) || 600000, 600000))).toISOString();
+    task.updatedAt = now();
+    event(run, "task.lease_renewed", "Worker lease renewed.", taskId);
+    return task.lease;
+  }
   function recoverExpiredLeases(run) {
     const recovered = [];
     for (const task of run.tasks) {
@@ -189,7 +199,7 @@
     event(run, "run." + run.state, "Run state evaluated.");
     return run.state;
   }
-  const api = { ROLES, TERMINAL, createRun, validate, transition, refreshReady, claimNext, recoverExpiredLeases, cancelRun, finalize };
+  const api = { ROLES, TERMINAL, createRun, validate, transition, refreshReady, claimNext, renewLease, recoverExpiredLeases, cancelRun, finalize };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.ZSAutopilotLedger = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
