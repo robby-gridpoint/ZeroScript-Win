@@ -40,7 +40,7 @@ const qa = run.tasks.find((t) => t.role === "qa");
 const qaClaim = L.claimNext(run, { id: "qa-worker", provider: "chatgpt", roles: ["qa"] });
 L.transition(run, qa.id, "running", { leaseToken: qaClaim.lease.token });
 assert.throws(() => L.transition(run, qa.id, "completed", {
-  evidence: [{ summary: "looks fine" }], criteriaVerified: ["Feature is implemented"],
+  evidence: [{ summary: "looks fine" }], criteriaVerified: [],
 }), /explicit verified criteria/);
 L.transition(run, qa.id, "completed", {
   evidence: [{ summary: "Test output: 12 passed" }],
