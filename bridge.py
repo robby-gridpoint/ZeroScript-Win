@@ -1504,7 +1504,7 @@ class MCPManager:
             # by path implementations running in compatibility/test environments.
             normalized_path = relative_path.strip()
             if not Path(normalized_path).is_absolute():
-                normalized_path = normalized_path.replace("\\\\", os.sep).replace("/", os.sep)
+                normalized_path = normalized_path.replace("\\", os.sep).replace("/", os.sep)
             try:
                 raw_target = self.workspace.root / normalized_path
                 if raw_target.is_symlink():
