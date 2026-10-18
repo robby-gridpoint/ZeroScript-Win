@@ -4183,21 +4183,47 @@
         ui.inputCover(false);
       }
     }
-    // Same idea for a RUNNING loop: if the user opens a NEW, empty conversation
-    // via the SITE's own new-chat (not ArcScript's button), the loop is bound to
-    // a chat the user left, so abandon it. Otherwise A.running keeps this function
-    // early-returning below and the stale "Agent active" / Stop button lingers on
-    // the fresh chat instead of "Start Roblox agent". The "/app" → "/app/<id>" id
-    // assignment of the SAME chat is not a move (loopKey is pinned only once the
-    // chat has both an id and content), so a normal session is never disturbed.
+    // A loop belongs to ONE conversation, not to the ChatGPT tab. ChatGPT's
+    // SPA can navigate directly from one populated /c/<id> route to another, so
+    // checking only for an empty new chat lets the old loop read/execute against
+    // an ordinary GPT conversation. Abort on every confirmed conversation change.
+    // A route with no id is treated as a transition; a loop pinned to a real id
+    // must never be allowed to operate while that id is no longer current.
     if (A.running) {
       const key = P.conversationKey();
       if (A.loopKey == null) {
-        if (key && !P.chatIsEmpty()) A.loopKey = key; // pin the loop's conversation
-      } else if (key !== A.loopKey && P.chatIsEmpty()) {
-        diag("loop.abandonedNewChat", { from: A.loopKey, to: key });
-        A.stop = true;       // the loop breaks at its next checkpoint; its finally
-        A.loopKey = null;    // resets A.running / cover / lock, then state recomputes
+        if (key && !P.chatIsEmpty()) A.loopKey = key; // pin only after stable content
+      } else if (key !== A.loopKey && (key || P.chatIsEmpty())) {
+        diag("loop.abandonedConversationChange", {
+          from: A.loopKey, to: key || "(unassigned)", chatEmpty: P.chatIsEmpty()
+        });
+        A.stop = true;
+        A.loopKey = null;
+        // Do not let the new conversation inherit the old session's active UI.
+        A.started = false;
+        ui.setStarted(false);
+        ui.setStarting(false);
+        ui.inputCover(false);
+        P.setInputLock(false);
+      }
+    }
+    // A bootstrap also belongs to one conversation. Abort if navigation lands
+    // on a different populated conversation, not only when the destination is
+    // empty. This prevents delayed bootstrap results from attaching to plain GPT.
+    if (A.starting && A.startingKey != null) {
+      const key = P.conversationKey();
+      if (key !== A.startingKey && (key || P.chatIsEmpty())) {
+        diag("start.abandonedConversationChange", {
+          from: A.startingKey, to: key || "(unassigned)"
+        });
+        A.startGen++;
+        A.starting = false;
+        A.startingKey = null;
+        A.started = false;
+        ui.setStarted(false);
+        ui.setStarting(false);
+        ui.inputCover(false);
+        P.setInputLock(false);
       }
     }
     if (A.starting || A.injecting || A.running) return;
