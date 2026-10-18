@@ -1047,13 +1047,13 @@ const ZSProvider = (() => {
     // Exported for test-chatgpt.js (the Node smoke test drives it against a stub
     // DOM). The core reads replies through itemText/classifyText, not this.
     textWithout,
-    // Vision OFF, like DeepSeek's text-only Expert tab. ChatGPT's free tier caps
-    // image/file input separately from messages ("les fichiers, les images et
-    // l'analyse sont indisponibles jusqu'à la réinitialisation de votre quota"),
-    // so screen_capture would work sometimes and fail the rest of the time - the
-    // worst kind of behaviour to hand a model. The core blocks the vision tools
-    // outright instead (see main.js VISION_TOOLS).
-    supportsVision: false,
+    // ChatGPT supports image attachments and visual analysis when image-input
+    // quota is available. Do not hard-disable vision based on a quota that changes
+    // at runtime: workspace_preview_image and screen_capture should use this
+    // provider's native upload flow, just like DeepSeek. If the site rejects an
+    // upload because the quota is exhausted, surface that runtime failure rather
+    // than silently preventing all visual QA.
+    supportsVision: true,
     // No coverOffsetY: the cover is centred on coverTarget(), the scrolling text
     // band, whose rect centre already lines up with the composer's icons. (Sizing
     // it to the EDITOR needed a -paddingBottom/2 nudge, because that node carries
