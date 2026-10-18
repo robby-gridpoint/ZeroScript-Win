@@ -83,17 +83,17 @@
     <div class="section-label">Autonomy</div>
     <section class="card" id="autopilotCard">
       <div class="card-heading">
-        <div class="card-title">Autopilot · Multi-agent workflow</div>
+        <div class="card-title">Autopilot · Bounded workflow</div>
         <span id="autopilotBadge" class="badge">Off</span>
       </div>
       <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
         <input id="autopilotToggle" type="checkbox" style="margin-top:3px;accent-color:#7193ef;width:16px;height:16px" />
         <span>
           <span style="display:block;font-size:11px;font-weight:650">Continue after completion</span>
-          <span style="display:block;margin-top:4px;color:#8c9ab0;font-size:10px;line-height:1.5">Runs up to 7 bounded phases: project management, QA, code review, security, documentation, ideas & insights, and lead closeout. Specialist phases can finish without skipping the remaining workflow. Off by default; use Stop to interrupt.</span>
+          <span style="display:block;margin-top:4px;color:#8c9ab0;font-size:10px;line-height:1.5">Runs up to 7 role-separated phases in the active AI conversation. Closeout requires observed tool output and a verification/read/inspection result; otherwise the run is marked unverified. Off by default; use Stop to interrupt.</span>
         </span>
       </label>
-      <div class="hint">This version uses seven role-separated passes in the active AI conversation and saves lightweight phase status. These are not independent concurrent AI workers; isolated provider sessions require a separate worker runtime. Autopilot cannot authorize publishing, deployment, destructive actions, spending, or security changes.</div>
+      <div class="hint">This is a single-provider workflow, not independent concurrent agents. The completion gate checks for recorded tool evidence but does not yet verify every acceptance criterion. Autopilot cannot authorize publishing, deployment, destructive actions, spending, or security changes.</div>
     </section>
 
     <div class="section-label">Separate integrations</div>
