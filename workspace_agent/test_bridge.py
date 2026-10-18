@@ -41,9 +41,31 @@ class WorkspaceBridgeTests(unittest.TestCase):
         self.assertIn("workspace_git_commit", by_name)
         self.assertIn("workspace_git_changed_files", by_name)
         self.assertIn("workspace_run_task", by_name)
+        self.assertIn("workspace_preview_image", by_name)
         self.assertIs(by_name["workspace_tree"]["inputSchema"]["properties"]["include_hidden"]["default"], False)
         self.assertIs(by_name["workspace_search"]["inputSchema"]["properties"]["regex"]["default"], False)
         self.assertIn("configured: false", by_name["workspace_info"]["description"])
+
+    def test_workspace_preview_image_returns_image_payload(self):
+        image_path = self.root / "preview.png"
+        # Valid PNG signature and minimal payload are sufficient for this
+        # transport-level test; image decoding is handled by the provider.
+        image_path.write_bytes(b"\\x89PNG\\r\\n\\x1a\\n" + b"test-payload")
+        self.manager.workspace_configured = True
+        result = self.manager.call("workspace_preview_image", {"path": "preview.png"}, 5)
+        self.assertIn('"mime_type": "image/png"', result["text"])
+        self.assertEqual(result["images"][0]["mimeType"], "image/png")
+        import base64
+        self.assertEqual(base64.b64decode(result["images"][0]["data"]), image_path.read_bytes())
+
+    def test_workspace_preview_image_rejects_text_and_oversized_files(self):
+        (self.root / "notes.txt").write_text("not an image", encoding="utf-8")
+        self.manager.workspace_configured = True
+        with self.assertRaisesRegex(RuntimeError, "Unsupported image type"):
+            self.manager.call("workspace_preview_image", {"path": "notes.txt"}, 5)
+        (self.root / "huge.png").write_bytes(b"\\x89PNG\\r\\n\\x1a\\n" + b"x" * (8 * 1024 * 1024))
+        with self.assertRaisesRegex(RuntimeError, "8 MB"):
+            self.manager.call("workspace_preview_image", {"path": "huge.png"}, 5)
 
     def test_unconfigured_workspace_blocks_project_access(self):
         info = self.manager._call_workspace("workspace_info", {})
