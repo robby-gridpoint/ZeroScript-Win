@@ -106,7 +106,7 @@
       <textarea id="runGoal" rows="3" placeholder="Describe the project outcome to deliver…" style="box-sizing:border-box;width:100%;resize:vertical;background:#0d131d;color:#e1e8f4;border:1px solid #2c374a;border-radius:8px;padding:9px;font:11px/1.5 inherit"></textarea>
       <label for="runCriteria" class="hint" style="display:block;margin-top:10px">Acceptance criteria (one per line)</label>
       <textarea id="runCriteria" rows="3" placeholder="Feature behaves as requested\nRelevant tests pass\nDocs reflect actual behavior" style="box-sizing:border-box;width:100%;resize:vertical;background:#0d131d;color:#e1e8f4;border:1px solid #2c374a;border-radius:8px;padding:9px;font:11px/1.5 inherit"></textarea>
-      <div class="hint">Creates a persistent dependency graph and dispatches tasks to idle, already-started ArcScript sessions in open provider tabs. Open and start the agent in multiple provider tabs for independent parallel workers. Runs and evidence survive popup closure.</div>
+      <div class="hint">Creates a persistent dependency graph and dispatches tasks to idle, already-started ArcScript sessions in open provider tabs. Analysis/review workers are tool-gated to read-only operations, documentation edits are path-limited, writes are serialized while workers share the workspace, and QA must cite output excerpts for every acceptance criterion. Open and start multiple provider tabs for parallel read-only workers. Runs and evidence survive popup closure.</div>
       <div class="actions" style="margin-top:10px">
         <button class="primary" id="startAutopilotRun">Start run</button>
         <button class="secondary" id="stopAutopilotRun" disabled>Stop run</button>
