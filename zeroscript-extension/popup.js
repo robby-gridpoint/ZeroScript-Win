@@ -21,13 +21,13 @@ function initAutopilot() {
   };
   chrome.storage.local.get({ autopilotEnabled: false }, (value) => {
     toggle.checked = value.autopilotEnabled === true;
-    badge.textContent = toggle.checked ? "On · 3 passes max" : "Off";
+    badge.textContent = toggle.checked ? "On · 6 phases max" : "Off";
     badge.className = "badge" + (toggle.checked ? " ready" : "");
   });
   toggle.addEventListener("change", () => {
     const enabled = toggle.checked;
     chrome.storage.local.set({ autopilotEnabled: enabled }, () => {
-      badge.textContent = enabled ? "On · 3 passes max" : "Off";
+      badge.textContent = enabled ? "On · 6 phases max" : "Off";
       badge.className = "badge" + (enabled ? " ready" : "");
       broadcast(enabled);
     });
