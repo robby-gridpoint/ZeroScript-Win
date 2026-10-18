@@ -226,23 +226,21 @@ const ZSProvider = (() => {
   function replyNodes(item) {
     if (!item || !item.querySelectorAll) return [];
     const markdown = [...item.querySelectorAll(S.reply)];
-    // October's ChatGPT renderer can place a fenced code block in a sibling
-    // content surface rather than inside .markdown. If any prose markdown
-    // exists, the old early return omitted that sibling entirely: the core
-    // never saw {"command": ...}, and the raw JSON stayed visible without a
-    // tool dispatch. Include code blocks not already covered by a selected root.
-    const codeBlocks = [...item.querySelectorAll(S.codeWrap)];
-    const uncoveredBy = (roots, node) => !roots.some((root) =>
+    const semantic = [...item.querySelectorAll('[data-conversation-role="assistant"]')];
+    const roots = markdown.length ? markdown : semantic;
+    // ChatGPT can render the message body and fenced-code surface as sibling
+    // nodes inside the same conversation-turn wrapper. The selected role node
+    // then contains the prose but not the <pre>, so searching only beneath it
+    // makes {"command":"list_tools"} look like ordinary assistant text.
+    // Scope the fallback to this one turn; never search the whole conversation.
+    const turn = item.closest && item.closest("[data-testid^='conversation-turn-']");
+    const scope = turn || item;
+    const codeBlocks = [...scope.querySelectorAll(S.codeWrap)];
+    const uncoveredBy = (nodes, node) => !nodes.some((root) =>
       root === node || (root.contains && root.contains(node))
     );
-    if (markdown.length) {
-      return [...markdown, ...codeBlocks.filter((pre) => uncoveredBy(markdown, pre))];
-    }
-    const semantic = [...item.querySelectorAll('[data-conversation-role="assistant"]')];
-    if (semantic.length) {
-      return [...semantic, ...codeBlocks.filter((pre) => uncoveredBy(semantic, pre))];
-    }
-    return [item];
+    const selected = [...roots, ...codeBlocks.filter((pre) => uncoveredBy(roots, pre))];
+    return selected.length ? selected : [item];
   }
 
   function itemText(item) {

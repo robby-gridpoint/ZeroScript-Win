@@ -1917,6 +1917,16 @@
       const prompt = systemPrompt();
       const base = await submitAndGetBase(prompt);
       if (!alive()) return;
+      // Never classify a stale previous assistant turn as the bootstrap reply.
+      // If the provider did not confirm that the bootstrap prompt reached the
+      // conversation, abort startup so the user can retry instead of leaving a
+      // misleading "Starting Up" state with raw JSON or no tool dispatch.
+      if (!A.lastSendConfirmed) {
+        diag("start.promptUndelivered");
+        ui.banner("warn", "Startup prompt was not delivered",
+          "ArcScript could not confirm the bootstrap prompt in conversation history. Retry Start after refreshing the chat.");
+        return;
+      }
       // (syncSessionState pins A.startingKey to the conversation id once the chat
       // has content, and aborts this bootstrap if the user opens a new empty chat.)
       decorate.sweep(); // show the animated "Starting Up" chip immediately

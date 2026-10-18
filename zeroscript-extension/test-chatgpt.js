@@ -106,6 +106,26 @@ ok("orphaned fenced command text reaches the parser",
 ok("orphaned fenced list_tools call parses as a tool dispatch",
   Parse.parseToolCalls(P.itemText(splitReply)).some((call) =>
     call.tool === "list_tools" && Object.keys(call.arguments).length === 0));
+
+// Some ChatGPT versions put the code block beside the selected role node,
+// inside a common conversation-turn wrapper. Verify the provider climbs only
+// to that turn and still returns the command text to the parser.
+const turnMarkdown = el("div", { class: "markdown" }, ["Starting Up"]);
+const turnCommand = el("pre", {}, ['{"command":"list_tools","params":{}}']);
+const turnWrapper = {
+  querySelectorAll: (selector) => selector === ".markdown" ? [turnMarkdown] :
+    selector === "pre" ? [turnCommand] : [],
+};
+const turnAssistant = {
+  getAttribute: (name) => name === "data-message-author-role" ? "assistant" : null,
+  querySelectorAll: (selector) => selector === ".markdown" ? [turnMarkdown] :
+    selector === "pre" ? [] : [],
+  closest: (selector) => selector === "[data-testid^='conversation-turn-']" ? turnWrapper : null,
+};
+ok("sibling command is recovered from the same conversation turn",
+  P.replyNodes(turnAssistant).includes(turnCommand));
+ok("sibling command from turn wrapper parses as list_tools",
+  Parse.parseToolCalls(P.itemText(turnAssistant)).some((call) => call.tool === "list_tools"));
 const stopIconPath = "M4.5 5.75C4.5 5.05964 5.05964 4.5 5.75 4.5H14.25C14.9404 4.5 15.5 5.05964 15.5 5.75V14.25C15.5 14.9404 14.9404 15.5 14.25 15.5H5.75C5.05964 15.5 4.5 14.9404 4.5 14.25V5.75Z";
 const modernStopButton = {
   getAttribute: () => null,
