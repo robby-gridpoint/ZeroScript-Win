@@ -64,7 +64,13 @@ class WorkspaceBridgeTests(unittest.TestCase):
         output.mkdir()
         image_path = output / "pallet_town.png"
         image_path.write_bytes(b"\x89PNG\r\n\x1a\n" + b"test-payload")
+        jpeg_path = output / "pallet_town_preview.jpg"
+        jpeg_path.write_bytes(b"\\xff\\xd8\\xff\\xe0" + b"test-payload")
         self.manager.workspace_configured = True
+
+        # Both common raster formats should validate by their file signatures.
+        jpeg_result = self.manager.call("workspace_preview_image", {"path": "output/pallet_town_preview.jpg"}, 5)
+        self.assertEqual(jpeg_result["images"][0]["mimeType"], "image/jpeg")
 
         # Workspace-relative paths should work with either separator style.
         for path in ("output/pallet_town.png", "output\\pallet_town.png"):
