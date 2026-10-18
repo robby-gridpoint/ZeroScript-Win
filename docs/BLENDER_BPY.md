@@ -1,0 +1,86 @@
+# Native Blender `bpy` integration
+
+ZeroScript-Win's Blender backend is the Blender Python module (`bpy`) running
+inside a dedicated Python process. It does **not** launch `blender.exe` for
+each tool call. The long-lived MCP process retains its in-memory scene between
+calls, and the bridge supervises it separately from the main WebSocket process.
+
+## Requirements
+
+- Windows x86-64 (the primary supported ZeroScript-Win platform).
+- Python matching a published `bpy` wheel. The current documented pairing is
+  CPython 3.13 + `bpy==5.2.2`; the wheel is large (hundreds of MB).
+- Network access for the first package install.
+
+Check the current wheel matrix at <https://pypi.org/project/bpy/> before changing
+versions. Do not install `bpy` into the bridge's Python environment unless its
+Python version matches the wheel. Keep it in a dedicated virtual environment so
+Blender's native dependencies cannot destabilize ZeroScript's normal tools.
+
+## Install
+
+From the ZeroScript-Win repository root in PowerShell:
+
+```powershell
+py -3.13 -m venv .venv-bpy
+.\.venv-bpy\Scripts\python.exe -m pip install --upgrade pip
+.\.venv-bpy\Scripts\python.exe -m pip install bpy==5.2.2
+.\.venv-bpy\Scripts\python.exe -c "import bpy; print(bpy.app.version_string)"
+```
+
+The final command must print a Blender version. If Python 3.13 or the specified
+wheel is unavailable on your machine, check PyPI for a `bpy` release that has
+a wheel for your installed Python version and architecture. Adjust both the
+Python launcher and pinned package version together.
+
+## Enable the ZeroScript tools
+
+1. Back up your current `config.json`.
+2. Copy the `bpy` server entry from `config.bpy.example.json` into the existing
+   `mcpServers` object. Do not replace other MCP entries such as Roblox.
+3. Set `command` to the full path of `.venv-bpy\Scripts\python.exe` (JSON
+   backslashes must be escaped as `\\`) and retain the arguments
+   `["-m", "zeroscript_blender.mcp_server"]`.
+4. Restart ZeroScript-Win's bridge. The bridge will discover the tools through
+   its normal MCP tool catalogue.
+5. Call `bpy_status` to verify the runtime before creating or changing a scene.
+
+The server inherits the bridge environment, including `ZS_WORKSPACE_ROOT`.
+Project paths accepted by save/open/render/export tools are workspace-relative.
+Do not add the server to the live config until the dedicated environment passes
+the import check.
+
+## Available tools
+
+- `bpy_status`: runtime and scene status.
+- `bpy_inspect_scene`: bounded structured scene/object inspection.
+- `bpy_execute_script`: execute Python directly in the persistent `bpy` process.
+- `bpy_open_project` / `bpy_save_project`: open and save workspace `.blend` files.
+- `bpy_render`: render a still image into the workspace.
+- `bpy_export`: export GLB/glTF, OBJ, STL, or PLY when supported by the installed
+  `bpy` version.
+
+## Important runtime constraints
+
+- `bpy` is a large native extension. Keeping it in a child MCP process means a
+  native crash should not directly terminate the main bridge.
+- One `bpy` process owns one current scene/project at a time. Opening another
+  `.blend` file replaces the current project in that process.
+- This is not a security sandbox. `bpy_execute_script` runs arbitrary Python
+  with the privileges of the current Windows user. It can access local files,
+  start processes, and perform network operations. Only use it with trusted
+  instructions and a trusted workspace.
+- Save/open/render/export tools restrict output/input paths to the selected
+  workspace and require explicit `overwrite=true` before replacing an existing
+  output. Arbitrary script execution can bypass these path checks.
+- Rendering may take substantial time and memory. The bridge's MCP timeout
+  must be configured to accommodate real workloads; avoid treating a timeout as
+  proof that a render or script had no side effects.
+- Export operator names vary by Blender version. Unsupported operators return a
+  clear error; they are not silently replaced with a CLI fallback.
+
+## Official references
+
+- Blender Python API: <https://docs.blender.org/api/current/>
+- `bpy` wheels and supported Python/platform tags: <https://pypi.org/project/bpy/>
+- Blender as a Python module: <https://docs.blender.org/api/3.5/info_advanced_blender_as_bpy.html>
