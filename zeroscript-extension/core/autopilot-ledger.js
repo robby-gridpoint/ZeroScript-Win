@@ -93,7 +93,21 @@
     assert(allowed[task.status].includes(next), "Invalid task transition: " + task.status + " -> " + next);
     if (next === "completed") {
       assert(Array.isArray(payload.evidence) && payload.evidence.some((e) => cleanText(e && e.summary)), "A completed task requires concrete evidence.");
-      if (task.role === "qa") assert(payload.criteriaVerified && payload.criteriaVerified.length > 0, "QA completion requires explicit verified criteria.");
+      if (task.role === "qa") {
+        const criteriaEvidence = Array.isArray(payload.criteriaEvidence) ? payload.criteriaEvidence : [];
+        assert(run.acceptanceCriteria.length > 0, "QA cannot complete without run acceptance criteria.");
+        for (const criterion of run.acceptanceCriteria) {
+          const item = criteriaEvidence.find((entry) => entry && entry.criterion === criterion && entry.status === "VERIFIED");
+          assert(item, "QA requires structured evidence for criterion: " + criterion);
+          const excerpt = cleanText(item.excerpt, 500);
+          assert(excerpt.length >= 8, "QA evidence excerpt is too short for criterion: " + criterion);
+          const source = payload.evidence.find((entry) =>
+            entry && cleanText(entry.tool, 200) === cleanText(item.tool, 200) &&
+            cleanText(entry.output, 5000).toLowerCase().includes(excerpt.toLowerCase())
+          );
+          assert(source, "QA evidence excerpt must match an observed successful tool output for criterion: " + criterion);
+        }
+      }
     }
     if (next === "leased" || next === "running") {
       if (next === "leased") {
@@ -109,9 +123,21 @@
     task.status = next;
     task.updatedAt = now();
     if (next === "completed") {
-      task.evidence = payload.evidence.map((e) => ({ summary: cleanText(e.summary, 1200), source: cleanText(e.source, 500), verifiedAt: now() })).slice(0, 30);
+      task.evidence = payload.evidence.map((e) => ({
+        summary: cleanText(e.summary, 1200),
+        source: cleanText(e.source, 500),
+        tool: cleanText(e.tool, 200),
+        output: cleanText(e.output, 5000),
+        verifiedAt: now(),
+      })).slice(0, 30);
       task.findings = Array.isArray(payload.findings) ? payload.findings.map((x) => cleanText(x, 1000)).filter(Boolean).slice(0, 30) : [];
-      task.criteriaVerified = Array.isArray(payload.criteriaVerified) ? payload.criteriaVerified.map((x) => cleanText(x, 500)).filter(Boolean).slice(0, 20) : [];
+      task.criteriaEvidence = task.role === "qa" ? payload.criteriaEvidence.map((entry) => ({
+        criterion: cleanText(entry.criterion, 500),
+        status: "VERIFIED",
+        tool: cleanText(entry.tool, 200),
+        excerpt: cleanText(entry.excerpt, 500),
+      })).slice(0, 20) : [];
+      task.criteriaVerified = task.role === "qa" ? task.criteriaEvidence.map((entry) => entry.criterion) : [];
       task.lease = null;
     } else if (["blocked", "needs_approval", "failed", "cancelled", "ready"].includes(next)) {
       if (payload.reason) task.blockReason = cleanText(payload.reason, 1000);
