@@ -165,12 +165,27 @@
     run.updatedAt = now();
     return run.tasks.filter((t) => t.status === "ready");
   }
+  function isWriteCapableRole(role) {
+    return role === "implementation" || role === "documentation" || role === "lead";
+  }
+  function hasActiveWriter(run) {
+    return run.tasks.some((task) =>
+      isWriteCapableRole(task.role) && ["leased", "running", "review"].includes(task.status)
+    );
+  }
   function claimNext(run, worker) {
     refreshReady(run);
     assert(!run.stopRequested && !TERMINAL.has(run.state), "Run is not accepting work.");
     assert(Date.now() < Date.parse(run.budget.deadlineAt), "Run time budget exhausted.");
-    const task = run.tasks.filter((t) => t.status === "ready" && (!worker.roles || worker.roles.includes(t.role)))
-      .sort((a, b) => a.ordinal - b.ordinal)[0];
+    // All workers currently operate on the same selected workspace. Until
+    // per-task worktrees are available, serialize every write-capable role.
+    // Read-only analysis/QA/review workers may still run concurrently.
+    const writerActive = hasActiveWriter(run);
+    const task = run.tasks.filter((t) =>
+      t.status === "ready" &&
+      (!worker.roles || worker.roles.includes(t.role)) &&
+      !(writerActive && isWriteCapableRole(t.role))
+    ).sort((a, b) => a.ordinal - b.ordinal)[0];
     if (!task) return null;
     transition(run, task.id, "leased", { workerId: worker.id, provider: worker.provider, tabId: worker.tabId, leaseMs: worker.leaseMs });
     return { task, lease: { ...task.lease } };
@@ -230,7 +245,7 @@
     event(run, "run." + run.state, "Run state evaluated.");
     return run.state;
   }
-  const api = { ROLES, TERMINAL, createRun, validate, transition, refreshReady, claimNext, renewLease, recoverExpiredLeases, cancelRun, finalize };
+  const api = { ROLES, TERMINAL, createRun, validate, transition, refreshReady, claimNext, renewLease, recoverExpiredLeases, cancelRun, finalize, isWriteCapableRole, hasActiveWriter };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.ZSAutopilotLedger = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
