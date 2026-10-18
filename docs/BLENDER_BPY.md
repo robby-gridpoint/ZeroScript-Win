@@ -84,3 +84,21 @@ the import check.
 - Blender Python API: <https://docs.blender.org/api/current/>
 - `bpy` wheels and supported Python/platform tags: <https://pypi.org/project/bpy/>
 - Blender as a Python module: <https://docs.blender.org/api/3.5/info_advanced_blender_as_bpy.html>
+
+
+## Blender-to-Roblox asset handoff
+
+For a reliable handoff, export an FBX into the selected workspace with
+`bpy_export`, then verify the file exists and is non-empty before calling the
+Roblox upload tool. Supply the configured creator identity and all required
+upload parameters during preflight. Preserve the returned Roblox asset ID and
+moderation/upload status; if Studio disconnects after upload, resume at
+insertion rather than uploading again. Refresh the Studio list before
+insertion if a stale session is detected, and read back the inserted instance
+to confirm its name, class, descendants, and approximate bounds.
+
+The current bridge exposes the underlying tools separately; it does not yet
+provide a fully automated transaction across Blender, Roblox upload, and Studio
+insertion. Until that orchestration is added and exercised against the live
+tool schemas, perform these steps explicitly and report insertion and visual
+verification as separate states.
