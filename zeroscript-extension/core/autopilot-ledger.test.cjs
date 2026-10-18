@@ -69,6 +69,19 @@ lease.task.lease.expiresAt = new Date(Date.now() - 1000).toISOString();
 assert.deepEqual(L.recoverExpiredLeases(run3), [lease.task.id]);
 assert.equal(lease.task.status, "ready");
 
+const partial = L.createRun({ goal: "One branch blocks, another can proceed", acceptanceCriteria: ["Done"] });
+L.refreshReady(partial);
+const pm = L.claimNext(partial, { id: "pm" });
+L.transition(partial, pm.task.id, "running", { leaseToken: pm.lease.token });
+L.transition(partial, pm.task.id, "completed", { evidence: [{ summary: "Plan reviewed" }] });
+L.refreshReady(partial);
+const impl2 = L.claimNext(partial, { id: "impl", roles: ["implementation"] });
+L.transition(partial, impl2.task.id, "running", { leaseToken: impl2.lease.token });
+L.transition(partial, impl2.task.id, "blocked", { reason: "Implementation blocked" });
+L.refreshReady(partial);
+assert(partial.tasks.some((t) => t.role === "ideas_insights" && t.status === "ready"));
+assert.equal(L.finalize(partial), "verifying", "independent ready tasks must remain schedulable after a sibling task blocks");
+
 const cyclic = L.createRun({ goal: "Cycle", acceptanceCriteria: ["Done"] });
 cyclic.tasks[0].dependencies.push(cyclic.tasks[1].id);
 cyclic.tasks[1].dependencies.push(cyclic.tasks[0].id);
