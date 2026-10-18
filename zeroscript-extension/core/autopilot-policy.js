@@ -9,6 +9,7 @@
   ]);
   const NEVER_AUTOMATE = /(?:^|[_/.-])(?:delete|remove|destroy|purge|wipe|format|reset_workspace|set_root|move_path|git_commit|git_push|publish|deploy|release|send_email|send_message|purchase|checkout|payment|credential|secret_rotation|change_password)(?:$|[_/.-])/i;
   const READ_VERB = /^(?:get|list|read|inspect|search|find|query|describe|show|status|info|outline|tree|log|diff|branches|symbols|capture|screenshot|screen_capture|health|probe|count|stat|head|grep|locate|lookup|history|explain|analyze|validate|check)$/i;
+  const MUTATING_TOKEN = /(?:^|[_/.-])(?:write|create|set|update|patch|edit|fix|repair|run|execute|apply|insert|store|delete|remove|destroy|deploy|publish|commit|push|move|send|purchase|install|uninstall|format|reset)(?:$|[_/.-])/i;
   const READ_NAME = /^(?:workspace_(?:info|recent_roots|project_info|tree|file_outline|list_files|read_file|search|find_files|symbols|git_status|git_diff|git_branches|git_log)|list_tools|list_commands|list_mcp_servers|search_game_tree|inspect_instance|get_studio_state|script_read|screen_capture|screenshot|workspace_preview_image)$/i;
   const DOC_PATH = /(?:^|[/\\])(?:docs?[/\\]|\.github[/\\].*\.md$)|(?:^|[/\\])(?:readme|changelog|contributing|license|security|code_of_conduct)(?:\.[a-z0-9_-]+)?$/i;
   const EDIT_TOOLS = new Set([
@@ -22,6 +23,7 @@
   }
   function readLike(name, category) {
     const bare = bareName(name);
+    if (MUTATING_TOKEN.test(bare)) return false;
     if (READ_NAME.test(bare)) return true;
     if (category === "read" || category === "screen") return true;
     const first = bare.split(/[_-]/)[0];
