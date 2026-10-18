@@ -455,6 +455,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       }
       case "autopilot_cancel_run": {
         const run = await mutateAutopilotRun(msg.runId, (value) => ZSAutopilotLedger.cancelRun(value, msg.reason));
+        const tabs = await new Promise((resolve) => chrome.tabs.query({ url: PROVIDER_URLS }, resolve));
+        for (const tab of tabs) {
+          if (!tab.id) continue;
+          try {
+            chrome.tabs.sendMessage(tab.id, { type: "zs-autopilot-worker-cancel", runId: msg.runId }).catch(() => {});
+          } catch {}
+        }
         sendResponse({ ok: true, run });
         break;
       }
