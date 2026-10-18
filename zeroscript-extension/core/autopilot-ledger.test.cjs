@@ -123,6 +123,29 @@ assert.equal(L.claimNext(writerRun, { id: "writer-two", roles: ["implementation"
 assert(L.claimNext(writerRun, { id: "parallel-reader", roles: ["ideas_insights"] }),
   "read-only work can still proceed alongside the active writer");
 
+// Manual retry is explicit, bounded by dependency state, and resets only the
+// selected task's exhausted attempt budget.
+const retryRun = L.createRun({ goal: "Retry blocked task", acceptanceCriteria: ["Done"] });
+L.refreshReady(retryRun);
+const retryPm = L.claimNext(retryRun, { id: "retry-pm", roles: ["project_manager"] });
+L.transition(retryRun, retryPm.task.id, "running", { leaseToken: retryPm.lease.token });
+L.transition(retryRun, retryPm.task.id, "completed", { evidence: [{ summary: "Plan complete" }] });
+L.refreshReady(retryRun);
+const retryImpl = retryRun.tasks.find((t) => t.role === "implementation");
+L.transition(retryRun, retryImpl.id, "blocked", { reason: "Exhausted attempts" });
+retryImpl.attempts = 3;
+L.retryTask(retryRun, retryImpl.id, "User requested retry");
+assert.equal(retryImpl.status, "ready");
+assert.equal(retryImpl.attempts, 0);
+assert.equal(retryRun.state, "running");
+assert.equal(retryImpl.blockReason, "");
+
+const dependencyRetry = L.createRun({ goal: "Do not retry unresolved dependency", acceptanceCriteria: ["Done"] });
+L.refreshReady(dependencyRetry);
+const blockedImpl = dependencyRetry.tasks.find((t) => t.role === "implementation");
+L.transition(dependencyRetry, blockedImpl.id, "blocked", { reason: "Dependency incomplete" });
+assert.throws(() => L.retryTask(dependencyRetry, blockedImpl.id), /dependencies before retrying/);
+
 const cyclic = L.createRun({ goal: "Cycle", acceptanceCriteria: ["Done"] });
 cyclic.tasks[0].dependencies.push(cyclic.tasks[1].id);
 cyclic.tasks[1].dependencies.push(cyclic.tasks[0].id);
