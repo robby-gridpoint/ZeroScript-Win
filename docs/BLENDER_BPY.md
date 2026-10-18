@@ -102,3 +102,20 @@ provide a fully automated transaction across Blender, Roblox upload, and Studio
 insertion. Until that orchestration is added and exercised against the live
 tool schemas, perform these steps explicitly and report insertion and visual
 verification as separate states.
+
+
+### Texture-safe GLB export
+
+Use `bpy_export(path="exports/model.glb")` for the default Blender-to-Roblox
+handoff. The GLB exporter explicitly exports materials, UV coordinates, normals,
+tangents, vertex colors, and supported image textures in the single binary
+container. Cameras and lights are excluded by default and can be enabled with
+`export_cameras=true` or `export_lights=true`. Set `selected_only=true` to
+export only selected objects.
+
+GLB embedding does not guarantee every Blender shader node or procedural
+texture can be represented by glTF. For predictable results, use image textures
+connected through Principled BSDF inputs and pack external images in Blender
+before export. Inspect the exported GLB in a viewer before upload. A successful
+file write confirms the export artifact exists; it does not prove every material
+matches Blender or that Roblox's importer supports every feature.
