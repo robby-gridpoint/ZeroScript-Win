@@ -6,6 +6,10 @@ The extension preserves the existing browser-provider integrations and Roblox St
 
 **ChatGPT compatibility hotfix (1.11.1):** recognizes the updated composer, modern message-turn attributes, and current Stop control. The provider falls back to a non-invasive anchored status bar if the new composer no longer exposes a safe grid slot.
 
+## Autopilot
+
+The extension includes an opt-in, bounded Autopilot continuation toggle (off by default). The current first stage performs up to three role-guided review passes in the active AI conversation. It is **not yet a true multi-model team**. The target coordinator/worker architecture, shared task ledger, verification gates, and safety boundaries are documented in [`docs/AUTOPILOT_MULTI_AGENT.md`](docs/AUTOPILOT_MULTI_AGENT.md).
+
 ## Current status
 
 **Workspace-first IDE remaster in progress (v1.11.1).**
