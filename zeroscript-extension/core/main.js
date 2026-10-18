@@ -4197,10 +4197,14 @@
   // Keys are the same /c/<id> paths persisted by rememberSession().
   function decorateConversationIndicators() {
     if (P.id !== "chatgpt") return;
-    const links = document.querySelectorAll('a[href^="/c/"]');
+    const links = document.querySelectorAll('a[href*="/c/"]');
     for (const link of links) {
       let path = "";
-      try { path = new URL(link.href, location.origin).pathname; } catch {}
+      try {
+        const pathname = new URL(link.href, location.origin).pathname;
+        const match = pathname.match(/(?:^|\/)c\/([^/]+)/);
+        if (match) path = `/c/${match[1]}`;
+      } catch {}
       const known = !!path && startedSessions.has(path);
       let badge = link.querySelector(":scope > .zs-conversation-indicator");
       if (!known) {
