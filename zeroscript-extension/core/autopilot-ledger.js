@@ -123,20 +123,25 @@
     task.status = next;
     task.updatedAt = now();
     if (next === "completed") {
+      // Raw tool output is used for validation above but is not retained in the
+      // durable ledger. Keeping only summaries and the exact QA excerpts prevents
+      // large tool payloads from exhausting chrome.storage.local quota.
       task.evidence = payload.evidence.map((e) => ({
         summary: cleanText(e.summary, 1200),
         source: cleanText(e.source, 500),
         tool: cleanText(e.tool, 200),
-        output: cleanText(e.output, 5000),
         verifiedAt: now(),
       })).slice(0, 30);
       task.findings = Array.isArray(payload.findings) ? payload.findings.map((x) => cleanText(x, 1000)).filter(Boolean).slice(0, 30) : [];
-      task.criteriaEvidence = task.role === "qa" ? payload.criteriaEvidence.map((entry) => ({
-        criterion: cleanText(entry.criterion, 500),
-        status: "VERIFIED",
-        tool: cleanText(entry.tool, 200),
-        excerpt: cleanText(entry.excerpt, 500),
-      })).slice(0, 20) : [];
+      task.criteriaEvidence = task.role === "qa" ? run.acceptanceCriteria.map((criterion) => {
+        const entry = payload.criteriaEvidence.find((candidate) => candidate && candidate.criterion === criterion && candidate.status === "VERIFIED");
+        return {
+          criterion,
+          status: "VERIFIED",
+          tool: cleanText(entry.tool, 200),
+          excerpt: cleanText(entry.excerpt, 500),
+        };
+      }) : [];
       task.criteriaVerified = task.role === "qa" ? task.criteriaEvidence.map((entry) => entry.criterion) : [];
       task.lease = null;
     } else if (["blocked", "needs_approval", "failed", "cancelled", "ready"].includes(next)) {
