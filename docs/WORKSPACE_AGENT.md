@@ -28,7 +28,7 @@ ArcScript exposes a local-first coding workspace independently from its optional
 | `workspace_list_files` | List project files while skipping common generated directories and symbolic links. |
 | `workspace_find_files` | Find paths using glob patterns. |
 | `workspace_read_file` | Read bounded UTF-8 text, optionally by 1-based line range. |
-| `workspace_preview_image` | Return a workspace image as actual image content for vision-capable providers (PNG, JPEG, WebP, GIF; max 8 MB); do not use text reads for binary images. |
+| `workspace_preview_image` | Return a workspace image as actual image content for vision-capable providers (PNG, JPEG, WebP, GIF, SVG; max 8 MB); do not use text reads for binary images. |
 | `workspace_file_outline` | Extract import statements, headings, variables, and likely declarations with line numbers. |
 | `workspace_search` | Folder-scoped text search with optional case sensitivity and regular expressions; matches include line and column. The Explorer defaults to the workspace root and accepts workspace-relative folder paths. |
 | `workspace_symbols` | Best-effort discovery of function, type, and variable declarations across multiple language families. |
@@ -62,7 +62,7 @@ Legacy conversations calling bare Roblox tool names are routed to the matching R
 ## Safety and operational boundaries
 
 - Workspace paths are resolved and checked against the selected root, including resolved symlinks.
-- Text reads/writes and search results are bounded. Image previews accept only PNG/JPEG/WebP/GIF, enforce an 8 MB limit, check file signatures, and remain inside the selected workspace. Common generated directories are excluded by default.
+- Text reads/writes and search results are bounded. Image previews accept PNG/JPEG/WebP/GIF/SVG, enforce an 8 MB limit, validate raster signatures, reject active/external SVG content, and remain inside the selected workspace. Common generated directories are excluded by default.
 - Targeted patches require a non-empty exact fragment. Ambiguous matches are refused by default.
 - Command execution uses argv arrays and `shell=False`, which avoids shell expansion but does not sandbox the selected executable.
 - Git stage, unstage, and commit operations are separate tools. They should only be invoked after explicit user intent; the Workspace Explorer additionally asks for confirmation before these UI actions.
