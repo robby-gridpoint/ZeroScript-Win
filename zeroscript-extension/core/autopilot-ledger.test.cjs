@@ -40,13 +40,26 @@ const qa = run.tasks.find((t) => t.role === "qa");
 const qaClaim = L.claimNext(run, { id: "qa-worker", provider: "chatgpt", roles: ["qa"] });
 L.transition(run, qa.id, "running", { leaseToken: qaClaim.lease.token });
 assert.throws(() => L.transition(run, qa.id, "completed", {
-  evidence: [{ summary: "looks fine" }], criteriaVerified: [],
-}), /explicit verified criteria/);
-L.transition(run, qa.id, "completed", {
-  evidence: [{ summary: "Test output: 12 passed" }],
+  evidence: [{ summary: "looks fine", tool: "workspace_run_task", output: "12 passed" }],
   criteriaVerified: ["Feature is implemented", "Relevant tests pass"],
+}), /structured evidence/);
+assert.throws(() => L.transition(run, qa.id, "completed", {
+  evidence: [{ summary: "Test output", tool: "workspace_run_task", output: "12 passed" }],
+  criteriaEvidence: [
+    { criterion: "Feature is implemented", status: "VERIFIED", tool: "workspace_run_task", excerpt: "invented proof" },
+    { criterion: "Relevant tests pass", status: "VERIFIED", tool: "workspace_run_task", excerpt: "12 passed" },
+  ],
+}), /must match an observed successful tool output/);
+L.transition(run, qa.id, "completed", {
+  evidence: [{ summary: "Test output: 12 passed", tool: "workspace_run_task", output: "Test output: 12 passed" }],
+  criteriaEvidence: [
+    { criterion: "Feature is implemented", status: "VERIFIED", tool: "workspace_run_task", excerpt: "Test output" },
+    { criterion: "Relevant tests pass", status: "VERIFIED", tool: "workspace_run_task", excerpt: "12 passed" },
+  ],
 });
 assert.equal(qa.criteriaVerified.length, 2);
+assert.equal(qa.criteriaEvidence.length, 2);
+assert.equal(qa.evidence[0].output, "Test output: 12 passed");
 
 const leaseRun = L.createRun({ goal: "Test lease renewal", acceptanceCriteria: ["Done"] });
 L.refreshReady(leaseRun);
