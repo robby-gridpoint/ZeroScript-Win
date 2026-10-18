@@ -1188,7 +1188,7 @@
         // when the active provider/model cannot accept image attachments.
         ui.showImages(r.images, name);
         if (!P.supportsVision) {
-          return `Output of '${name}': ${r.images.length} image(s) displayed in the ArcScript preview panel. This provider cannot analyze image attachments, so do not claim visual analysis; use a vision-capable provider if analysis is required.`;
+          return `Output of '${name}': ${r.images.length} image(s) displayed in the ArcScript preview panel, but the active provider (${P.displayName || P.id || "current provider"}) cannot analyze image attachments. Visual QA is NOT complete. Switch to a provider/model with vision enabled (for example, a vision-capable Gemini or DeepSeek Vision session), then call workspace_preview_image again in that session. Do not infer visual details from the preview metadata alone.`;
         }
         // Do NOT attach the image here: submitAndGetBase/typeAndSend types the
         // feedback text into the editor LATER, and on providers whose editor is
