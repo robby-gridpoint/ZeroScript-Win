@@ -73,7 +73,7 @@ class WorkspaceBridgeTests(unittest.TestCase):
 
         # Absolute paths using forward slashes are common in generated tool calls
         # even on Windows; pathlib on Windows treats these as absolute paths.
-        forward_absolute = str(image_path).replace("\\\\", "/")
+        forward_absolute = str(image_path).replace("\\", "/")
         with self.subTest(path=forward_absolute):
             result = self.manager.call("workspace_preview_image", {"path": forward_absolute}, 5)
             self.assertEqual(result["images"][0]["mimeType"], "image/png")
