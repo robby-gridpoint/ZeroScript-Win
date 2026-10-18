@@ -47,3 +47,18 @@ The workspace package is an execution primitive, not a complete security sandbox
 This project is derived from [sebattfg/ZeroScript-Free](https://github.com/sebattfg/ZeroScript-Free). Preserve the original license and copyright notices. Changes in this fork should be identified as modifications.
 
 The project is licensed under [GNU GPL v3](LICENSE).
+
+
+## Native Blender Python integration
+
+An optional native `bpy` MCP server is available on the `feature/bpy-native-runtime`
+branch. It imports Blender's Python module directly in a dedicated Python process
+instead of launching `blender.exe` for each task. Tools include scene inspection,
+script execution, `.blend` open/save, rendering, and mesh export.
+
+See [Native Blender bpy integration](docs/BLENDER_BPY.md) for installation and
+configuration. Keep the `bpy` wheel in a dedicated Python environment matching
+its supported interpreter version, then merge the entry in
+`config.bpy.example.json` into `config.json`. Do not replace existing MCP
+entries. This is an optional integration; ordinary ZeroScript and Roblox tools
+remain independent of `bpy`.
