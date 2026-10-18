@@ -6,6 +6,13 @@
         "-3",
         "launch_studio_mcp.py"
       ]
+    },
+    "bpy": {
+      "command": ".venv-bpy\\Scripts\\python.exe",
+      "args": [
+        "-m",
+        "zeroscript_blender.mcp_server"
+      ]
     }
   }
 }
