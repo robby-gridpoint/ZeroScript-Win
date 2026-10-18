@@ -96,6 +96,25 @@
       <div class="hint">This is a single-provider workflow, not independent concurrent agents. The completion gate checks for recorded tool evidence but does not yet verify every acceptance criterion. Autopilot cannot authorize publishing, deployment, destructive actions, spending, or security changes.</div>
     </section>
 
+    <div class="section-label">Independent Autopilot run</div>
+    <section class="card" id="autopilotRunCard">
+      <div class="card-heading">
+        <div class="card-title">Coordinator & worker pool</div>
+        <span id="runStateBadge" class="badge">No run</span>
+      </div>
+      <label for="runGoal" class="hint">Goal</label>
+      <textarea id="runGoal" rows="3" placeholder="Describe the project outcome to deliver…" style="box-sizing:border-box;width:100%;resize:vertical;background:#0d131d;color:#e1e8f4;border:1px solid #2c374a;border-radius:8px;padding:9px;font:11px/1.5 inherit"></textarea>
+      <label for="runCriteria" class="hint" style="display:block;margin-top:10px">Acceptance criteria (one per line)</label>
+      <textarea id="runCriteria" rows="3" placeholder="Feature behaves as requested\nRelevant tests pass\nDocs reflect actual behavior" style="box-sizing:border-box;width:100%;resize:vertical;background:#0d131d;color:#e1e8f4;border:1px solid #2c374a;border-radius:8px;padding:9px;font:11px/1.5 inherit"></textarea>
+      <div class="hint">Creates a persistent dependency graph and dispatches tasks to idle, already-started ArcScript sessions in open provider tabs. Open and start the agent in multiple provider tabs for independent parallel workers. Runs and evidence survive popup closure.</div>
+      <div class="actions" style="margin-top:10px">
+        <button class="primary" id="startAutopilotRun">Start run</button>
+        <button class="secondary" id="stopAutopilotRun" disabled>Stop run</button>
+      </div>
+      <div id="runProgress" class="hint" aria-live="polite">No run selected.</div>
+      <div id="runTasks" style="font-size:10px;line-height:1.6;max-height:140px;overflow:auto"></div>
+    </section>
+
     <div class="section-label">Separate integrations</div>
     <section class="integration">
       <div class="integration-icon">⌘</div>
