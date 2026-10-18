@@ -4329,6 +4329,16 @@
       });
       return true;
     }
+    if (msg && msg.type === "zs-autopilot-worker-cancel") {
+      if (A.workerTask && A.workerTask.runId === msg.runId) {
+        A.stop = true;
+        A.userStopped = true;
+        A.resumeArmed = false;
+        try { P.stopGeneration(); } catch {}
+        diag("autopilot.workerCancelled", { runId: msg.runId, taskId: A.workerTask.taskId });
+      }
+      return true;
+    }
     if (msg && msg.type === "zs-autopilot-worker-dispatch") {
       if (!A.started || A.running || A.starting || A.injecting || A.workerTask || A.userStopped || P.isGenerating()) {
         sendResponse({ ok: false, error: "Worker session is not idle and ready." });
