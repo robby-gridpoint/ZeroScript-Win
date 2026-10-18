@@ -119,3 +119,12 @@ connected through Principled BSDF inputs and pack external images in Blender
 before export. Inspect the exported GLB in a viewer before upload. A successful
 file write confirms the export artifact exists; it does not prove every material
 matches Blender or that Roblox's importer supports every feature.
+
+
+### Recommended pre-upload sequence
+
+1. Call `bpy_pack_textures` and resolve any reported image-packing errors.
+2. Call `bpy_export` with a workspace-relative `.glb` path. The response includes a structural validation report.
+3. If the export validation reports external images/buffers or missing image sources, do not upload it. Call `bpy_validate_glb` to inspect the exact references.
+4. Inspect the GLB in a viewer for material fidelity before uploading. Structural validation cannot prove that procedural Blender shaders match glTF or that Roblox supports every material feature.
+5. Upload once, record the returned asset ID and moderation status, insert into Studio, and read back the inserted instance. Resume from the failed stage rather than repeating a successful upload.
