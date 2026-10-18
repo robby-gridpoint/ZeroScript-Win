@@ -4197,11 +4197,20 @@
         diag("loop.abandonedConversationChange", {
           from: A.loopKey, to: key || "(unassigned)", chatEmpty: P.chatIsEmpty()
         });
+        // Abort every layer of the old turn. Setting A.stop alone is not enough:
+        // waitForResponse can still be waiting on the site's generation, and the
+        // native stream can leave the status bar looking active indefinitely.
         A.stop = true;
+        A.userStopped = true;
+        A.resumeArmed = false;
         A.loopKey = null;
-        // Do not let the new conversation inherit the old session's active UI.
+        try { P.stopGeneration(); } catch {}
+        // Clear the stale active state immediately; the loop's finally also
+        // releases its lock/cover when its awaited operation unwinds.
         A.started = false;
+        A.stopping = false;
         ui.setStarted(false);
+        ui.showStop(false);
         ui.setStarting(false);
         ui.inputCover(false);
         P.setInputLock(false);
@@ -4250,6 +4259,25 @@
       ui.setStarted(has);
     }
   }
+
+  // ChatGPT is a client-side router: route changes do not reliably emit a
+  // popstate event, and a sidebar click can replace the conversation without a
+  // full navigation. Observe the URL independently of DOM mutations so session
+  // ownership is recalculated even when React reuses the same message shell.
+  let lastObservedHref = location.href;
+  setInterval(() => {
+    if (location.href === lastObservedHref) return;
+    const previous = lastObservedHref;
+    lastObservedHref = location.href;
+    diag("navigation.urlChanged", { from: previous, to: lastObservedHref });
+    syncSessionState();
+    scheduleSweep();
+  }, 250);
+  window.addEventListener("popstate", () => {
+    lastObservedHref = location.href;
+    syncSessionState();
+    scheduleSweep();
+  });
 
   // Schedule a debounced sweep. requestAnimationFrame is PAUSED in a background
   // tab, so when hidden we fall back to a timer (throttled, but it runs).
