@@ -884,9 +884,14 @@ const ZSProvider = (() => {
     return true;
   }
 
-  // "/" = a fresh chat whose conversation id is not assigned yet → "" (transient)
-  // so the core never persists it as "started"; /c/<id> = a real conversation.
-  const conversationKey = () => (/^\/c\//.test(location.pathname) ? location.pathname : "");
+  // Canonicalize by conversation ID, not the full route. ChatGPT can wrap
+  // conversations in GPT/project routes (for example /g/<gpt-id>/c/<id>).
+  // Persisting the whole pathname made those historical chats look unrelated
+  // after a reload or route-shape change.
+  const conversationKey = () => {
+    const match = location.pathname.match(/(?:^|\/)c\/([^/]+)/);
+    return match ? `/c/${match[1]}` : "";
+  };
 
   // ── ChatGPT-only system-prompt rules ──────────────────────────────────────
   // Appended to the shared system prompt via core/config.js's `providerNotes`
