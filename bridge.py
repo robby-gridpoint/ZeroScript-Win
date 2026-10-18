@@ -1512,8 +1512,8 @@ class MCPManager:
                 raise RuntimeError(f"Image size must be between 1 byte and 8 MB; file is {size} bytes.")
             data = target.read_bytes()
             signatures = {
-                "image/png": data.startswith(b"\\x89PNG\\r\\n\\x1a\\n"),
-                "image/jpeg": data.startswith(b"\\xff\\xd8\\xff"),
+                "image/png": data.startswith(b"\x89PNG\r\n\x1a\n"),
+                "image/jpeg": data.startswith(b"\xff\xd8\xff"),
                 "image/gif": data.startswith((b"GIF87a", b"GIF89a")),
                 "image/webp": len(data) >= 12 and data.startswith(b"RIFF") and data[8:12] == b"WEBP",
             }
