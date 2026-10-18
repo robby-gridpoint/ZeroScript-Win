@@ -1497,12 +1497,25 @@ class MCPManager:
             relative_path = args.get("path")
             if not isinstance(relative_path, str) or not relative_path.strip():
                 raise RuntimeError("A workspace-relative image path is required.")
-            raw_target = self.workspace.root / relative_path
-            if raw_target.is_symlink():
-                raise RuntimeError("Symbolic-link image paths are not supported.")
-            target = self.workspace._resolve(relative_path)
+            # Accept workspace-relative paths with either separator, plus absolute
+            # paths that still resolve INSIDE the selected workspace. Normalize
+            # separators before resolution; otherwise a Windows-style relative
+            # path can be interpreted as a literal backslash-containing filename
+            # by path implementations running in compatibility/test environments.
+            normalized_path = relative_path.strip()
+            if not Path(normalized_path).is_absolute():
+                normalized_path = normalized_path.replace("\\\\", os.sep).replace("/", os.sep)
+            try:
+                raw_target = self.workspace.root / normalized_path
+                if raw_target.is_symlink():
+                    raise RuntimeError("Symbolic-link image paths are not supported.")
+                target = self.workspace._resolve(normalized_path)
+            except (OSError, ValueError, WorkspaceError) as exc:
+                raise RuntimeError(f"Could not resolve image path '{relative_path}': {exc}") from exc
+            if not target.exists():
+                raise RuntimeError(f"Image file not found: '{relative_path}' (resolved path: {target}).")
             if not target.is_file():
-                raise RuntimeError(f"Not a regular file: {relative_path}")
+                raise RuntimeError(f"Image path is not a regular file: '{relative_path}' (resolved path: {target}).")
             mime_types = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
                           ".webp": "image/webp", ".gif": "image/gif", ".svg": "image/svg+xml"}
             mime_type = mime_types.get(target.suffix.lower())
@@ -1530,7 +1543,18 @@ class MCPManager:
                         or re.search(r"""(?:href|src)\s*=\s*["']\s*(?:https?:|file:|javascript:|//)""", svg, re.I)):
                     raise RuntimeError("SVG contains active script, event handlers, embedded HTML, or external resource references; remove them before previewing.")
             elif not signatures[mime_type]:
-                raise RuntimeError("The file extension does not match a supported image signature or the image is invalid.")
+                expected = {
+                    "image/png": "PNG signature 89 50 4E 47 0D 0A 1A 0A",
+                    "image/jpeg": "JPEG signature FF D8 FF",
+                    "image/gif": "GIF87a or GIF89a signature",
+                    "image/webp": "RIFF....WEBP signature",
+                }[mime_type]
+                actual = data[:12].hex(" ").upper() or "(empty)"
+                raise RuntimeError(
+                    f"Image validation failed for '{target}' (extension {target.suffix.lower()}, "
+                    f"{size} bytes): expected {expected}; first bytes were {actual}. "
+                    "The path resolved and the file was read, so verify that this is the intended image file."
+                )
             metadata = {"path": target.relative_to(self.workspace.root).as_posix(),
                         "mime_type": mime_type, "bytes": size,
                         "message": "Image attached for visual inspection."}
