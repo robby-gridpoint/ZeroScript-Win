@@ -261,7 +261,56 @@
     A.sendToken = P.lastAssistantId ? P.lastAssistantId() : undefined;
   }
 
+  async function rasterizeSvgAttachments(images) {
+    if (!images || !images.some((img) => (img.mimeType || "").toLowerCase() === "image/svg+xml")) return images;
+    const converted = [];
+    for (const img of images) {
+      if ((img.mimeType || "").toLowerCase() !== "image/svg+xml") {
+        converted.push(img);
+        continue;
+      }
+      // Show SVG directly in the ArcScript preview panel, but rasterize it
+      // before upload because provider attachment controls generally require PNG/JPEG.
+      const dataUrl = `data:image/svg+xml;base64,${img.data}`;
+      const raster = await new Promise((resolve, reject) => {
+        const source = new Image();
+        source.onload = () => {
+          try {
+            const width = Math.max(1, Math.min(source.naturalWidth || 1024, 4096));
+            const height = Math.max(1, Math.min(source.naturalHeight || 1024, 4096));
+            const canvas = document.createElement("canvas");
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) throw new Error("Canvas 2D context unavailable");
+            ctx.drawImage(source, 0, 0, width, height);
+            canvas.toBlob((blob) => {
+              if (!blob) return reject(new Error("SVG-to-PNG conversion failed"));
+              const reader = new FileReader();
+              reader.onload = () => resolve({ data: String(reader.result).split(",")[1], mimeType: "image/png" });
+              reader.onerror = () => reject(new Error("Could not read converted PNG"));
+              reader.readAsDataURL(blob);
+            }, "image/png");
+          } catch (error) { reject(error); }
+        };
+        source.onerror = () => reject(new Error("SVG could not be rendered for attachment"));
+        source.src = dataUrl;
+      });
+      converted.push(raster);
+    }
+    return converted;
+  }
+
   async function submitAndGetBase(text, images) {
+    if (images && images.length) {
+      try {
+        images = await rasterizeSvgAttachments(images);
+      } catch (error) {
+        diag("images.svgRasterize.failed", { message: String(error && error.message || error) });
+        images = images.filter((img) => (img.mimeType || "").toLowerCase() !== "image/svg+xml");
+        if (!images.length) text += "\n\n[ArcScript displayed the SVG preview locally but could not convert it for chat attachment.]";
+      }
+    }
     A.lastSendConfirmed = false;
     captureSendToken();
     diag("send", { text: String(text).slice(0, 60), busy: P.isBusyNow() });
