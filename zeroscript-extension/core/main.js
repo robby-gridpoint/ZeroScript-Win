@@ -1328,6 +1328,10 @@
         prompt: "DOCUMENTATION PASS: Compare docs and UI claims against behavior actually implemented and verified. Correct stale or misleading instructions, add essential setup/usage notes, and document known limits. Do not describe planned functionality as shipped or unverified checks as passing. If no useful action remains, say AUTOPILOT_NO_ACTION_NEEDED."
       },
       {
+        role: "Ideas & insights agent",
+        prompt: "IDEAS & INSIGHTS PASS: Think beyond the immediate implementation without losing sight of the user's actual goal. Inspect the current project/context and identify up to three genuinely useful opportunities, design improvements, simplifications, missing capabilities, or risks the team may have overlooked. Avoid generic brainstorming, speculative feature creep, and repeating existing plans. For each idea, state the user value, evidence/context, estimated effort (S/M/L), risk (low/medium/high), and a concrete next step. Rank by impact-to-effort and relevance. Recommend at most one idea for immediate implementation, and only if it is clearly in scope, low-risk, reversible, and verifiable with available tools; otherwise record it as a proposal for the lead to accept or defer. Do not perform destructive, external, costly, security-sensitive, or scope-expanding actions. Summarize the ranked ideas and explicitly state whether you made a verified improvement or only proposed work. Do not use AUTOPILOT_NO_ACTION_NEEDED merely because no implementation change is appropriate; insight itself is useful output."
+      },
+      {
         role: "Lead developer",
         prompt: "LEAD DEVELOPER CLOSEOUT: Re-check the original request, acceptance criteria, work performed, and available verification evidence. Address one final concrete gap if it can be safely completed and verified. Otherwise conclude with a concise report separating delivered work, checks actually run, unresolved risks, and approval-gated actions. End the report with AUTOPILOT_COMPLETE. Do not restart completed work."
       }
@@ -1444,22 +1448,26 @@
           continue;
         }
         if (res.kind === "text") {
-          // Specialists can stop early when no useful action remains.
-          if (A.autopilotEnabled && /AUTOPILOT_NO_ACTION_NEEDED|AUTOPILOT_COMPLETE/.test(res.text || "")) {
-            const completed = /AUTOPILOT_COMPLETE/.test(res.text || "");
+          // Only the lead's explicit completion marker ends the whole workflow.
+          // A specialist's no-action marker means that phase is done, not that
+          // the ideas, security, documentation, or closeout phases should be skipped.
+          if (A.autopilotEnabled && /AUTOPILOT_COMPLETE/.test(res.text || "")) {
             const ledgerKey = "zsAutopilotRun:" + String(P.conversationKey() || "unknown");
             const ledger = {
               conversationKey: String(P.conversationKey() || "unknown"),
-              phase: completed ? "complete" : "stopped_early",
+              phase: "complete",
               pass: autopilotPasses,
               maxPasses: MAX_AUTOPILOT_PASSES,
-              state: completed ? "completed" : "completed_no_action",
+              state: "completed",
               updatedAt: new Date().toISOString()
             };
             try { chrome.storage.local.set({ [ledgerKey]: ledger }); } catch {}
-            diag("autopilot.earlyClose", { pass: autopilotPasses, marker: completed ? "complete" : "no-action" });
-            ui.toast(completed ? "Autopilot closeout complete." : "Autopilot found no further actionable work.");
+            diag("autopilot.earlyClose", { pass: autopilotPasses, marker: "complete" });
+            ui.toast("Autopilot closeout complete.");
             break;
+          }
+          if (A.autopilotEnabled && /AUTOPILOT_NO_ACTION_NEEDED/.test(res.text || "")) {
+            diag("autopilot.phaseNoAction", { pass: autopilotPasses });
           }
           if (A.autopilotEnabled && autopilotPasses < MAX_AUTOPILOT_PASSES && !A.stop) {
             const phase = AUTOPILOT_PHASES[autopilotPasses];
