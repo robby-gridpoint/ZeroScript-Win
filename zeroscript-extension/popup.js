@@ -250,4 +250,4 @@ chrome.storage.local.get({ zsAutopilotActiveRunId: null }, async (saved) => {
 
 initAutopilot();
 refresh();
-setInterval(refresh, 2000);
+setInterval(() => { refresh(); refreshAutopilotRun(true); }, 2500);
