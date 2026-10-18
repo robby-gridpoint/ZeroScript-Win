@@ -78,7 +78,7 @@ class WorkspaceBridgeTests(unittest.TestCase):
         self.manager.workspace_configured = True
         with self.assertRaisesRegex(RuntimeError, "Unsupported image type"):
             self.manager.call("workspace_preview_image", {"path": "notes.txt"}, 5)
-        (self.root / "huge.png").write_bytes(b"\\x89PNG\\r\\n\\x1a\\n" + b"x" * (8 * 1024 * 1024))
+        (self.root / "huge.png").write_bytes(b"\x89PNG\r\n\x1a\n" + b"x" * (8 * 1024 * 1024))
         with self.assertRaisesRegex(RuntimeError, "8 MB"):
             self.manager.call("workspace_preview_image", {"path": "huge.png"}, 5)
 
