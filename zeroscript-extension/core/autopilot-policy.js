@@ -68,7 +68,7 @@
       if (!EDIT_TOOLS.has(name)) return { allowed: false, reason: "Documentation workers may only use the approved file-edit tools." };
       const paths = pathValues(args);
       const safeRelativePath = (value) => {
-        const path = String(value).replace(/\\\\/g, "/");
+        const path = String(value).replace(/\\/g, "/");
         if (!path || path.startsWith("/") || /^[a-z]:/i.test(path)) return false;
         const parts = path.split("/");
         if (parts.some((part) => part === ".." || part === "." || !part)) return false;
