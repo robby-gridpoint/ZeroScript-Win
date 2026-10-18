@@ -1525,7 +1525,8 @@ class MCPManager:
                 if "<svg" not in svg[:4096].lower():
                     raise RuntimeError("The .svg file does not contain a valid SVG root element.")
                 lower_svg = svg.lower()
-                if any(token in lower_svg for token in ("<script", "<foreignobject", "javascript:", "file://", "http://", "https://", " onload=", " onclick=", " onerror=")):
+                if (any(token in lower_svg for token in ("<script", "<foreignobject", "javascript:", " onload=", " onclick=", " onerror="))
+                        or re.search(r"""(?:href|src)\\s*=\\s*["']\\s*(?:https?:|file:|javascript:|//)""", svg, re.I)):
                     raise RuntimeError("SVG contains active script, event handlers, embedded HTML, or external resource references; remove them before previewing.")
             elif not signatures[mime_type]:
                 raise RuntimeError("The file extension does not match a supported image signature or the image is invalid.")
