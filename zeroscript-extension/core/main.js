@@ -1011,6 +1011,35 @@
     const args = call.arguments || {};
     if (name !== suppliedName) diag("tool.nameResolved", { supplied: suppliedName, resolved: name });
     if (!name) return ZS.FEEDBACK.parseError("malformed");
+    // Independent Autopilot workers are capability-gated at the single tool
+    // dispatch choke point. Prompt instructions alone are not an authorization
+    // boundary: read-only reviewers cannot call edit/command tools.
+    if (A.workerTask) {
+      const policy = globalThis.ZSAutopilotPolicy;
+      if (!policy || typeof policy.decide !== "function") {
+        diag("autopilot.policyUnavailable", { role: A.workerTask.task && A.workerTask.task.role, tool: name });
+        return "ERROR: Autopilot capability policy is unavailable; worker tool execution was denied closed.";
+      }
+      const decision = policy.decide({
+        role: A.workerTask.task && A.workerTask.task.role,
+        tool: name,
+        args,
+        category: ZS.toolCategory(name),
+      });
+      if (!decision.allowed) {
+        diag("autopilot.capabilityDenied", {
+          role: A.workerTask.task && A.workerTask.task.role,
+          tool: name,
+          reason: decision.reason,
+        });
+        return "ERROR: Autopilot capability policy denied '" + name + "': " + decision.reason;
+      }
+      diag("autopilot.capabilityGranted", {
+        role: A.workerTask.task && A.workerTask.task.role,
+        tool: name,
+        capability: decision.capability,
+      });
+    }
     // NEVER execute while the AI tab is backgrounded/minimized. This is the single
     // choke point for ALL execution (agentLoop's tool dispatch AND the bootstrap's
     // tool calls), so it closes the hole the loop-entry gate alone left open:
