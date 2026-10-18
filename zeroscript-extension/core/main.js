@@ -4666,7 +4666,7 @@
         P.setInputLock(false);
       }
     }
-    if (A.starting || A.injecting || A.running) return;
+    if (A.starting || A.injecting || A.running || A.workerTask) return;
     const path = P.conversationKey();
     // The persistent registry is the only source of truth for session identity.
     // Never auto-register a conversation merely because its text resembles an
@@ -4838,7 +4838,7 @@
   // User-send interception: the provider wires the site's composer events to
   // these callbacks.
   P.installSendHooks({
-    isBlocked: () => A.injecting || A.running || A.starting,
+    isBlocked: () => A.injecting || A.running || A.starting || !!A.workerTask,
     isStarted: () => A.started,
     onBlockedAttempt: () => ui.nudgeStart(),
     onUserMessage: (base) => {
