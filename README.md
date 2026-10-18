@@ -8,7 +8,7 @@ The extension preserves the existing browser-provider integrations and Roblox St
 
 ## Autopilot
 
-The extension includes an opt-in, bounded Autopilot continuation toggle (off by default). The current workflow runs up to seven role-separated phases (project management, QA, code review, security, documentation, ideas & insights, and lead closeout) in the same AI conversation. The orchestrator now accepts `AUTOPILOT_COMPLETE` only from the final lead pass when the response includes Delivered work, Verification evidence, and Unresolved risks sections; contradictory `AUTOPILOT_NO_ACTION_NEEDED` markers are rejected. Invalid closeout gets one correction attempt, then the run is recorded as `blocked_unverified` rather than completed. This is a **report-shape gate, not proof that evidence is genuine**: it does not yet validate each acceptance criterion against structured tool results, and the workflow is not a true multi-model team. The target coordinator/worker architecture, durable task ledger, machine-verified acceptance criteria, and safety boundaries are documented in [`docs/AUTOPILOT_MULTI_AGENT.md`](docs/AUTOPILOT_MULTI_AGENT.md).
+The extension includes an opt-in, bounded Autopilot continuation toggle (off by default). The current workflow runs up to seven role-separated phases (project management, QA, code review, security, documentation, ideas & insights, and lead closeout) in the same AI conversation. The orchestrator accepts `AUTOPILOT_COMPLETE` only from the final lead pass with Delivered work, Verification evidence, and Unresolved risks sections, no contradictory no-action marker, and observed successful tool output plus at least one successful read/inspection/test/build/check-style tool call. The per-conversation ledger records those tool-result summaries. Invalid closeout gets one correction attempt; exhausted runs are marked `blocked_unverified`, never completed. This is an evidence-presence gate, **not full acceptance-criteria verification**: it cannot prove the model's interpretation of tool output is correct, and this remains a single-provider role-separated workflow rather than a true multi-model team. The target coordinator/worker architecture, durable task ledger, machine-verified acceptance criteria, and safety boundaries are documented in [`docs/AUTOPILOT_MULTI_AGENT.md`](docs/AUTOPILOT_MULTI_AGENT.md).
 
 ## Current status
 
@@ -34,7 +34,7 @@ The bridge exposes an expanded, project-scoped toolset:
 
 ## Choose a workspace
 
-On a fresh install, the agent asks which project folder to use before inspecting or changing files. Reply with the absolute folder path, or use **Choose workspace folder** in the extension popup to open the native folder picker. The picker only proposes a folder; ArcScript activates and saves it after the selection is confirmed. The choice is saved in a private local `.zs-workspace.json` file and reused on subsequent starts.
+On a fresh install, the agent asks which project folder to use before inspecting or changing files. Reply with the absolute folder path, or ask the agent to select a workspace folder using the available workspace tools, or provide an absolute project path. The extension popup shows the currently selected workspace; the standalone workspace editor page has been removed. The choice is saved in a private local `.zs-workspace.json` file and reused on subsequent starts.
 
 An optional environment override is also supported:
 
