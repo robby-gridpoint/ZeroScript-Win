@@ -1539,7 +1539,7 @@
               };
               try { chrome.storage.local.set({ [ledgerKey]: ledger }); } catch {}
               diag("autopilot.earlyClose", { pass: autopilotPasses, marker: "complete", gate: "lead_pass_report_shape" });
-              ui.toast("Autopilot closeout complete.");
+              ui.toast("Autopilot closeout accepted · tool evidence recorded.");
               break;
             }
             diag("autopilot.completionRejected", {
@@ -1593,7 +1593,7 @@
             const ledgerKey = "zsAutopilotRun:" + String(P.conversationKey() || "unknown");
             const ledger = {
               conversationKey: String(P.conversationKey() || "unknown"),
-              phase: "complete",
+              phase: "blocked",
               pass: autopilotPasses,
               maxPasses: MAX_AUTOPILOT_PASSES,
               state: "blocked_unverified",
