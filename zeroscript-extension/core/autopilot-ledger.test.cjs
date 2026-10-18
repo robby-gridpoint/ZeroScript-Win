@@ -48,6 +48,14 @@ L.transition(run, qa.id, "completed", {
 });
 assert.equal(qa.criteriaVerified.length, 2);
 
+const leaseRun = L.createRun({ goal: "Test lease renewal", acceptanceCriteria: ["Done"] });
+L.refreshReady(leaseRun);
+const leaseClaim = L.claimNext(leaseRun, { id: "heartbeat-worker" });
+const previousExpiry = leaseClaim.lease.expiresAt;
+const renewed = L.renewLease(leaseRun, leaseClaim.task.id, leaseClaim.lease.token, 600000);
+assert(Date.parse(renewed.expiresAt) > Date.parse(previousExpiry));
+assert.throws(() => L.renewLease(leaseRun, leaseClaim.task.id, "stale-token"), /invalid/);
+
 const run2 = L.createRun({ goal: "Test cancellation", acceptanceCriteria: ["Done"] });
 L.refreshReady(run2);
 L.cancelRun(run2, "user clicked stop");
