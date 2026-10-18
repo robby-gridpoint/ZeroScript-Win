@@ -189,6 +189,54 @@ function renderAutopilotRun(run) {
       reason.textContent = task.blockReason;
       row.appendChild(reason);
     }
+    const dependencies = (task.dependencies || []).map((id) => run.tasks.find((entry) => entry.id === id));
+    const dependenciesComplete = dependencies.every((entry) => entry && entry.status === "completed");
+    if (["blocked", "failed"].includes(task.status) && dependenciesComplete &&
+        !["completed", "cancelled", "needs_approval"].includes(run.state)) {
+      const retry = document.createElement("button");
+      retry.type = "button";
+      retry.textContent = "Retry task";
+      retry.className = "secondary";
+      retry.style.marginTop = "5px";
+      retry.addEventListener("click", async () => {
+        retry.disabled = true;
+        retry.textContent = "Retrying…";
+        const result = await runMessage({ type: "autopilot_retry_task", runId: run.id, taskId: task.id });
+        if (!result.ok) {
+          document.getElementById("runProgress").textContent = "Retry failed: " + result.error;
+          retry.disabled = false;
+          retry.textContent = "Retry task";
+          return;
+        }
+        renderAutopilotRun(result.run);
+        await refreshAutopilotRun(true);
+      });
+      row.appendChild(retry);
+    }
+    const evidence = [];
+    for (const item of (task.evidence || [])) {
+      evidence.push((item.tool ? item.tool + ": " : "") + item.summary + (item.source ? " [" + item.source + "]" : ""));
+    }
+    for (const item of (task.criteriaEvidence || [])) {
+      evidence.push("Criterion " + item.status + ": " + item.criterion + " | tool: " + item.tool + " | excerpt: " + item.excerpt);
+    }
+    for (const finding of (task.findings || [])) evidence.push("Finding: " + finding);
+    if (evidence.length) {
+      const details = document.createElement("details");
+      details.style.marginTop = "5px";
+      const summary = document.createElement("summary");
+      summary.textContent = "Evidence & findings (" + evidence.length + ")";
+      summary.style.cursor = "pointer";
+      summary.style.color = "#9eb3d5";
+      const body = document.createElement("pre");
+      body.textContent = evidence.join("\\n");
+      body.style.whiteSpace = "pre-wrap";
+      body.style.overflowWrap = "anywhere";
+      body.style.font = "10px/1.5 Consolas, monospace";
+      body.style.color = "#aab6c9";
+      details.append(summary, body);
+      row.appendChild(details);
+    }
     tasks.appendChild(row);
   }
 }
