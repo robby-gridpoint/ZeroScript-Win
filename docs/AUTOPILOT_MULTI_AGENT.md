@@ -2,9 +2,9 @@
 
 ## Current implementation
 
-The extension popup has an opt-in Autopilot toggle, persisted in `chrome.storage.local`. It defaults to off. When enabled, the current agent loop may perform up to three bounded follow-up review passes after it would otherwise return a final answer. These passes ask the active provider to focus on useful remaining work, tests, code review, security, or documentation. The normal Stop control remains authoritative.
+The extension popup has an opt-in Autopilot toggle, persisted in `chrome.storage.local`. It defaults to off. When enabled, the agent loop may perform up to six bounded specialist phases after the initial implementation response: project management, QA, code review, security review, documentation, and lead closeout. A phase can stop the run early with an explicit no-action marker. The extension stores a lightweight per-conversation phase status record in local extension storage. These phases ask the active provider to perform real work with available tools, inspect results, and make targeted repairs. The normal Stop control remains authoritative.
 
-**This is a first-stage role-guided continuation loop, not yet a true multi-model team.** It reuses the active AI provider and conversation. It must not be represented as independent agents or parallel brains.
+**This is a bounded multi-role workflow, not yet a true multi-model team.** It reuses the active AI provider and conversation; role labels do not create independent brains. The local phase record is progress metadata, not a durable task graph or a substitute for actual tool evidence. Independent provider sessions, isolated worker workspaces, conflict-aware patch integration, and robust resume after browser reload remain follow-on infrastructure.
 
 ## Target architecture
 
