@@ -125,7 +125,7 @@ html.zs-light #zs-bar.zs-bar-anchored {
   width: auto;
   /* The card's corner radius is 28px and the bar sits flush with its top edge,
      so the bar's outermost children land inside the corner arc. With the
-     generic 16px padding the Discord button ended up 8px from the card edge and
+     generic 16px padding the right-side control ended up 8px from the card edge and
      7.3px from its top - its top-right corner falls OUTSIDE the rounded rect and
      was being sliced off by the card's `overflow-clip` (measured live). 24px
      puts both ends 16px in from the card edge, which clears the arc with room to
@@ -144,7 +144,7 @@ html.zs-light #zs-bar.zs-bar-anchored {
 
 /* Meta AI's composer card has a large corner radius (rounded-32 = 32px), so the
    full-width anchored bar's left/right ends run under the curve - the brand and
-   the Discord/switch/support icons crowd the rounding. Inset the content by ~the
+   the brand and switch control crowd the rounding. Inset the content by ~the
    radius so both edges clear the corners cleanly. */
 #zs-bar.zs-bar-anchored.zs-prov-meta { padding-left: 30px; padding-right: 30px; }
 
