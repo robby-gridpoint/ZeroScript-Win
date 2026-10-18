@@ -4354,8 +4354,9 @@
           const task = worker.task;
           const dependencies = task.dependencies.map((id) => got.run.tasks.find((t) => t.id === id)).filter(Boolean);
           const dependencyNotes = dependencies.map((t) =>
-            t.role + " (" + t.status + "): " + (t.evidence || []).map((e) => e.summary).join("; ")
-          ).join("\n");
+            t.role + " (" + t.status + "):\nEvidence: " + (t.evidence || []).map((e) => e.summary).join("; ") +
+            "\nFindings/report: " + (t.findings || []).join("\n")
+          ).join("\n\n");
           const prompt = [
             "ARCSCRIPT AUTOPILOT WORKER TASK. You are an independent worker session assigned exactly one bounded task. Do not perform other roles' work.",
             "Run ID: " + worker.runId,
@@ -4390,7 +4391,7 @@
               nextState: "completed",
               payload: {
                 evidence: evidence.map((e) => ({ summary: e.tool + ": " + e.summary, source: e.source })),
-                findings: report.split("\n").filter((line) => /finding|blocker|not verified|needs approval/i.test(line)).slice(0, 20),
+                findings: report.split("\n").map((line) => line.trim()).filter(Boolean).slice(0, 30),
                 criteriaVerified,
               },
             });
