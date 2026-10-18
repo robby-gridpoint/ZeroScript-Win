@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "bpy": {
+      "command": ".venv-bpy\\Scripts\\python.exe",
+      "args": ["-m", "zeroscript_blender.mcp_server"],
+      "env": {
+        "ZS_WORKSPACE_ROOT": "${ZS_WORKSPACE_ROOT}"
+      }
+    }
+  }
+}
