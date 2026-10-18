@@ -1894,8 +1894,10 @@
     // restored execute_luau can't leak into the freshly started conversation.
     A.bootBaselineId = P.lastAssistantId ? P.lastAssistantId() : null;
     A.starting = true;
+    const initialConversationKey = P.conversationKey();
+    if (initialConversationKey) recordConversation(initialConversationKey, "starting");
     const myGen = ++A.startGen;   // identity of THIS bootstrap
-    A.startingKey = null;          // unknown until the conversation gets an id
+    A.startingKey = initialConversationKey || null; // pin an existing chat immediately
     const alive = () => A.startGen === myGen; // false once superseded/aborted
     A.toolCallsSinceReminder = 0; // fresh reminder cadence for the new session
     ui.setStarting(true);
@@ -1970,7 +1972,7 @@
         if (A.stop || readyRes.kind === "stopped") { diag("start.aborted", { kind: readyRes.kind }); return; }
       }
       A.started = true;
-      rememberSession(P.conversationKey()); // survives virtualization AND reloads
+      rememberSession(A.startingKey || P.conversationKey()); // survives virtualization AND reloads
       ui.setStarted(true);
       ui.toast(`Agent ready. Ask ${P.displayName} to work on your project.`);
     } catch (e) {
@@ -4118,26 +4120,77 @@
   // (P.conversationKey()): once we have seen the marker for a key, we remember
   // it (persisted so it survives reloads). We never flip while busy.
   const startedSessions = new Set();
+  const sessionRecords = new Map();
   let lastSyncPath = null;
-  function rememberSession(path) {
-    // A falsy key = a TRANSIENT conversation URL (e.g. Gemini's /app before an
-    // id is assigned). Remembering it would mark every future fresh chat as
-    // "already started" and kill the Start gate. The real key is remembered by
-    // the next sync once the site assigns the conversation its id.
-    if (!path) return;
-    if (startedSessions.has(path)) return;
-    startedSessions.add(path);
-    try { chrome.storage.local.set({ zsStartedSessions: [...startedSessions].slice(-300) }); } catch {}
+
+  function persistSessionRecords() {
+    try {
+      chrome.storage.local.set({
+        zsStartedSessions: [...startedSessions].slice(-300),
+        zsConversationSessions: [...sessionRecords.entries()].slice(-300).map(([conversationId, record]) => ({
+          conversationId, provider: P.id, state: record.state, updatedAt: record.updatedAt
+        }))
+      });
+    } catch (e) {
+      diag("session.persistenceFailed", { message: String((e && e.message) || e) });
+    }
   }
-  // Load the persisted set once, then re-sync.
+
+  // Record identity separately from readiness. A saved ID is never proof that
+  // the bridge is online, and a "starting" record never auto-starts an agent.
+  function recordConversation(path, state) {
+    if (!path) return; // never persist a provider's transient/new-chat URL
+    sessionRecords.set(path, { state, updatedAt: Date.now() });
+    if (state === "active") startedSessions.add(path);
+    else if (state === "failed" || state === "starting") startedSessions.delete(path);
+    persistSessionRecords();
+    decorateConversationIndicators();
+  }
+
+  function rememberSession(path) {
+    if (!path) return;
+    sessionRecords.set(path, { state: "active", updatedAt: Date.now() });
+    startedSessions.add(path);
+    persistSessionRecords();
+  }
+
+  // Restore IDs and states before re-evaluating this conversation. Old versions
+  // stored only zsStartedSessions, so keep reading that key for compatibility.
   try {
-    chrome.storage.local.get("zsStartedSessions", (r) => {
+    chrome.storage.local.get(["zsStartedSessions", "zsConversationSessions"], (r) => {
       if (r && Array.isArray(r.zsStartedSessions)) {
-        for (const p of r.zsStartedSessions) startedSessions.add(p);
-        syncSessionState();
+        for (const p of r.zsStartedSessions) {
+          if (typeof p === "string" && p) startedSessions.add(p);
+        }
       }
+      if (r && Array.isArray(r.zsConversationSessions)) {
+        for (const item of r.zsConversationSessions) {
+          if (!item || typeof item.conversationId !== "string" || !item.conversationId) continue;
+          if (item.provider !== P.id) continue;
+          const state = item.state === "active" ? "active" :
+            item.state === "starting" ? "interrupted" :
+            item.state === "failed" ? "failed" : "unknown";
+          sessionRecords.set(item.conversationId, {
+            state, updatedAt: Number(item.updatedAt) || 0
+          });
+          if (state === "active") startedSessions.add(item.conversationId);
+        }
+      }
+      // A browser/extension restart during bootstrap must not leave a session
+      // permanently stuck in "Starting". It remains retryable and not active.
+      for (const [id, record] of sessionRecords) {
+        if (record.state === "interrupted") {
+          record.state = "failed";
+          startedSessions.delete(id);
+        }
+      }
+      persistSessionRecords();
+      syncSessionState();
+      decorateConversationIndicators();
     });
-  } catch {}
+  } catch (e) {
+    diag("session.restoreFailed", { message: String((e && e.message) || e) });
+  }
 
   // Mark known ArcScript conversations in ChatGPT's sidebar. This is deliberately
   // an additive, tiny text badge; it never changes the native link target or title.
@@ -4184,7 +4237,10 @@
     if (A.starting) {
       const key = P.conversationKey();
       if (A.startingKey == null) {
-        if (key && !P.chatIsEmpty()) A.startingKey = key; // pin the stable id
+        if (key && !P.chatIsEmpty()) {
+          A.startingKey = key; // pin the stable id
+          recordConversation(key, "starting");
+        }
       } else if (key !== A.startingKey && P.chatIsEmpty()) {
         A.startGen++;
         A.starting = false;
