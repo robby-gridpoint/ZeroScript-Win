@@ -2,7 +2,7 @@
 
 ## Current implementation
 
-The extension popup has an opt-in Autopilot toggle, persisted in `chrome.storage.local`. It defaults to off. When enabled, the agent loop may perform up to six bounded specialist phases after the initial implementation response: project management, QA, code review, security review, documentation, and lead closeout. A phase can stop the run early with an explicit no-action marker. The extension stores a lightweight per-conversation phase status record in local extension storage. These phases ask the active provider to perform real work with available tools, inspect results, and make targeted repairs. The normal Stop control remains authoritative.
+The extension popup has an opt-in Autopilot toggle, persisted in `chrome.storage.local`. It defaults to off. When enabled, the agent loop may perform up to seven bounded specialist phases after the initial implementation response: project management, QA, code review, security review, documentation, ideas and insights, and lead closeout. Specialist no-action markers complete only that phase; they do not skip later phases. Only the lead's explicit completion marker closes the full run. The Ideas & Insights agent identifies and ranks up to three context-grounded opportunities, and recommends at most one safe, in-scope improvement for immediate implementation. The extension stores a lightweight per-conversation phase status record in local extension storage. These phases ask the active provider to perform real work with available tools, inspect results, and make targeted repairs. The normal Stop control remains authoritative.
 
 **This is a bounded multi-role workflow, not yet a true multi-model team.** It reuses the active AI provider and conversation; role labels do not create independent brains. The local phase record is progress metadata, not a durable task graph or a substitute for actual tool evidence. Independent provider sessions, isolated worker workspaces, conflict-aware patch integration, and robust resume after browser reload remain follow-on infrastructure.
 
@@ -17,6 +17,7 @@ A genuine multi-agent mode should use a coordinator and isolated worker sessions
 - **Code reviewer** — inspects diffs for regressions, maintainability, and edge cases; should not rubber-stamp the implementation worker.
 - **Security reviewer** — evaluates tool permissions, untrusted input, secrets, and high-impact operations.
 - **Documentation worker** — updates setup, usage, and handoff documentation based on verified behavior.
+- **Ideas & insights agent** — independently searches for high-value improvements, simplifications, overlooked risks, and opportunities beyond the immediate acceptance criteria. It ranks ideas by impact, effort, risk, and relevance; the lead decides whether to implement or defer them. It must not turn speculative ideas into unapproved scope expansion.
 
 Workers should be routed to separate provider sessions when available, with per-provider capability and availability checks. If only one provider is available, the UI must explicitly label the workflow as **single-provider role simulation** rather than claiming independent agents.
 
