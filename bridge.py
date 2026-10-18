@@ -1503,10 +1503,10 @@ class MCPManager:
             if not target.is_file():
                 raise RuntimeError(f"Not a regular file: {relative_path}")
             mime_types = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
-                          ".webp": "image/webp", ".gif": "image/gif"}
+                          ".webp": "image/webp", ".gif": "image/gif", ".svg": "image/svg+xml"}
             mime_type = mime_types.get(target.suffix.lower())
             if not mime_type:
-                raise RuntimeError("Unsupported image type. Supported formats: PNG, JPEG, WebP, GIF.")
+                raise RuntimeError("Unsupported image type. Supported formats: PNG, JPEG, WebP, GIF, SVG.")
             size = target.stat().st_size
             if size < 1 or size > 8 * 1024 * 1024:
                 raise RuntimeError(f"Image size must be between 1 byte and 8 MB; file is {size} bytes.")
@@ -1517,7 +1517,17 @@ class MCPManager:
                 "image/gif": data.startswith((b"GIF87a", b"GIF89a")),
                 "image/webp": len(data) >= 12 and data.startswith(b"RIFF") and data[8:12] == b"WEBP",
             }
-            if not signatures[mime_type]:
+            if mime_type == "image/svg+xml":
+                try:
+                    svg = data.decode("utf-8-sig")
+                except UnicodeDecodeError as exc:
+                    raise RuntimeError("SVG must be valid UTF-8 text.") from exc
+                if "<svg" not in svg[:4096].lower():
+                    raise RuntimeError("The .svg file does not contain a valid SVG root element.")
+                lower_svg = svg.lower()
+                if any(token in lower_svg for token in ("<script", "<foreignobject", "javascript:", "file://", "http://", "https://", " onload=", " onclick=", " onerror=")):
+                    raise RuntimeError("SVG contains active script, event handlers, embedded HTML, or external resource references; remove them before previewing.")
+            elif not signatures[mime_type]:
                 raise RuntimeError("The file extension does not match a supported image signature or the image is invalid.")
             metadata = {"path": target.relative_to(self.workspace.root).as_posix(),
                         "mime_type": mime_type, "bytes": size,
