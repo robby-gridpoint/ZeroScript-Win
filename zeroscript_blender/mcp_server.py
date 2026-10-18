@@ -191,8 +191,23 @@ def _export(args: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("export target already exists; set overwrite=true to replace it")
     path.parent.mkdir(parents=True, exist_ok=True)
     operators = {
-        ".glb": lambda: bpy.ops.export_scene.gltf(filepath=str(path), export_format="GLB"),
-        ".gltf": lambda: bpy.ops.export_scene.gltf(filepath=str(path), export_format="GLTF_SEPARATE"),
+        ".glb": lambda: bpy.ops.export_scene.gltf(
+            filepath=str(path), export_format="GLB",
+            use_selection=bool(args.get("selected_only", False)),
+            export_image_format="AUTO",
+            export_materials="EXPORT",
+            export_texcoords=True, export_normals=True,
+            export_tangents=True, export_colors=True,
+            export_cameras=bool(args.get("export_cameras", False)),
+            export_lights=bool(args.get("export_lights", False)),
+        ),
+        ".gltf": lambda: bpy.ops.export_scene.gltf(
+            filepath=str(path), export_format="GLTF_SEPARATE",
+            use_selection=bool(args.get("selected_only", False)),
+            export_image_format="AUTO", export_materials="EXPORT",
+            export_texcoords=True, export_normals=True,
+            export_tangents=True, export_colors=True,
+        ),
         ".fbx": lambda: bpy.ops.export_scene.fbx(filepath=str(path), use_selection=bool(args.get("selected_only", False))),
         ".obj": lambda: bpy.ops.wm.obj_export(filepath=str(path)),
         ".stl": lambda: bpy.ops.wm.stl_export(filepath=str(path)),
@@ -240,8 +255,8 @@ TOOLS = [
     },
     {
         "name": "bpy_export",
-        "description": "Export the current scene to GLB/glTF, FBX, OBJ, STL, or PLY using an exporter supported by the installed bpy version. Output stays inside the workspace.",
-        "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}, "overwrite": {"type": "boolean", "default": False}, "selected_only": {"type": "boolean", "default": False}}, "required": ["path"], "additionalProperties": False},
+        "description": "Export the current scene to GLB/glTF, FBX, OBJ, STL, or PLY. GLB is a single-file binary glTF with supported image textures embedded; materials, UVs, normals, tangents, and vertex colors are exported where supported. Output stays inside the workspace.",
+        "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}, "overwrite": {"type": "boolean", "default": False}, "selected_only": {"type": "boolean", "default": False}, "export_cameras": {"type": "boolean", "default": False}, "export_lights": {"type": "boolean", "default": False}}, "required": ["path"], "additionalProperties": False},
     },
 ]
 
