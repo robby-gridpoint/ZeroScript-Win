@@ -4376,18 +4376,11 @@
           const evidence = A.workerEvidence.slice();
           const isQA = task.role === "qa";
           const criteriaVerified = isQA
-            ? got.run.acceptanceCriteria.filter((criterion) => {
-                const escaped = criterion.replace(/[.*+?^${}()|[\]\\]/g, "\\  chrome.runtime.onMessage.addListener((msg) => {
-    if (msg && msg.type === "zs-autopilot-setting") A.autopilotEnabled = msg.enabled === true;
-    if (msg && msg.type === "zs-status") {
-      ui.setStatus({ connected: msg.connected, mcpAlive: msg.mcpAlive, studio: msg.studio, studioApp: msg.studioApp, studioProc: msg.studioProc, tools: msg.tools, servers: msg.servers });
-    }
-    if (msg && msg.type === "zs-open-menu") {
-      ui.openMenu(false); // from the popup's Settings button — opens at the top (Switch AI / custom prompt)
-    }
-  });");
-                return new RegExp(escaped + "[^\\n]{0,100}VERIFIED", "i").test(report);
-              })
+            ? got.run.acceptanceCriteria.filter((criterion) =>
+                report.split("\n").some((line) =>
+                  line.toLowerCase().includes(criterion.toLowerCase()) && /\bVERIFIED\b/i.test(line)
+                )
+              )
             : [];
           const allQACriteria = !isQA || criteriaVerified.length === got.run.acceptanceCriteria.length;
           if (evidence.length && allQACriteria && report.trim()) {
