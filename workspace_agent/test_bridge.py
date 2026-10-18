@@ -58,6 +58,42 @@ class WorkspaceBridgeTests(unittest.TestCase):
         import base64
         self.assertEqual(base64.b64decode(result["images"][0]["data"]), image_path.read_bytes())
 
+    def test_workspace_preview_image_accepts_relative_and_absolute_path_forms(self):
+        output = self.root / "output"
+        output.mkdir()
+        image_path = output / "pallet_town.png"
+        image_path.write_bytes(b"\\x89PNG\\r\\n\\x1a\\n" + b"test-payload")
+        self.manager.workspace_configured = True
+
+        # Workspace-relative paths should work with either separator style.
+        for path in ("output/pallet_town.png", "output\\\\pallet_town.png"):
+            with self.subTest(path=path):
+                result = self.manager.call("workspace_preview_image", {"path": path}, 5)
+                self.assertEqual(result["images"][0]["mimeType"], "image/png")
+
+        # Absolute paths using forward slashes are common in generated tool calls
+        # even on Windows; pathlib on Windows treats these as absolute paths.
+        forward_absolute = str(image_path).replace("\\\\", "/")
+        with self.subTest(path=forward_absolute):
+            result = self.manager.call("workspace_preview_image", {"path": forward_absolute}, 5)
+            self.assertEqual(result["images"][0]["mimeType"], "image/png")
+
+        # Native absolute paths (backslashes on Windows) should also resolve.
+        native_absolute = str(image_path)
+        with self.subTest(path=native_absolute):
+            result = self.manager.call("workspace_preview_image", {"path": native_absolute}, 5)
+            self.assertEqual(result["images"][0]["mimeType"], "image/png")
+
+    def test_workspace_preview_image_reports_path_and_signature_failures_separately(self):
+        self.manager.workspace_configured = True
+        with self.assertRaisesRegex(RuntimeError, "Image file not found"):
+            self.manager.call("workspace_preview_image", {"path": "missing.png"}, 5)
+
+        wrong_image = self.root / "wrong.png"
+        wrong_image.write_bytes(b"not a png")
+        with self.assertRaisesRegex(RuntimeError, "Image validation failed.*expected PNG signature"):
+            self.manager.call("workspace_preview_image", {"path": "wrong.png"}, 5)
+
     def test_workspace_preview_image_accepts_safe_svg(self):
         svg = b'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10" fill="red"/></svg>'
         (self.root / "preview.svg").write_bytes(svg)
