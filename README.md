@@ -27,8 +27,7 @@ The bridge exposes an expanded, project-scoped toolset:
 - `roblox_export_tree` composite export: traverses the connected Studio DataModel, mirrors Script/LocalScript/ModuleScript source into hierarchy-preserving folders, and writes locally in bounded batches without sending the full source dump through the agent conversation.
   - Supports `exclude` hierarchy substrings and `max_script_bytes`; oversized scripts are skipped and reported instead of aborting the full export.
 - Git status, structured changed-file listing, staged/unstaged diffs, branch listing, recent history, single-file stage/unstage, and confirmed local commits (no automatic push).
-- A dedicated Workspace Explorer page with file tree, multi-tab text editor with independent unsaved buffers, lightweight syntax coloring and line numbers, keyboard indentation, Save All, close-tab controls, fuzzy Quick Open, a searchable Command Palette, in-file Find/Replace, folder-scoped search and preview-first multi-file replace, outline/project panes, per-file Git diff/stage/unstage actions, output/problems panes, clickable build/test diagnostics, and argv-based command runner.
-- Dedicated editor utility and diagnostic-parser modules with automated tests. Build/test diagnostics normalize common compiler/linter output into safe workspace-relative file/line links; absolute paths outside the selected workspace are not navigable.
+- A project-scoped workspace toolset exposed directly to the agent for file inspection/editing, search, project metadata, Git operations, task execution, and image preview. The standalone `/workspace.html` editor/page system is intentionally not part of the extension.
 - One-click project Test/Build/Lint/Check tasks discovered from package.json and package manager metadata, each with an explicit confirmation.
 - Bounded command execution from the selected project directory using an argument array and `shell=False`.
 
