@@ -445,6 +445,31 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         sendResponse({ ok: true, lease });
         break;
       }
+      case "autopilot_retry_task": {
+        const run = await mutateAutopilotRun(msg.runId, (value) => {
+          if (["completed", "cancelled", "needs_approval"].includes(value.state)) {
+            throw new Error("This run state cannot be retried: " + value.state);
+          }
+          const task = value.tasks.find((entry) => entry.id === msg.taskId);
+          if (!task) throw new Error("Unknown task: " + msg.taskId);
+          if (!["blocked", "failed"].includes(task.status)) {
+            throw new Error("Only blocked or failed tasks can be retried.");
+          }
+          const dependencies = task.dependencies.map((id) => value.tasks.find((entry) => entry.id === id));
+          if (dependencies.some((dependency) => !dependency || dependency.status !== "completed")) {
+            throw new Error("Resolve and complete this task's dependencies before retrying it.");
+          }
+          task.attempts = 0;
+          value.state = "running";
+          value.stopRequested = false;
+          ZSAutopilotLedger.transition(value, task.id, "ready", { reason: "Manual retry requested from the Autopilot run panel." });
+          task.blockReason = "";
+          ZSAutopilotLedger.refreshReady(value);
+          return value;
+        });
+        sendResponse({ ok: true, run });
+        break;
+      }
       case "autopilot_transition_task": {
         const run = await mutateAutopilotRun(msg.runId, (value) => {
           ZSAutopilotLedger.transition(value, msg.taskId, msg.nextState, msg.payload || {});
