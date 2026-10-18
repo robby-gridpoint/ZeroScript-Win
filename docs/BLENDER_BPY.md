@@ -57,8 +57,9 @@ the import check.
 - `bpy_execute_script`: execute Python directly in the persistent `bpy` process.
 - `bpy_open_project` / `bpy_save_project`: open and save workspace `.blend` files.
 - `bpy_render`: render a still image into the workspace.
-- `bpy_export`: export GLB/glTF, OBJ, STL, or PLY when supported by the installed
-  `bpy` version.
+- `bpy_pack_textures`: pack external image textures into the current `.blend` and report failures.
+- `bpy_validate_glb`: validate GLB v2 structure and report external/missing image or buffer references.
+- `bpy_export`: export GLB/glTF, FBX, OBJ, STL, or PLY. GLB exports are structurally validated automatically.
 
 ## Important runtime constraints
 
@@ -128,3 +129,12 @@ matches Blender or that Roblox's importer supports every feature.
 3. If the export validation reports external images/buffers or missing image sources, do not upload it. Call `bpy_validate_glb` to inspect the exact references.
 4. Inspect the GLB in a viewer for material fidelity before uploading. Structural validation cannot prove that procedural Blender shaders match glTF or that Roblox supports every material feature.
 5. Upload once, record the returned asset ID and moderation status, insert into Studio, and read back the inserted instance. Resume from the failed stage rather than repeating a successful upload.
+
+
+### Recommended pre-upload sequence
+
+1. Call `bpy_pack_textures` and resolve any reported image-packing errors.
+2. Call `bpy_export` with a workspace-relative `.glb` path. The result includes structural validation.
+3. If validation reports external images/buffers or missing image sources, do not upload; call `bpy_validate_glb` for details.
+4. Inspect the GLB in a viewer for material fidelity. Structural validation cannot prove procedural shaders match glTF or that Roblox supports every material feature.
+5. Upload once, preserve the returned asset ID and moderation state, insert into Studio, then read back the inserted instance. Resume from the failed stage rather than repeating a successful upload.
