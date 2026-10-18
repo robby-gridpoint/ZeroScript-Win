@@ -132,6 +132,10 @@
     // chat via the site's own button, syncSessionState abandons the loop so the
     // fresh chat shows "Start", not a stale "Agent active".
     loopKey: null,
+    // Latched when navigation abandons a running loop. Without this, the next
+    // sync sweep can pin the old loop to the DESTINATION GPT chat after clearing
+    // loopKey, making the abandoned loop look valid again.
+    loopAbandoned: false,
     // Identity of the assistant turn ALREADY present when the current session
     // started. A page reload can RESTORE an in-progress generation (e.g. an
     // execute_luau that was mid-stream in an A/B turn); that restored turn looks
@@ -1298,6 +1302,7 @@
     A.stopping = false; // clean slate: never inherit a stale "Stopping…" from a
                         // Stop click that landed before this loop actually started
     A.loopKey = null; // pinned by syncSessionState once this chat has an id + content
+    A.loopAbandoned = false;
     let truncCount = 0;
     const MAX_TRUNC = 6;
     // Re-send the command list after this many successful tool calls. Kept high
@@ -4220,7 +4225,10 @@
     // must never be allowed to operate while that id is no longer current.
     if (A.running) {
       const key = P.conversationKey();
-      if (A.loopKey == null) {
+      if (A.loopAbandoned) {
+        // Never re-bind an abandoned loop to whatever conversation the user
+        // navigated into. It may still be unwinding an awaited provider operation.
+      } else if (A.loopKey == null) {
         if (key && !P.chatIsEmpty()) A.loopKey = key; // pin only after stable content
       } else if (key !== A.loopKey && (key || P.chatIsEmpty())) {
         diag("loop.abandonedConversationChange", {
@@ -4232,6 +4240,7 @@
         A.stop = true;
         A.userStopped = true;
         A.resumeArmed = false;
+        A.loopAbandoned = true;
         A.loopKey = null;
         try { P.stopGeneration(); } catch {}
         // Clear the stale active state immediately; the loop's finally also
