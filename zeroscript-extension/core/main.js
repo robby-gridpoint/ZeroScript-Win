@@ -4367,6 +4367,7 @@
             "This task's acceptance criteria:\n- " + task.acceptanceCriteria.join("\n- "),
             "Completed dependency evidence:\n" + (dependencyNotes || "(none)"),
             "Use available tools to inspect and make scoped changes. Verify with actual tool output. Never claim a check passed unless its output is available. Do not publish, deploy, spend money, communicate externally, delete user data, change credentials/security settings, or perform irreversible actions.",
+            "Role-specific write policy: project_manager, qa, code_review, security, and ideas_insights are read-only; do not edit files in those roles. implementation owns implementation edits. documentation may edit only documentation after its dependencies are complete. lead integrates findings and may make a final narrow fix only after the review dependencies complete.",
             "Final response must include: Task outcome, Files changed, Verification evidence, Findings/blockers. For QA, list each overall acceptance criterion verbatim and label it VERIFIED only when supported by tool output; otherwise mark it NOT VERIFIED. Do not emit AUTOPILOT_COMPLETE.",
           ].join("\n\n");
           const base = await submitAndGetBase(prompt);
@@ -4394,9 +4395,10 @@
               },
             });
           } else {
+            const canRetry = Number(task.attempts) <= Number(task.maxAttempts);
             await bg({
               type: "autopilot_transition_task", runId: worker.runId, taskId: worker.taskId,
-              nextState: "blocked",
+              nextState: canRetry ? "ready" : "blocked",
               payload: { reason: !evidence.length ? "Worker produced no successful tool evidence." : !allQACriteria ? "QA did not explicitly verify every acceptance criterion with evidence." : "Worker produced no final report." },
             });
           }
@@ -4405,9 +4407,11 @@
             const state = await bg({ type: "autopilot_get_run", runId: worker.runId });
             const current = state.ok && state.run && state.run.tasks.find((t) => t.id === worker.taskId);
             if (current && ["leased", "running"].includes(current.status)) {
+              const canRetry = Number(current.attempts) <= Number(current.maxAttempts);
               await bg({
                 type: "autopilot_transition_task", runId: worker.runId, taskId: worker.taskId,
-                nextState: "blocked", payload: { reason: String(error && error.message || error) },
+                nextState: canRetry ? "ready" : "blocked",
+                payload: { reason: String(error && error.message || error) },
               });
             }
           } catch {}
