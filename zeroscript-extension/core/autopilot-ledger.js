@@ -229,6 +229,25 @@
     event(run, "run.cancelled", reason);
     return run;
   }
+  function retryTask(run, taskId, reason = "Manual retry requested.") {
+    validate(run);
+    assert(!["completed", "cancelled", "needs_approval"].includes(run.state), "This run state cannot be retried: " + run.state);
+    const task = run.tasks.find((entry) => entry.id === taskId);
+    assert(task, "Unknown task: " + taskId);
+    assert(["blocked", "failed"].includes(task.status), "Only blocked or failed tasks can be retried.");
+    const dependencies = task.dependencies.map((dependencyId) => run.tasks.find((entry) => entry.id === dependencyId));
+    assert(dependencies.every((dependency) => dependency && dependency.status === "completed"),
+      "Resolve and complete this task's dependencies before retrying it.");
+    task.attempts = 0;
+    run.state = "running";
+    run.stopRequested = false;
+    transition(run, task.id, "ready", { reason: cleanText(reason, 1000) || "Manual retry requested." });
+    task.blockReason = "";
+    refreshReady(run);
+    event(run, "task.manual_retry", "Task retry budget reset by explicit user action.", task.id);
+    return run;
+  }
+
   function finalize(run) {
     validate(run);
     if (run.stopRequested) { run.state = "cancelled"; return run.state; }
@@ -250,7 +269,7 @@
     event(run, "run." + run.state, "Run state evaluated.");
     return run.state;
   }
-  const api = { ROLES, TERMINAL, createRun, validate, transition, refreshReady, claimNext, renewLease, recoverExpiredLeases, cancelRun, finalize, isWriteCapableRole, hasActiveWriter };
+  const api = { ROLES, TERMINAL, createRun, validate, transition, refreshReady, claimNext, renewLease, recoverExpiredLeases, cancelRun, retryTask, finalize, isWriteCapableRole, hasActiveWriter };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.ZSAutopilotLedger = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
