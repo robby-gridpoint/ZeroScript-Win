@@ -67,8 +67,15 @@
       if (readLike(name, category)) return { allowed: true, capability: "read" };
       if (!EDIT_TOOLS.has(name)) return { allowed: false, reason: "Documentation workers may only use the approved file-edit tools." };
       const paths = pathValues(args);
-      if (!paths.length || paths.some((path) => !DOC_PATH.test(String(path).replace(/\\/g, "/")))) {
-        return { allowed: false, reason: "Documentation workers may edit only README/changelog/contributing/license/security/code-of-conduct files or files under docs/." };
+      const safeRelativePath = (value) => {
+        const path = String(value).replace(/\\\\/g, "/");
+        if (!path || path.startsWith("/") || /^[a-z]:/i.test(path)) return false;
+        const parts = path.split("/");
+        if (parts.some((part) => part === ".." || part === "." || !part)) return false;
+        return DOC_PATH.test(path);
+      };
+      if (!paths.length || paths.some((path) => !safeRelativePath(path))) {
+        return { allowed: false, reason: "Documentation workers may edit only safe workspace-relative README/changelog/contributing/license/security/code-of-conduct files or files under docs/." };
       }
       return { allowed: true, capability: "documentation_edit" };
     }
