@@ -435,6 +435,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         sendResponse({ ok: true, ...result });
         break;
       }
+      case "autopilot_heartbeat_task": {
+        const lease = await mutateAutopilotRun(msg.runId, (run) =>
+          ZSAutopilotLedger.renewLease(run, msg.taskId, msg.leaseToken, msg.leaseMs)
+        );
+        sendResponse({ ok: true, lease });
+        break;
+      }
       case "autopilot_transition_task": {
         const run = await mutateAutopilotRun(msg.runId, (value) => {
           ZSAutopilotLedger.transition(value, msg.taskId, msg.nextState, msg.payload || {});
