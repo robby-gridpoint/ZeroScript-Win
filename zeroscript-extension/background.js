@@ -17,13 +17,13 @@ async function readAutopilotRuns() {
     ? result[AUTOPILOT_RUNS_KEY] : {};
 }
 function writeAutopilotRuns(runs) {
-  autopilotStorageQueue = autopilotStorageQueue.then(() =>
+  autopilotStorageQueue = autopilotStorageQueue.catch(() => {}).then(() =>
     chrome.storage.local.set({ [AUTOPILOT_RUNS_KEY]: runs })
   );
   return autopilotStorageQueue;
 }
 async function mutateAutopilotRun(runId, mutate) {
-  return autopilotStorageQueue = autopilotStorageQueue.then(async () => {
+  return autopilotStorageQueue = autopilotStorageQueue.catch(() => {}).then(async () => {
     const runs = await readAutopilotRuns();
     const run = runs[runId];
     if (!run) throw new Error("Unknown Autopilot run: " + runId);
