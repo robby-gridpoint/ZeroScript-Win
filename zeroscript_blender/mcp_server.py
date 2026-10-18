@@ -185,14 +185,15 @@ def _export(args: dict[str, Any]) -> dict[str, Any]:
     bpy = _bpy()
     path = _workspace_path(args.get("path", "export.glb"))
     ext = path.suffix.lower()
-    if ext not in {".glb", ".gltf", ".obj", ".stl", ".ply"}:
-        raise ValueError("supported export extensions are .glb, .gltf, .obj, .stl, and .ply")
+    if ext not in {".glb", ".gltf", ".fbx", ".obj", ".stl", ".ply"}:
+        raise ValueError("supported export extensions are .glb, .gltf, .fbx, .obj, .stl, and .ply")
     if path.exists() and not bool(args.get("overwrite", False)):
         raise ValueError("export target already exists; set overwrite=true to replace it")
     path.parent.mkdir(parents=True, exist_ok=True)
     operators = {
         ".glb": lambda: bpy.ops.export_scene.gltf(filepath=str(path), export_format="GLB"),
         ".gltf": lambda: bpy.ops.export_scene.gltf(filepath=str(path), export_format="GLTF_SEPARATE"),
+        ".fbx": lambda: bpy.ops.export_scene.fbx(filepath=str(path), use_selection=bool(args.get("selected_only", False))),
         ".obj": lambda: bpy.ops.wm.obj_export(filepath=str(path)),
         ".stl": lambda: bpy.ops.wm.stl_export(filepath=str(path)),
         ".ply": lambda: bpy.ops.wm.ply_export(filepath=str(path)),
@@ -239,8 +240,8 @@ TOOLS = [
     },
     {
         "name": "bpy_export",
-        "description": "Export the current scene using an exporter supported by the installed bpy version. Output stays inside the workspace.",
-        "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}, "overwrite": {"type": "boolean", "default": False}}, "required": ["path"], "additionalProperties": False},
+        "description": "Export the current scene to GLB/glTF, FBX, OBJ, STL, or PLY using an exporter supported by the installed bpy version. Output stays inside the workspace.",
+        "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}, "overwrite": {"type": "boolean", "default": False}, "selected_only": {"type": "boolean", "default": False}}, "required": ["path"], "additionalProperties": False},
     },
 ]
 
