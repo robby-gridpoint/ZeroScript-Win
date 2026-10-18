@@ -44,6 +44,7 @@ class BpyMcpProtocolTests(unittest.TestCase):
         self.assertTrue({
             "bpy_status", "bpy_inspect_scene", "bpy_execute_script",
             "bpy_open_project", "bpy_save_project", "bpy_render", "bpy_export",
+            "bpy_pack_textures", "bpy_validate_glb",
         }.issubset(names))
 
     def test_unknown_tool_returns_protocol_error(self):
