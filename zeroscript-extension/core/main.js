@@ -4303,18 +4303,64 @@
   // full navigation. Observe the URL independently of DOM mutations so session
   // ownership is recalculated even when React reuses the same message shell.
   let lastObservedHref = location.href;
+  let lastObservedConversationKey = P.conversationKey();
   function handleConversationNavigation(source) {
     const nextHref = location.href;
-    if (nextHref === lastObservedHref && source !== "sidebar-mutation") {
+    const nextKey = P.conversationKey();
+    const previousHref = lastObservedHref;
+    const previousKey = lastObservedConversationKey;
+    const hrefChanged = nextHref !== previousHref;
+    const conversationChanged = nextKey !== previousKey;
+    if (!hrefChanged && !conversationChanged && source !== "sidebar-mutation") {
       decorateConversationIndicators();
       return;
     }
-    const previous = lastObservedHref;
     lastObservedHref = nextHref;
-    diag("navigation.urlChanged", { from: previous, to: nextHref, source });
-    // Always reconcile the session state against the destination URL immediately.
-    // Do not wait for the provider's message observer: ChatGPT can reuse the same
-    // conversation shell while replacing its route and history asynchronously.
+    lastObservedConversationKey = nextKey;
+    diag("navigation.urlChanged", {
+      from: previousHref, to: nextHref, fromConversation: previousKey,
+      toConversation: nextKey, source
+    });
+
+    // This route boundary is authoritative. Never let the active-state latch or
+    // a still-unwinding loop keep the old chat's state on the destination chat.
+    // Do this even if loopKey has not yet been pinned or the provider DOM has not
+    // finished replacing the old message list.
+    if (conversationChanged) {
+      const hasWork = A.running || A.starting || A.injecting || A.started ||
+        A.stopping || A.toolRunning;
+      if (hasWork) {
+        diag("session.routeBoundary", {
+          from: previousKey || "(unassigned)", to: nextKey || "(unassigned)",
+          running: A.running, starting: A.starting, injecting: A.injecting
+        });
+      }
+      if (A.running) {
+        A.stop = true;
+        A.userStopped = true;
+        A.resumeArmed = false;
+        A.loopAbandoned = true;
+        A.loopKey = null;
+        try { P.stopGeneration(); } catch {}
+      }
+      if (A.starting) {
+        A.startGen++;
+        A.starting = false;
+        A.startingKey = null;
+      }
+      A.started = false;
+      A.stopping = false;
+      A.resumeArmed = false;
+      ui.setStarted(false);
+      ui.setStarting(false);
+      ui.showStop(false);
+      ui.inputCover(false);
+      try { P.setInputLock(false); } catch {}
+      // Force the session resolver to evaluate the destination even if the
+      // message observer is temporarily still exposing the previous chat.
+      lastSyncPath = null;
+    }
+
     syncSessionState();
     decorateConversationIndicators();
     scheduleSweep();
