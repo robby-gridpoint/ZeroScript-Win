@@ -16,7 +16,7 @@ The extension includes an opt-in, bounded Autopilot continuation toggle (off by 
 
 The bridge exposes an expanded, project-scoped toolset:
 
-- Persistent local workspace selection, native folder picker, and a recent-project list for switching between saved workspaces.
+- Persistent local workspace selection, native folder picker exposed through the workspace tools, and a recent-project list for switching between saved workspaces.
 - Project metadata, detected package manager, popular framework/tooling hints, package scripts, and source inventory.
 - An agent-facing declared-task runner (`workspace_run_task`) that refuses scripts not present in the root `package.json`.
 - Bounded file reads that preserve original CRLF/LF line endings, a dedicated `workspace_preview_image` tool that returns PNG/JPEG/WebP/GIF/SVG files as image content in the ArcScript preview panel (8 MB maximum), with SVG rasterization before provider upload, a depth-limited project tree, recursive file listing, glob search, regex/case-sensitive text search, and line/column matches.
@@ -43,7 +43,7 @@ $env:ZS_WORKSPACE_ROOT = 'D:\Projects\MyApp'
 py -3 bridge.py
 ```
 
-The environment setting takes precedence over the saved folder. To change projects, use the popup folder picker or provide a new absolute path to the agent. The default fallback is the installation directory only for compatibility; the AI must not inspect it as a project until the user explicitly selects it.
+The environment setting takes precedence over the saved folder. To change projects, ask the agent to use the workspace folder-selection tool or provide a new absolute path. The default fallback is the installation directory only for compatibility; the AI must not inspect it as a project until the user explicitly selects it.
 
 ## Two distinct tool domains
 
