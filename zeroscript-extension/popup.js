@@ -140,6 +140,114 @@ document.getElementById("settings").addEventListener("click", () => {
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg && msg.type === "zs-status") render(msg);
 });
+let activeAutopilotRunId = null;
+let lastAutopilotDispatchAt = 0;
+
+function runMessage(message) {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage(message, (response) => {
+      if (chrome.runtime.lastError) resolve({ ok: false, error: chrome.runtime.lastError.message });
+      else resolve(response || { ok: false, error: "No response from extension background." });
+    });
+  });
+}
+
+function renderAutopilotRun(run) {
+  const badge = document.getElementById("runStateBadge");
+  const progress = document.getElementById("runProgress");
+  const tasks = document.getElementById("runTasks");
+  const stop = document.getElementById("stopAutopilotRun");
+  if (!run) {
+    badge.textContent = "No run";
+    badge.className = "badge";
+    progress.textContent = "No run selected.";
+    tasks.replaceChildren();
+    stop.disabled = true;
+    return;
+  }
+  activeAutopilotRunId = run.id;
+  badge.textContent = run.state.replaceAll("_", " ");
+  badge.className = "badge" + (run.state === "completed" ? " ready" : "");
+  const completed = run.tasks.filter((task) => task.status === "completed").length;
+  const active = run.tasks.filter((task) => ["leased", "running"].includes(task.status)).length;
+  const ready = run.tasks.filter((task) => task.status === "ready").length;
+  progress.textContent = completed + "/" + run.tasks.length + " tasks completed · " + active + " active · " + ready + " ready. Workspace: " + (run.workspace || "(not recorded)");
+  stop.disabled = ["completed", "blocked", "needs_approval", "failed", "cancelled"].includes(run.state);
+  tasks.replaceChildren();
+  for (const task of run.tasks) {
+    const row = document.createElement("div");
+    row.style.borderTop = "1px solid #263142";
+    row.style.padding = "4px 0";
+    const title = document.createElement("strong");
+    title.textContent = task.role.replaceAll("_", " ") + ": ";
+    const status = document.createElement("span");
+    status.textContent = task.status;
+    row.append(title, status);
+    if (task.blockReason) {
+      const reason = document.createElement("div");
+      reason.style.color = "#e2b878";
+      reason.textContent = task.blockReason;
+      row.appendChild(reason);
+    }
+    tasks.appendChild(row);
+  }
+}
+
+async function refreshAutopilotRun(dispatch = false) {
+  if (!activeAutopilotRunId) return;
+  const result = await runMessage({ type: "autopilot_get_run", runId: activeAutopilotRunId });
+  if (!result.ok || !result.run) return;
+  renderAutopilotRun(result.run);
+  if (dispatch && Date.now() - lastAutopilotDispatchAt > 4500 &&
+      !["completed", "blocked", "needs_approval", "failed", "cancelled"].includes(result.run.state)) {
+    lastAutopilotDispatchAt = Date.now();
+    const dispatched = await runMessage({ type: "autopilot_dispatch_ready", runId: activeAutopilotRunId });
+    if (!dispatched.ok) {
+      document.getElementById("runProgress").textContent = "Dispatch error: " + dispatched.error;
+    }
+  }
+}
+
+document.getElementById("startAutopilotRun").addEventListener("click", async (event) => {
+  const button = event.currentTarget;
+  const goal = document.getElementById("runGoal").value.trim();
+  const acceptanceCriteria = document.getElementById("runCriteria").value.split("\n").map((x) => x.trim()).filter(Boolean);
+  if (!goal || !acceptanceCriteria.length) {
+    document.getElementById("runProgress").textContent = "Enter a goal and at least one acceptance criterion.";
+    return;
+  }
+  button.disabled = true;
+  button.textContent = "Creating…";
+  try {
+    const result = await runMessage({
+      type: "autopilot_create_run",
+      input: { goal, acceptanceCriteria, workspace: "" },
+    });
+    if (!result.ok || !result.run) throw new Error(result.error || "Could not create run.");
+    activeAutopilotRunId = result.run.id;
+    chrome.storage.local.set({ zsAutopilotActiveRunId: activeAutopilotRunId });
+    renderAutopilotRun(result.run);
+    await refreshAutopilotRun(true);
+  } catch (error) {
+    document.getElementById("runProgress").textContent = "Could not start run: " + String(error.message || error);
+  } finally {
+    button.disabled = false;
+    button.textContent = "Start run";
+  }
+});
+
+document.getElementById("stopAutopilotRun").addEventListener("click", async () => {
+  if (!activeAutopilotRunId) return;
+  const result = await runMessage({ type: "autopilot_cancel_run", runId: activeAutopilotRunId, reason: "Stopped by user in the extension popup." });
+  if (!result.ok) document.getElementById("runProgress").textContent = "Stop failed: " + result.error;
+  else renderAutopilotRun(result.run);
+});
+
+chrome.storage.local.get({ zsAutopilotActiveRunId: null }, async (saved) => {
+  activeAutopilotRunId = saved.zsAutopilotActiveRunId || null;
+  await refreshAutopilotRun(true);
+});
+
 initAutopilot();
 refresh();
 setInterval(refresh, 2000);
