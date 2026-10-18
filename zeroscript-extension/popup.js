@@ -229,7 +229,7 @@ function renderAutopilotRun(run) {
       summary.style.cursor = "pointer";
       summary.style.color = "#9eb3d5";
       const body = document.createElement("pre");
-      body.textContent = evidence.join("\\n");
+      body.textContent = evidence.join("\n");
       body.style.whiteSpace = "pre-wrap";
       body.style.overflowWrap = "anywhere";
       body.style.font = "10px/1.5 Consolas, monospace";
