@@ -4353,12 +4353,21 @@
       sendResponse({ ok: true, accepted: true, provider: P.id });
       (async () => {
         const worker = A.workerTask;
+        let leaseHeartbeat = null;
         try {
           const running = await bg({
             type: "autopilot_transition_task", runId: worker.runId, taskId: worker.taskId,
             nextState: "running", payload: { leaseToken: worker.lease.token, workerId: worker.lease.workerId },
           });
           if (!running.ok) throw new Error(running.error || "Could not start leased task.");
+          leaseHeartbeat = setInterval(() => {
+            bg({
+              type: "autopilot_heartbeat_task", runId: worker.runId,
+              taskId: worker.taskId, leaseToken: worker.lease.token, leaseMs: 600000,
+            }).then((heartbeat) => {
+              if (!heartbeat.ok) diag("autopilot.leaseHeartbeatFailed", { taskId: worker.taskId, error: heartbeat.error });
+            });
+          }, 45000);
           const got = await bg({ type: "autopilot_get_run", runId: worker.runId });
           if (!got.ok || !got.run) throw new Error("Autopilot run record is unavailable.");
           const task = worker.task;
@@ -4428,6 +4437,7 @@
           } catch {}
           diag("autopilot.workerFailed", { taskId: worker.taskId, error: String(error && error.message || error) });
         } finally {
+          if (leaseHeartbeat) clearInterval(leaseHeartbeat);
           A.workerTask = null;
           A.workerEvidence = [];
           try {
