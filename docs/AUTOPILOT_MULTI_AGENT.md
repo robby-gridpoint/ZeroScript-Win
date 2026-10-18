@@ -24,7 +24,7 @@ The task graph, leases, durable run ledger, worker dispatch, and evidence-gated 
 - **Stronger criterion verification:** QA evidence excerpts are checked against actual successful tool outputs, but test command/exit status and relevant-file attribution are not yet represented in a typed evidence schema. A matched excerpt is evidence provenance, not proof the criterion is satisfied.
 - **Run management:** add explicit UI controls for retrying blocked tasks, inspecting full event/evidence history, and resuming a run from a stale browser session.
 
-Do not claim workspace isolation, enforced role permissions, automatic patch merging, or criterion-level proof until those controls are implemented and tested.
+Do not claim workspace isolation, automatic patch merging, or criterion-level proof until those controls are implemented and tested. The dispatch capability policy is implemented as defense in depth; it is not an OS sandbox and still requires CI/runtime verification.
 
 ## Safety and control boundaries
 
