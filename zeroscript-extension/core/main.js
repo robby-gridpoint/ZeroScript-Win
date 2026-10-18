@@ -4166,29 +4166,12 @@
       link.classList.add("zs-has-conversation-indicator");
     }
   }
-  // A conversation IS a ArcScript session if any rendered turn carries a
-  // telltale artefact: the system-prompt marker, an injected tool-result /
-  // system-note turn, or a ArcScript command an assistant wrote. Works even
-  // after a full cold start and regardless of scroll position.
+  // Session identity is explicit, never inferred from arbitrary chat text.
+  // A normal GPT conversation can quote the ArcScript marker, tool output, or
+  // these instructions. Treating those strings as proof of a session caused
+  // ordinary GPT chats to inherit "Agent active" and the Start gate. The durable
+  // per-conversation registry is written only after startSession succeeds.
   function domHasZsSignal() {
-    for (const it of P.allItems()) {
-      const txt = it.textContent || "";
-      if (txt.includes(ZS.SYS_MARKER)) return true;
-      if (/(^|\n)\s*Output of '[^']+':/.test(txt) || txt.includes("(System note:")) return true;
-      // Deliberately NO bare command-shape test here. An assistant turn that
-      // merely CONTAINS {"command":...} / ###LUA### is NOT proof of a session:
-      // in a plain, never-started chat the model can simply EXPLAIN the format
-      // (docs, examples, the user pasting our README) - that false positive
-      // flipped A.started on, which armed the auto-resume watchdog, EXECUTED
-      // the quoted JSON as a real command and injected its result into a chat
-      // that had no agent at all (user-reported). A command only counts as a
-      // session signal once it was actually RUN - and an executed command is
-      // always followed by our injected "Output of '...'" feedback turn, which
-      // the test above already catches. Virtualization (the marker turns
-      // scrolling out of the DOM) is covered by the persisted per-conversation
-      // key set (startedSessions / zsStartedSessions in rememberSession), not
-      // by this heuristic.
-    }
     return false;
   }
   function syncSessionState() {
@@ -4275,8 +4258,10 @@
     }
     if (A.starting || A.injecting || A.running) return;
     const path = P.conversationKey();
+    // The persistent registry is the only source of truth for session identity.
+    // Never auto-register a conversation merely because its text resembles an
+    // ArcScript prompt or tool result.
     const markerInDom = domHasZsSignal();
-    if (markerInDom) rememberSession(path);
     let has;
     if (path && path === lastSyncPath) {
       // SAME, REAL conversation: never downgrade a known-started session just
