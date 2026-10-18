@@ -374,11 +374,14 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         break;
       }
       case "autopilot_dispatch_ready": {
-        const runs = await readAutopilotRuns();
-        const run = runs[msg.runId];
-        if (!run) throw new Error("Unknown Autopilot run: " + msg.runId);
-        ZSAutopilotLedger.recoverExpiredLeases(run);
-        ZSAutopilotLedger.refreshReady(run);
+        // Recovery must be committed, not performed on a detached read snapshot.
+        // Otherwise an expired lease remains persisted and cannot be reclaimed
+        // when no worker happens to be available during this dispatch pass.
+        const run = await mutateAutopilotRun(msg.runId, (value) => {
+          ZSAutopilotLedger.recoverExpiredLeases(value);
+          ZSAutopilotLedger.refreshReady(value);
+          return value;
+        });
         if (run.stopRequested || ["completed", "blocked", "needs_approval", "failed", "cancelled"].includes(run.state)) {
           sendResponse({ ok: true, dispatched: [], runState: run.state });
           break;
