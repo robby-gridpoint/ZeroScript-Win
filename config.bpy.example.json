@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "bpy": {
+      "command": ".venv-bpy\\Scripts\\python.exe",
+      "args": ["-m", "zeroscript_blender.mcp_server"]
+    }
+  }
+}
