@@ -371,6 +371,59 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         sendResponse({ ok: true, run });
         break;
       }
+      case "autopilot_dispatch_ready": {
+        const runs = await readAutopilotRuns();
+        const run = runs[msg.runId];
+        if (!run) throw new Error("Unknown Autopilot run: " + msg.runId);
+        ZSAutopilotLedger.recoverExpiredLeases(run);
+        ZSAutopilotLedger.refreshReady(run);
+        if (run.stopRequested || ["completed", "blocked", "needs_approval", "failed", "cancelled"].includes(run.state)) {
+          sendResponse({ ok: true, dispatched: [], runState: run.state });
+          break;
+        }
+        const tabs = await new Promise((resolve) => chrome.tabs.query({ url: PROVIDER_URLS }, resolve));
+        const dispatched = [];
+        for (const tab of tabs) {
+          if (!tab.id) continue;
+          let worker = null;
+          try {
+            worker = await new Promise((resolve) => chrome.tabs.sendMessage(tab.id, { type: "zs-autopilot-worker-probe" }, (response) => {
+              if (chrome.runtime.lastError) resolve(null); else resolve(response || null);
+            }));
+          } catch {}
+          if (!worker || worker.available !== true) continue;
+          const claimed = await mutateAutopilotRun(msg.runId, (value) =>
+            ZSAutopilotLedger.claimNext(value, {
+              id: worker.workerId || (worker.provider + ":" + tab.id),
+              provider: worker.provider, tabId: tab.id, roles: worker.roles,
+            })
+          );
+          if (!claimed) continue;
+          const task = claimed.task, lease = claimed.lease;
+          const accepted = await new Promise((resolve) => chrome.tabs.sendMessage(tab.id, {
+            type: "zs-autopilot-worker-dispatch", runId: msg.runId, taskId: task.id, task, lease,
+          }, (response) => {
+            if (chrome.runtime.lastError) resolve({ ok: false, error: chrome.runtime.lastError.message });
+            else resolve(response || { ok: false, error: "Worker did not acknowledge dispatch." });
+          }));
+          if (accepted.ok) dispatched.push({ taskId: task.id, role: task.role, tabId: tab.id, provider: worker.provider });
+          else {
+            await mutateAutopilotRun(msg.runId, (value) => {
+              const current = value.tasks.find((t) => t.id === task.id);
+              if (current && current.status === "leased" && current.lease && current.lease.token === lease.token) {
+                ZSAutopilotLedger.transition(value, task.id, "ready", { reason: accepted.error || "Worker rejected dispatch." });
+              }
+              return value;
+            });
+          }
+        }
+        const updated = await mutateAutopilotRun(msg.runId, (value) => {
+          ZSAutopilotLedger.refreshReady(value);
+          return { runState: value.state, ready: value.tasks.filter((t) => t.status === "ready").length, active: value.tasks.filter((t) => ["leased", "running"].includes(t.status)).length };
+        });
+        sendResponse({ ok: true, dispatched, ...updated });
+        break;
+      }
       case "autopilot_claim_task": {
         const result = await mutateAutopilotRun(msg.runId, (run) => {
           ZSAutopilotLedger.recoverExpiredLeases(run);
