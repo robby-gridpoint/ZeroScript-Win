@@ -2602,7 +2602,7 @@
       // One consolidated status bar, anchored just above the site's composer
       // (positioned every frame by placeBar). It carries everything: live status,
       // the primary action (Start / Stop) and a "more"
-      // menu (other AI sites, custom prompt, support, Discord). No floating panel,
+      // menu (AI sites, custom prompt, and integration settings). No floating panel,
       // no overlay on the input - the composer stays fully usable for plain chat.
       root.innerHTML = `
         <div id="zs-bar">
@@ -2645,7 +2645,7 @@
       }
       buildMenu();
       // The model button opens the options menu.
-      const toggleMenu = (toSupport) => {
+      const toggleMenu = () => {
         menuEl.hidden = !menuEl.hidden;
         if (!menuEl.hidden) {
           // Rebuild on every open, not just once at page load: the initial
@@ -2654,21 +2654,14 @@
           // MCP servers section otherwise - nothing ever refreshed it after.
           buildMenu();
           syncMenuPrompt();
-          // On a FRESH open, menuEl has no max-height yet - that's only applied by
-          // placeBar()'s positioning pass, which runs on the next rAF tick (it's a
-          // separate loop, not synchronous with this click). Without it the panel
-          // has no overflow yet, so scrollHeight === clientHeight and setting
-          // scrollTop here is a no-op - the "jump to Support" silently failed on
-          // the very first open (reported live on Arena). Deferring one frame lets
-          // placeBar's already-queued tick clip the box first, so there's real
-          // scroll room by the time we set scrollTop.
+          // Let placeBar establish the panel bounds before setting its initial scroll position.
           requestAnimationFrame(() => {
             if (!menuEl.hidden) menuEl.scrollTop = 0;
           });
         }
       };
-      switchBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleMenu(false); });
-      openMenuFn = () => { if (menuEl.hidden) toggleMenu(false); };
+      switchBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleMenu(); });
+      openMenuFn = () => { if (menuEl.hidden) toggleMenu(); };
       document.addEventListener("click", (e) => {
         if (menuEl.hidden) return;
         if (!menuEl.contains(e.target) && !switchBtn.contains(e.target))
@@ -3820,7 +3813,7 @@
     }
 
     build();
-    return { setStatus, staleExtensionAlert, setStarted, setStarting, showStop, markStopping, inputCover, toast, banner, showImages, nudgeStart, updateStartGate, refreshSetup, getCustomPrompt, getCustomMcpServers, openMenu: (toSupport) => openMenuFn && openMenuFn(toSupport) };
+    return { setStatus, staleExtensionAlert, setStarted, setStarting, showStop, markStopping, inputCover, toast, banner, showImages, nudgeStart, updateStartGate, refreshSetup, getCustomPrompt, getCustomMcpServers, openMenu: () => openMenuFn && openMenuFn() };
   })();
 
   // ── Live token + timer, shown ONLY on a tool call's chip detail. The
