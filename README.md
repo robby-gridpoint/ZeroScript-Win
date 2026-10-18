@@ -33,7 +33,7 @@ The bridge exposes an expanded, project-scoped toolset:
 
 ## Choose a workspace
 
-On a fresh install, the agent asks which project folder to use before inspecting or changing files. Reply with the absolute folder path, or ask the agent to select a workspace folder using the available workspace tools, or provide an absolute project path. The extension popup shows the currently selected workspace; the standalone workspace editor page has been removed. The choice is saved in a private local `.zs-workspace.json` file and reused on subsequent starts.
+On a fresh install, the agent asks which project folder to use before inspecting or changing files. Provide an absolute folder path or ask the agent to open the native folder picker through the workspace tools. The extension popup displays the currently selected workspace; the standalone `/workspace.html` page and editor system have been removed. The choice is saved in a private local `.zs-workspace.json` file and reused on subsequent starts.
 
 An optional environment override is also supported:
 
