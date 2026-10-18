@@ -22,7 +22,7 @@ The task graph, leases, durable run ledger, worker dispatch, and evidence-gated 
 - **Workspace isolation:** workers still share the selected workspace. Writes are serialized by role, but per-task Git worktrees or isolated copies are needed before enabling parallel implementation tasks.
 - **Structured patch integration:** collect worker changes as patches or branch commits, detect file conflicts, and require the lead to resolve conflicts before verification. The current writer lock prevents simultaneous writes but is not a patch merge system.
 - **Stronger criterion verification:** QA evidence excerpts are checked against actual successful tool outputs, but test command/exit status and relevant-file attribution are not yet represented in a typed evidence schema. A matched excerpt is evidence provenance, not proof the criterion is satisfied.
-- **Run management:** add explicit UI controls for retrying blocked tasks, inspecting full event/evidence history, and resuming a run from a stale browser session.
+- **Run management:** the popup now exposes manual retry for blocked/failed tasks whose dependencies are complete and an expandable evidence/findings view per task. A dedicated event timeline and explicit resume controls for stale provider sessions remain follow-on work.
 
 Do not claim workspace isolation, automatic patch merging, or criterion-level proof until those controls are implemented and tested. The dispatch capability policy is implemented as defense in depth; it is not an OS sandbox and still requires CI/runtime verification.
 
