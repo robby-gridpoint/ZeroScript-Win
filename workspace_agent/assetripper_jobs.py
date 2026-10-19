@@ -48,10 +48,21 @@ def _refresh(root: Path, state: dict[str, Any]) -> dict[str, Any]:
     process = _ACTIVE.get(state["job_id"])
     if process is not None:
         code = process.poll()
+        if code is None and int(state.get("deadline_unix", 0)) and time.time() >= int(state["deadline_unix"]):
+            state["timeout_requested"] = True
+            state["status"] = "cancelling"
+            _save_state(root, state)
+            process.terminate()
+            try:
+                code = process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                code = process.wait(timeout=5)
+            state["message"] = "AssetRipper exceeded its configured time limit and was terminated."
         if code is None:
             state["status"] = "running"
         else:
-            state["status"] = "succeeded" if code == 0 else ("cancelled" if state.get("cancel_requested") else "failed")
+            state["status"] = "succeeded" if code == 0 and not state.get("timeout_requested") else ("cancelled" if state.get("cancel_requested") else "failed")
             state["exit_code"] = code
             state["finished_unix"] = int(time.time())
             _ACTIVE.pop(state["job_id"], None)
