@@ -22,6 +22,10 @@ The first target build is a Unity 6 Mono player. The known managed assemblies in
    - Install/configure ILSpy CLI separately if it is not available.
    - Use \`decompile_unity_type\` for targeted investigation of types such as \`StudentScript\`, \`StudentManagerScript\`, and \`ClockScript\`.
    - Use \`export_unity_assembly\` only when a searchable source tree is needed. It refuses to overwrite a non-empty output directory.
+4. **Inspect serialized objects selectively**
+   - Use `inspect_unity_serialized_file` on one smaller `.assets`, `.bundle`, `.unity3d`, or `.ress` file when UnityPy is installed in the bridge Python environment.
+   - The tool returns object path IDs, Unity type names, decodable object names, and per-type counts. It is read-only and caps inspected files at 512 MiB (256 MiB by default) to avoid loading the approximately 1.64 GB `resources.assets` in one uncontrolled operation.
+   - This improves on the file-level catalog, but it is not a complete dependency graph. A file rejected for size should be investigated with a different targeted extraction strategy; do not raise the limit simply to force a large file into memory.
 4. **Extract assets**
    - Use \`start_assetripper_export\` only after checking the executable path and available disk space.
    - Prefer \`Primary\` mode for a first raw-content pass; \`Unity\` mode aims to produce an editable Unity project and can require substantially more storage.
@@ -48,7 +52,7 @@ The first target build is a Unity 6 Mono player. The known managed assemblies in
 
 ## Not yet implemented
 
-- Unity serialized-object parsing, asset GUID/object dependency graphs, and targeted extraction by asset name/type.
+- Cross-file Unity serialized-object dependency graphs and targeted extraction by object name/type. The new UnityPy inspector handles one bounded file at a time only.
 - UnityPy/UABEA adapters and AssetRipper failure-manifest ingestion.
 - Mono.Cecil metadata/call-reference analysis beyond what ILSpy CLI provides.
 - A durable process supervisor that can safely adopt and cancel child processes after bridge restarts.
