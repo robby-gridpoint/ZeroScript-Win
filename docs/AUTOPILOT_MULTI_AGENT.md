@@ -38,3 +38,15 @@ Do not claim workspace isolation, automatic patch merging, or criterion-level pr
 ## Completion contract
 
 The lead produces a concise report with: delivered changes, verification actually performed, QA/reviewer findings, remaining risks, approval-gated actions, and any uncompleted acceptance criteria. A bounded run must end in `completed`, `blocked`, `needs_approval`, `failed`, or `cancelled`—never an unbounded self-prompt loop.
+
+
+## Unity recovery pipeline milestone
+
+The workspace bridge now exposes a bounded Unity inspection/code-intelligence layer:
+
+- Installation scanning reports Unity version, managed assembly evidence, Mono/IL2CPP indicators, serialized asset sizes, and editable-project markers without mutating the source installation.
+- File-level asset cataloging is deterministic and resumable using a workspace-local JSON catalog and cursor state. Large asset bytes are not read; this is inventory, not extraction.
+- Tool discovery reports available executables without installing software.
+- ILSpy CLI operations support single-type decompilation and whole-assembly source export, with argument-array execution, timeouts, and output overwrite protection.
+
+Still outstanding: AssetRipper process/job orchestration and resumable extraction, serialized object/dependency parsing, Mono.Cecil call/reference analysis, Unity Editor validation, Playwright browser regression tests, durable job IDs/cancellation, and per-task artifact manifests. The implementation must not describe the current file catalog as a parsed Unity asset catalog.
