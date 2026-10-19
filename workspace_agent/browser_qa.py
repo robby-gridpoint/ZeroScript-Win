@@ -182,6 +182,9 @@ def run_browser_qa(
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
+        if scenario_steps:
+            result["status"] = "fail"
+            result["scenarios"] = [{"status": "blocked", "reason": "Python Playwright is not installed; requested interactive scenarios were not run."}]
         return result
     errors: list[dict[str, str]] = []
     failed_requests: list[dict[str, str]] = []
