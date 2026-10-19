@@ -47,6 +47,11 @@ except Exception:
     unity_recovery = None
 
 try:
+    from workspace_agent import browser_qa
+except Exception:
+    browser_qa = None
+
+try:
     # Sibling script (same folder as bridge.py, which Python puts on sys.path
     # automatically) - reused here purely to detect a Studio version bump
     # (see _current_studio_exe below), not to launch anything.
@@ -1203,6 +1208,10 @@ class MCPManager:
              "inputSchema": {"type": "object", "properties": {"install_path": {"type": "string"}, "type_name": {"type": "string", "minLength": 1}, "assembly_path": {"type": "string", "default": ""}, "timeout": {"type": "integer", "minimum": 1, "maximum": 180, "default": 90}}, "required": ["install_path", "type_name"], "additionalProperties": False}, "server": "workspace"},
             {"name": "export_unity_assembly", "description": "Export one managed assembly to C# source using ilspycmd. Refuses to overwrite a non-empty output directory; output must remain within the selected workspace. Requires ILSpy CLI.",
              "inputSchema": {"type": "object", "properties": {"install_path": {"type": "string"}, "assembly_path": {"type": "string", "default": ""}, "output_path": {"type": "string", "default": "recovery/decompiled"}, "timeout": {"type": "integer", "minimum": 1, "maximum": 180, "default": 180}}, "required": ["install_path"], "additionalProperties": False}, "server": "workspace"},
+            {"name": "inspect_browser_port", "description": "Audit browser-port/index.html and local script/style references without launching a browser. Reports missing local files and package scripts. Output is diagnostic only.",
+             "inputSchema": {"type": "object", "properties": {"port_path": {"type": "string", "default": "browser-port"}}, "additionalProperties": False}, "server": "workspace"},
+            {"name": "run_browser_qa", "description": "Smoke-test a running browser restoration over HTTP; checks the static reference audit and, if Python Playwright plus Chromium are installed, captures console/page errors, failed requests, page title, and a screenshot under the workspace. Does not start a server or install dependencies.",
+             "inputSchema": {"type": "object", "properties": {"url": {"type": "string"}, "port_path": {"type": "string", "default": "browser-port"}, "screenshot_path": {"type": "string", "default": "recovery/browser-qa.png"}, "timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 60, "default": 20}}, "required": ["url"], "additionalProperties": False}, "server": "workspace"},
         ]
         tools.append({
             "name": "roblox_export_tree",
@@ -1416,6 +1425,14 @@ class MCPManager:
             return self.workspace.run_task(args["task"], args.get("timeout", 300))
         if name == "workspace_run_command":
             return self.workspace.run_command(args["command"], args.get("timeout", 60))
+        if name == "inspect_browser_port":
+            if browser_qa is None:
+                raise RuntimeError("Browser QA helpers could not be imported.")
+            return browser_qa.inspect_browser_port(self.workspace_root, args.get("port_path", "browser-port"))
+        if name == "run_browser_qa":
+            if browser_qa is None:
+                raise RuntimeError("Browser QA helpers could not be imported.")
+            return browser_qa.run_browser_qa(self.workspace_root, args["url"], args.get("port_path", "browser-port"), args.get("screenshot_path", "recovery/browser-qa.png"), args.get("timeout_seconds", 20))
         if name in {"scan_unity_installation", "catalog_unity_assets", "inspect_recovery_tooling", "decompile_unity_type", "export_unity_assembly"}:
             if unity_recovery is None:
                 raise RuntimeError("Unity recovery helpers could not be imported.")
