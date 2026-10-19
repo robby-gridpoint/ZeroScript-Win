@@ -47,6 +47,11 @@ except Exception:
     unity_recovery = None
 
 try:
+    from workspace_agent import unity_asset_inspector
+except Exception:
+    unity_asset_inspector = None
+
+try:
     from workspace_agent import code_intelligence
 except Exception:
     code_intelligence = None
@@ -1217,6 +1222,8 @@ class MCPManager:
              "inputSchema": {"type": "object", "properties": {"install_path": {"type": "string", "default": ""}}, "additionalProperties": False}, "server": "workspace"},
             {"name": "catalog_unity_assets", "description": "Create or resume a deterministic, file-level Unity asset catalog. Writes only under the selected workspace; never extracts or modifies original assets. Re-call until status=complete. Serialized Unity object dependencies are not parsed.",
              "inputSchema": {"type": "object", "properties": {"install_path": {"type": "string", "default": ""}, "output_path": {"type": "string", "default": "recovery/asset-catalog.json"}, "batch_size": {"type": "integer", "minimum": 1, "maximum": 2000, "default": 500}}, "additionalProperties": False}, "server": "workspace"},
+            {"name": "inspect_unity_serialized_file", "description": "Inspect UnityPy object types, path IDs, and object names in one selected serialized asset/bundle file. Refuses files above a bounded size (default 256 MiB) to protect memory; do not point it at a 1.64 GB resources.assets file. Requires UnityPy installed in the bridge Python environment and never modifies source assets.",
+             "inputSchema": {"type": "object", "properties": {"install_path": {"type": "string"}, "asset_path": {"type": "string", "description": "Path relative to the Unity installation, such as YandereSimulator_Data/sharedassets0.assets."}, "max_file_mb": {"type": "integer", "minimum": 1, "maximum": 512, "default": 256}, "max_objects": {"type": "integer", "minimum": 1, "maximum": 5000, "default": 1000}}, "required": ["install_path", "asset_path"], "additionalProperties": False}, "server": "workspace"},
             {"name": "inspect_recovery_tooling", "description": "Check PATH availability of ILSpy CLI, AssetRipper, Unity Editor, .NET, Node/npm, Git, and 7-Zip, plus browser-port markers. Does not install software.",
              "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}, "server": "workspace"},
             {"name": "decompile_unity_type", "description": "Decompile a named managed type from the installed Mono assembly using ilspycmd. Bounded timeout, no shell, original DLL is read-only. Requires ILSpy CLI to be installed.",
@@ -1498,6 +1505,12 @@ class MCPManager:
                 self.workspace_root, args["query"], args.get("source_path", "recovery/decompiled"),
                 args.get("max_results", 100), args.get("case_sensitive", False),
                 args.get("regex", False), args.get("context_lines", 2),
+            )
+        if name == "inspect_unity_serialized_file":
+            if unity_asset_inspector is None:
+                raise RuntimeError("Unity asset inspector could not be imported.")
+            return unity_asset_inspector.inspect_unity_serialized_file(
+                args["install_path"], args["asset_path"], args.get("max_file_mb", 256), args.get("max_objects", 1000)
             )
         if name in {"scan_unity_installation", "catalog_unity_assets", "inspect_recovery_tooling", "decompile_unity_type", "export_unity_assembly"}:
             if unity_recovery is None:
