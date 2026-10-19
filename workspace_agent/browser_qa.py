@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 import urllib.error
 import urllib.parse
@@ -60,8 +61,8 @@ def _validate_scenarios(scenarios: list[dict[str, Any]] | None) -> list[dict[str
                 raise UnityRecoveryError(f"Scenario step {index + 1} wait_ms value must be an integer.") from exc
         if action == "screenshot":
             label = step.get("label", f"step-{index + 1}")
-            if not isinstance(label, str) or len(label) > 80:
-                raise UnityRecoveryError(f"Scenario step {index + 1} screenshot label must be at most 80 characters.")
+            if not isinstance(label, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", label):
+                raise UnityRecoveryError(f"Scenario step {index + 1} screenshot label must use only letters, digits, underscore, or hyphen.")
             record["label"] = label
         validated.append(record)
     return validated
@@ -153,6 +154,8 @@ def run_browser_qa(
     explicit_https = parsed_url.scheme == "https" and bool(parsed_url.hostname)
     if not (local_http or explicit_https):
         raise UnityRecoveryError("Use a local http://127.0.0.1 or http://localhost URL, or an explicit HTTPS test URL.")
+    if scenario_steps and not local_http:
+        raise UnityRecoveryError("Interactive scenarios are restricted to localhost/127.0.0.1 URLs; HTTPS smoke checks remain read-only.")
     timeout_seconds = max(1, min(int(timeout_seconds), 60))
     static = inspect_browser_port(str(root), port_path)
     started = time.monotonic()
