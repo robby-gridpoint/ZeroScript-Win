@@ -32,7 +32,11 @@ The first target build is a Unity 6 Mono player. The known managed assemblies in
    - The executable must be an AssetRipper CLI-compatible build that accepts \`--cli --input --output --mode --script-content-level --log-path\`. Do not assume every AssetRipper distribution has the same CLI.
    - The job returns a durable ID. Poll \`assetripper_job_status\`; use \`cancel_assetripper_job\` if required. Export output must be workspace-relative and empty/new; the original input is never used as the output.
    - Current limitation: this starts a whole-input export. It does not yet perform per-asset selection or resume an interrupted AssetRipper export internally. A cancelled/interrupted export must be inspected before retrying.
-5. **Validate the browser restoration**
+5. **Track feature parity with evidence**
+   - Use `update_reconstruction_feature` for each subsystem (for example `clock`, `student-schedules`, `inventory`, `save-load`). Record exact decompiled source paths plus method/symbol/line locators, asset evidence, browser implementation files, and regression-test files.
+   - Use `report_reconstruction_readiness` to see which evidence categories are missing before reviewing a subsystem. The tracker persists to `recovery/reconstruction/features.json` and refuses paths outside the workspace.
+   - `ready_for_review` means the evidence files are recorded; it is not an automatic test pass or a claim of parity. Test execution and behavior comparison remain separate validation steps.
+6. **Validate the browser restoration**
    - \`inspect_browser_port\` audits the entry point and referenced local scripts/styles.
    - \`start_browser_server\` launches a static HTTP server bound to \`127.0.0.1\` and returns a job ID/URL.
    - \`run_browser_qa\` checks the HTTP response and static references. If Python Playwright and Chromium are installed, it also captures browser console/page errors, failed requests, and a screenshot.
