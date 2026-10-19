@@ -17,6 +17,8 @@ The first target build is a Unity 6 Mono player. The known managed assemblies in
    - Repeat until \`status=complete\`. The cursor and catalog are saved under \`recovery/asset-catalog.json\`.
    - This is a file-level catalog. It does not parse Unity serialized object IDs, bundle dependencies, or object types.
 3. **Recover managed logic**
+   - Use `list_unity_symbols` to enumerate types/methods/fields/namespaces and filter for names such as `StudentScript`, `StudentManagerScript`, and `ClockScript` before decompiling.
+   - After exporting source, use `search_unity_source` to locate call sites, schedule fields, task strings, save/load references, and related implementations with line/context evidence. This is text search over exported source, not a full IL call graph.
    - Install/configure ILSpy CLI separately if it is not available.
    - Use \`decompile_unity_type\` for targeted investigation of types such as \`StudentScript\`, \`StudentManagerScript\`, and \`ClockScript\`.
    - Use \`export_unity_assembly\` only when a searchable source tree is needed. It refuses to overwrite a non-empty output directory.
