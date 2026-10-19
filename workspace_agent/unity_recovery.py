@@ -268,8 +268,14 @@ def inspect_recovery_tooling(workspace_root: str) -> dict[str, Any]:
     found = {name: shutil.which(name) for name in commands}
     managed = sorted(str(p.relative_to(root)) for p in root.rglob("*.dll") if p.is_file() and len(str(p)) < 1000)[:200]
     browser_port = root / "browser-port"
+    try:
+        from importlib.util import find_spec
+        python_playwright = find_spec("playwright") is not None
+    except (ImportError, ValueError):
+        python_playwright = False
     return {
         "tools": found,
+        "python_playwright_available": python_playwright,
         "workspace": str(root),
         "browser_port_present": browser_port.is_dir(),
         "browser_port_manifests": [
