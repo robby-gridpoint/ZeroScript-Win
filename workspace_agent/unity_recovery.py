@@ -196,7 +196,7 @@ def catalog_unity_assets(
     last_path = cursor
     more_after_batch = False
     for path, rel in _walk_files(root):
-        if rel <= cursor or rel in existing:
+        if rel in existing:
             continue
         if added >= batch_size or time.monotonic() - started > MAX_SCAN_SECONDS:
             more_after_batch = True
@@ -228,7 +228,7 @@ def catalog_unity_assets(
     # Detect whether another batch remains, without materializing the tree.
     if not more_after_batch:
         for _, rel in _walk_files(root):
-            if rel > last_path and rel not in existing:
+            if rel not in existing:
                 more_after_batch = True
                 break
     catalog["completed"] = not more_after_batch
@@ -291,9 +291,6 @@ def _ilspycmd() -> str:
     if executable:
         return executable
     dotnet = shutil.which("dotnet")
-    if dotnet:
-        # A local dotnet tool may be available even if it is not on PATH.
-        return "ilspycmd"
     raise UnityRecoveryError("ilspycmd is not installed or not on PATH. Install ILSpy's CLI deliberately, then retry; no software was installed automatically.")
 
 
@@ -364,7 +361,7 @@ def export_unity_assembly(
     if not assembly.is_file() or assembly.suffix.lower() != ".dll":
         raise UnityRecoveryError("assembly_path must identify an existing DLL.")
     output = _safe_workspace_path(workspace, output_path)
-    if output.exists() and any(output.iterdir()):
+    if output.exists() and (not output.is_dir() or any(output.iterdir())):
         raise UnityRecoveryError(f"Refusing to overwrite a non-empty export directory: {output}")
     timeout = max(1, min(int(timeout), MAX_DECOMPILE_SECONDS))
     output.mkdir(parents=True, exist_ok=True)
