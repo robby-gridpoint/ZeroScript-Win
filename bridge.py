@@ -57,6 +57,11 @@ except Exception:
     browser_server = None
 
 try:
+    from workspace_agent import assetripper_jobs
+except Exception:
+    assetripper_jobs = None
+
+try:
     # Sibling script (same folder as bridge.py, which Python puts on sys.path
     # automatically) - reused here purely to detect a Studio version bump
     # (see _current_studio_exe below), not to launch anything.
@@ -1223,6 +1228,12 @@ class MCPManager:
              "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}, "server": "workspace"},
             {"name": "stop_browser_server", "description": "Stop only a browser server process spawned and tracked by this bridge instance. It will not kill an unverified PID left over from another bridge session.",
              "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}, "server": "workspace"},
+            {"name": "start_assetripper_export", "description": "Start an asynchronous AssetRipper CLI-compatible export. Requires an explicit executable path and input directory. Writes only to a workspace-relative output directory, refuses non-empty output, supports Unity/Primary modes, and returns a job ID plus log path. It does not install AssetRipper.",
+             "inputSchema": {"type": "object", "properties": {"executable_path": {"type": "string"}, "input_path": {"type": "string"}, "output_path": {"type": "string", "default": "recovery/assetripper-export"}, "mode": {"type": "string", "enum": ["Unity", "Primary"], "default": "Primary"}, "script_content_level": {"type": "string", "enum": ["Level0", "Level1", "Level2"], "default": "Level1"}, "timeout_minutes": {"type": "integer", "minimum": 1, "maximum": 1440, "default": 240}}, "required": ["executable_path", "input_path"], "additionalProperties": False}, "server": "workspace"},
+            {"name": "assetripper_job_status", "description": "Poll an AssetRipper export job by its returned job ID. Persists state and reports success, failure, interruption, or whether the process is still running.",
+             "inputSchema": {"type": "object", "properties": {"job_id": {"type": "string"}}, "required": ["job_id"], "additionalProperties": False}, "server": "workspace"},
+            {"name": "cancel_assetripper_job", "description": "Cancel an AssetRipper job only if this bridge instance spawned and still tracks the process. It will not kill an unverified PID after a bridge restart.",
+             "inputSchema": {"type": "object", "properties": {"job_id": {"type": "string"}}, "required": ["job_id"], "additionalProperties": False}, "server": "workspace"},
         ]
         tools.append({
             "name": "roblox_export_tree",
@@ -1436,6 +1447,19 @@ class MCPManager:
             return self.workspace.run_task(args["task"], args.get("timeout", 300))
         if name == "workspace_run_command":
             return self.workspace.run_command(args["command"], args.get("timeout", 60))
+        if name in {"start_assetripper_export", "assetripper_job_status", "cancel_assetripper_job"}:
+            if assetripper_jobs is None:
+                raise RuntimeError("AssetRipper job helpers could not be imported.")
+            if name == "start_assetripper_export":
+                return assetripper_jobs.start_assetripper_export(
+                    self.workspace_root, args["executable_path"], args["input_path"],
+                    args.get("output_path", "recovery/assetripper-export"),
+                    args.get("mode", "Primary"), args.get("script_content_level", "Level1"),
+                    args.get("timeout_minutes", 240),
+                )
+            if name == "assetripper_job_status":
+                return assetripper_jobs.assetripper_job_status(self.workspace_root, args["job_id"])
+            return assetripper_jobs.cancel_assetripper_job(self.workspace_root, args["job_id"])
         if name in {"start_browser_server", "browser_server_status", "stop_browser_server"}:
             if browser_server is None:
                 raise RuntimeError("Browser server helpers could not be imported.")
