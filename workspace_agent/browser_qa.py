@@ -15,6 +15,56 @@ from workspace_agent.unity_recovery import UnityRecoveryError, _directory, _safe
 
 MAX_HTML_BYTES = 2_000_000
 MAX_REFERENCES = 500
+MAX_SCENARIO_STEPS = 40
+SCENARIO_ACTIONS = {"click", "fill", "press", "expect_visible", "expect_text", "wait_ms", "screenshot"}
+ALLOWED_KEYS = {"Enter", "Escape", "Tab", "Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Backspace", "Delete", "Home", "End"} | set("abcdefghijklmnopqrstuvwxyz0123456789")
+
+
+def _validate_scenarios(scenarios: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    if scenarios is None:
+        return []
+    if not isinstance(scenarios, list) or len(scenarios) > MAX_SCENARIO_STEPS:
+        raise UnityRecoveryError(f"scenarios must be an array with at most {MAX_SCENARIO_STEPS} steps.")
+    validated = []
+    for index, step in enumerate(scenarios):
+        if not isinstance(step, dict):
+            raise UnityRecoveryError(f"Scenario step {index + 1} must be an object.")
+        action = step.get("action")
+        if action not in SCENARIO_ACTIONS:
+            raise UnityRecoveryError(f"Scenario step {index + 1} has an unsupported action.")
+        record = {"action": action, "timeout_ms": max(100, min(int(step.get("timeout_ms", 3000)), 10000))}
+        selector = step.get("selector", "")
+        if action in {"click", "fill", "press", "expect_visible", "expect_text"}:
+            if not isinstance(selector, str) or not selector.strip() or len(selector) > 500:
+                raise UnityRecoveryError(f"Scenario step {index + 1} requires a selector of 1-500 characters.")
+            record["selector"] = selector
+        if action == "fill":
+            value = step.get("value")
+            if not isinstance(value, str) or len(value) > 5000:
+                raise UnityRecoveryError(f"Scenario step {index + 1} fill value must be text up to 5000 characters.")
+            record["value"] = value
+        if action == "press":
+            key = step.get("key")
+            if not isinstance(key, str) or key not in ALLOWED_KEYS:
+                raise UnityRecoveryError(f"Scenario step {index + 1} key is not allowlisted.")
+            record["key"] = key
+        if action == "expect_text":
+            value = step.get("value")
+            if not isinstance(value, str) or not value or len(value) > 1000:
+                raise UnityRecoveryError(f"Scenario step {index + 1} expected text must contain 1-1000 characters.")
+            record["value"] = value
+        if action == "wait_ms":
+            try:
+                record["wait_ms"] = max(0, min(int(step.get("value", 250)), 5000))
+            except (TypeError, ValueError) as exc:
+                raise UnityRecoveryError(f"Scenario step {index + 1} wait_ms value must be an integer.") from exc
+        if action == "screenshot":
+            label = step.get("label", f"step-{index + 1}")
+            if not isinstance(label, str) or len(label) > 80:
+                raise UnityRecoveryError(f"Scenario step {index + 1} screenshot label must be at most 80 characters.")
+            record["label"] = label
+        validated.append(record)
+    return validated
 
 
 class _ReferenceParser(HTMLParser):
@@ -91,9 +141,11 @@ def run_browser_qa(
     port_path: str = "browser-port",
     screenshot_path: str = "recovery/browser-qa.png",
     timeout_seconds: int = 20,
+    scenarios: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """HTTP smoke test plus Playwright console/network/screenshot checks when installed."""
+    """HTTP smoke test plus bounded, selector-based Playwright scenarios when installed."""
     root = _directory(workspace_root, "workspace")
+    scenario_steps = _validate_scenarios(scenarios)
     if not isinstance(url, str):
         raise UnityRecoveryError("A browser URL is required.")
     parsed_url = urllib.parse.urlparse(url)
@@ -145,6 +197,42 @@ def run_browser_qa(
                 result["browser_http_status"] = response.status
             result["page_title"] = page.title()[:500]
             result["page_url"] = page.url
+            scenario_results = []
+            scenario_failed = False
+            for index, step in enumerate(scenario_steps):
+                action = step["action"]
+                step_result: dict[str, Any] = {"step": index + 1, "action": action}
+                try:
+                    if action == "click":
+                        page.locator(step["selector"]).click(timeout=step["timeout_ms"])
+                    elif action == "fill":
+                        page.locator(step["selector"]).fill(step["value"], timeout=step["timeout_ms"])
+                    elif action == "press":
+                        page.locator(step["selector"]).press(step["key"], timeout=step["timeout_ms"])
+                    elif action == "expect_visible":
+                        page.locator(step["selector"]).wait_for(state="visible", timeout=step["timeout_ms"])
+                    elif action == "expect_text":
+                        locator = page.locator(step["selector"])
+                        locator.wait_for(state="visible", timeout=step["timeout_ms"])
+                        actual = locator.inner_text(timeout=step["timeout_ms"])
+                        if step["value"] not in actual:
+                            raise AssertionError(f"Expected text {step['value']!r} not found in element text.")
+                        step_result["observed_text"] = actual[:500]
+                    elif action == "wait_ms":
+                        page.wait_for_timeout(step["wait_ms"])
+                    elif action == "screenshot":
+                        target = _safe_workspace_path(root, f"recovery/browser-scenarios/{index + 1:02d}-{step['label']}.png")
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        page.screenshot(path=str(target), full_page=True, timeout=step["timeout_ms"])
+                        step_result["screenshot_path"] = str(target)
+                    step_result["status"] = "pass"
+                except Exception as exc:
+                    step_result["status"] = "fail"
+                    step_result["error"] = f"{type(exc).__name__}: {exc}"[:1000]
+                    scenario_failed = True
+                scenario_results.append(step_result)
+            if scenario_steps:
+                result["scenarios"] = scenario_results
             screenshot = _safe_workspace_path(root, screenshot_path)
             screenshot.parent.mkdir(parents=True, exist_ok=True)
             page.screenshot(path=str(screenshot), full_page=True, timeout=timeout_seconds * 1000)
@@ -152,7 +240,7 @@ def run_browser_qa(
             result["playwright"] = {"available": True, "console_errors": errors[:100], "failed_requests": failed_requests[:100]}
             result["status"] = "pass" if (
                 result["status"] == "pass" and (response is None or 200 <= response.status < 400)
-                and not errors and not failed_requests
+                and not errors and not failed_requests and not scenario_failed
             ) else "fail"
     except Exception as exc:
         result["status"] = "fail"
