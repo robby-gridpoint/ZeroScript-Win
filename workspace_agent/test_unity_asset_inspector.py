@@ -22,12 +22,9 @@ class UnityAssetInspectorTests(unittest.TestCase):
 
     def test_refuses_large_file_before_loading_parser(self):
         path = self.root / "YandereSimulator_Data" / "sharedassets0.assets"
-        with mock.patch.object(inspector.Path, "stat", autospec=True) as stat:
-            real_stat = path.stat()
-            stat.return_value = real_stat
-            with mock.patch.object(inspector, "DEFAULT_MAX_FILE_BYTES", 1):
-                with self.assertRaisesRegex(UnityRecoveryError, "Refusing to load"):
-                    inspector.inspect_unity_serialized_file(str(self.root), "YandereSimulator_Data/sharedassets0.assets", max_file_mb=1)
+        path.write_bytes(b"x" * (1024 * 1024 + 1))
+        with self.assertRaisesRegex(UnityRecoveryError, "Refusing to load"):
+            inspector.inspect_unity_serialized_file(str(self.root), "YandereSimulator_Data/sharedassets0.assets", max_file_mb=1)
 
     def test_inspects_objects_and_reports_type_counts(self):
         class FakeObject:
