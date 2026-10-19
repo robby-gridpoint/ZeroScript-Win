@@ -1490,7 +1490,7 @@ class MCPManager:
                 raise RuntimeError("Unity code intelligence helpers could not be imported.")
             if name == "list_unity_symbols":
                 return code_intelligence.list_unity_symbols(
-                    args.get("install_path", self.workspace_root), args.get("symbol_kind", "types"),
+                    (args.get("install_path") or self.workspace_root), args.get("symbol_kind", "types"),
                     args.get("assembly_path", ""), args.get("query", ""), args.get("limit", 200),
                     args.get("timeout", 90),
                 )
