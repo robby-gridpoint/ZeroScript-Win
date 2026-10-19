@@ -57,9 +57,24 @@ def browser_server_status(workspace_root: str) -> dict[str, Any]:
     if state.get("stopped_unix"):
         return {**state, "running": False, "tracked_by_current_bridge": False}
     pid = int(state.get("pid", 0))
-    process = _ACTIVE.get(str(state.get("job_id", "")))
-    alive = process.poll() is None if process is not None else _pid_alive(pid)
-    return {**state, "running": alive, "tracked_by_current_bridge": process is not None}
+    job_id = str(state.get("job_id", ""))
+    process = _ACTIVE.get(job_id)
+    if process is not None:
+        code = process.poll()
+        alive = code is None
+        if not alive:
+            state["status"] = "exited"
+            state["exit_code"] = code
+            state["finished_unix"] = int(time.time())
+            _ACTIVE.pop(job_id, None)
+            _write_state(root, state)
+    else:
+        alive = _pid_alive(pid)
+        if not alive and state.get("status") in {"running", "starting"}:
+            state["status"] = "interrupted"
+            state["message"] = "The recorded server process is no longer running."
+            _write_state(root, state)
+    return {**state, "running": alive, "tracked_by_current_bridge": process is not None and alive}
 
 
 def start_browser_server(workspace_root: str, port_path: str = "browser-port", port: int = 4173) -> dict[str, Any]:
