@@ -31,6 +31,7 @@ Two additional workspace tools support the browser port:
 - `inspect_browser_port` audits `browser-port/index.html`, checks referenced local scripts/styles, reports missing files, and reads package scripts when present.
 - `run_browser_qa` checks a running local URL over HTTP. If Python Playwright and Chromium are available, it also captures page errors, console errors, failed requests, page title, and a screenshot saved beneath the workspace.
 - `start_browser_server`, `browser_server_status`, and `stop_browser_server` manage a static server with a job ID, log file, and loopback-only `127.0.0.1` binding. The stop operation only terminates a process tracked by the current bridge instance.
+- `start_assetripper_export`, `assetripper_job_status`, and `cancel_assetripper_job` manage an asynchronous export process with a durable job record, log file, timeout, output-directory protection, and cancellation when the current bridge owns the process. This requires an AssetRipper CLI-compatible executable at an explicit path; no download or installation occurs automatically.
 
 The browser QA tool does not start the local server or install Playwright. Without Playwright, the result is explicitly an HTTP/static smoke test rather than a full browser regression test. It does not claim gameplay parity from a successful page load.
 
