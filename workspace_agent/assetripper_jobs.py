@@ -30,7 +30,7 @@ def _save_state(root: Path, state: dict[str, Any]) -> None:
 
 
 def _read_state(root: Path, job_id: str) -> dict[str, Any]:
-    if not isinstance(job_id, str) or not job_id.startswith("assetripper-") or len(job_id) > 80:
+    if not isinstance(job_id, str) or not __import__("re").fullmatch(r"assetripper-[a-f0-9]{12}", job_id):
         raise UnityRecoveryError("Unknown or invalid AssetRipper job ID.")
     path = _state_file(root, job_id)
     if not path.is_file():
@@ -100,6 +100,8 @@ def start_assetripper_export(
     source = _directory(input_path, "Unity input")
     if not executable.is_file():
         raise UnityRecoveryError(f"AssetRipper executable not found: {executable}")
+    if "assetripper" not in executable.name.casefold():
+        raise UnityRecoveryError("executable_path must identify an AssetRipper executable, not an arbitrary program.")
     if mode not in MODES:
         raise UnityRecoveryError(f"mode must be one of: {', '.join(sorted(MODES))}.")
     if script_content_level not in SCRIPT_LEVELS:
