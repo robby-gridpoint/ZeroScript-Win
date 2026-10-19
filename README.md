@@ -22,6 +22,7 @@ The selected workspace now exposes a first Unity recovery toolset:
 - `scan_unity_installation` identifies Unity player metadata, detects Mono/IL2CPP from on-disk evidence, locates managed assemblies, summarizes large serialized asset files, and checks whether `Assets`, `Packages`, and `ProjectSettings` exist.
 - `catalog_unity_assets` creates a deterministic, resumable file-level catalog in bounded batches. It records paths, extensions, categories, sizes, and timestamps without reading large asset payloads or modifying the installation.
 - `inspect_unity_serialized_file` optionally uses UnityPy to inspect object IDs, Unity type names, names, and per-type counts in one selected serialized file. It rejects files over a configurable 256 MiB default / 512 MiB hard limit; it does not attempt to load the 1.64 GB `resources.assets` file wholesale.
+- `update_reconstruction_feature` and `report_reconstruction_readiness` maintain a persistent, evidence-linked feature-parity inventory. Each subsystem can track decompiled source locators, asset files, browser implementation files, and regression tests; readiness reports gaps without pretending that recorded files prove tests passed.
 - `inspect_recovery_tooling` reports whether ILSpy CLI, AssetRipper, Unity Editor, .NET, Node/npm, Git, and 7-Zip are available.
 - `decompile_unity_type` and `export_unity_assembly` use `ilspycmd` when installed, with bounded timeouts and no shell execution. Assembly export refuses to overwrite a non-empty output directory.
 
