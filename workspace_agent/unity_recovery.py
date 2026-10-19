@@ -271,11 +271,14 @@ def inspect_recovery_tooling(workspace_root: str) -> dict[str, Any]:
     try:
         from importlib.util import find_spec
         python_playwright = find_spec("playwright") is not None
+        unitypy_available = find_spec("UnityPy") is not None
     except (ImportError, ValueError):
         python_playwright = False
+        unitypy_available = False
     return {
         "tools": found,
         "python_playwright_available": python_playwright,
+        "unitypy_available": unitypy_available,
         "workspace": str(root),
         "browser_port_present": browser_port.is_dir(),
         "browser_port_manifests": [
@@ -287,6 +290,7 @@ def inspect_recovery_tooling(workspace_root: str) -> dict[str, Any]:
         "next_steps": [
             "If ilspycmd is installed, use decompile_unity_type or export_unity_assembly.",
             "Use catalog_unity_assets before launching large AssetRipper exports.",
+            "If UnityPy is installed, inspect one bounded smaller serialized file with inspect_unity_serialized_file; do not load a multi-gigabyte resources.assets file wholesale.",
             "Use Playwright only after the browser port's local server and test command are identified.",
         ],
     }
