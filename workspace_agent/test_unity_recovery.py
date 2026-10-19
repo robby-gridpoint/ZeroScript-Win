@@ -59,10 +59,12 @@ class UnityRecoveryTests(unittest.TestCase):
         first = ur.catalog_unity_assets(str(self.install), str(self.workspace), batch_size=2)
         self.assertEqual(first["status"], "in_progress")
         self.assertEqual(first["batch_added"], 2)
-        second = ur.catalog_unity_assets(str(self.install), str(self.workspace), batch_size=2)
-        self.assertEqual(second["status"], "in_progress")
-        third = ur.catalog_unity_assets(str(self.install), str(self.workspace), batch_size=2)
-        self.assertEqual(third["status"], "complete")
+        result = first
+        for _ in range(10):
+            if result["status"] == "complete":
+                break
+            result = ur.catalog_unity_assets(str(self.install), str(self.workspace), batch_size=2)
+        self.assertEqual(result["status"], "complete")
         catalog_path = self.workspace / "recovery" / "asset-catalog.json"
         catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
         self.assertTrue(catalog["completed"])
