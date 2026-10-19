@@ -188,15 +188,17 @@ def catalog_unity_assets(
     if catalog.get("completed"):
         return {"status": "complete", "catalog_path": str(output), "file_count": len(catalog["files"]), "message": "Catalog is already complete."}
 
-    existing = {item["path"] for item in catalog["files"]}
     cursor = str(catalog.get("cursor", ""))
     added = 0
     processed = 0
     started = time.monotonic()
     last_path = cursor
     more_after_batch = False
-    for path, rel in _walk_files(root):
-        if rel in existing:
+    # Sorting by normalized relative path makes the persisted cursor stable
+    # across batches, even though os.walk itself is depth-first rather than
+    # globally lexicographic.
+    for path, rel in sorted(_walk_files(root), key=lambda item: item[1]):
+        if rel <= cursor:
             continue
         if added >= batch_size or time.monotonic() - started > MAX_SCAN_SECONDS:
             more_after_batch = True
@@ -216,19 +218,17 @@ def catalog_unity_assets(
             "modified_unix": int(stat.st_mtime),
         }
         catalog["files"].append(item)
-        existing.add(rel)
         last_path = rel
         added += 1
         processed += 1
     catalog["files"].sort(key=lambda x: x["path"].casefold())
-    # Cursor is the greatest processed path, not a count, so newly encountered
-    # files are deterministic across retries. Rewalking is deliberate and cheap
-    # relative to extracting multi-gigabyte Unity payloads.
+    # Cursor is the last processed relative path, so a retry resumes after it.
+    # The scan is file-metadata-only and does not read large asset contents.
     catalog["cursor"] = last_path
     # Detect whether another batch remains, without materializing the tree.
     if not more_after_batch:
-        for _, rel in _walk_files(root):
-            if rel not in existing:
+        for _, rel in sorted(_walk_files(root), key=lambda item: item[1]):
+            if rel > last_path:
                 more_after_batch = True
                 break
     catalog["completed"] = not more_after_batch
