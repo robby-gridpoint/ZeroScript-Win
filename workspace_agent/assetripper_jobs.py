@@ -63,7 +63,19 @@ def _refresh(root: Path, state: dict[str, Any]) -> dict[str, Any]:
         if code is None:
             state["status"] = "running"
         else:
-            state["status"] = "succeeded" if code == 0 and not state.get("timeout_requested") else ("cancelled" if state.get("cancel_requested") else "failed")
+            if state.get("cancel_requested"):
+                state["status"] = "cancelled"
+            elif state.get("timeout_requested"):
+                state["status"] = "failed"
+            elif code == 0:
+                output = Path(str(state.get("output_path", "")))
+                if output.is_dir() and any(output.iterdir()):
+                    state["status"] = "succeeded"
+                else:
+                    state["status"] = "failed"
+                    state["message"] = "AssetRipper exited successfully but the output directory is empty."
+            else:
+                state["status"] = "failed"
             state["exit_code"] = code
             state["finished_unix"] = int(time.time())
             _ACTIVE.pop(state["job_id"], None)
@@ -115,12 +127,13 @@ def start_assetripper_export(
         raise UnityRecoveryError(f"Refusing to overwrite a non-empty export path: {output}")
     output.mkdir(parents=True, exist_ok=True)
     job_id = "assetripper-" + uuid.uuid4().hex[:12]
-    log_path = _safe_workspace_path(root, f"recovery/jobs/{job_id}.log")
+    log_path = _safe_workspace_path(root, f"recovery/jobs/{job_id}.stdout.log")
+    asset_log_path = _safe_workspace_path(root, f"recovery/jobs/{job_id}.assetripper.log")
     log_path.parent.mkdir(parents=True, exist_ok=True)
     command = [
         str(executable), "--cli", "--input", str(source), "--output", str(output),
         "--mode", mode, "--script-content-level", script_content_level,
-        "--log-path", str(log_path),
+        "--log-path", str(asset_log_path),
     ]
     log_file = open(log_path, "ab", buffering=0)
     kwargs: dict[str, Any] = {
@@ -151,6 +164,7 @@ def start_assetripper_export(
         "started_unix": int(time.time()),
         "deadline_unix": int(time.time()) + timeout_minutes * 60,
         "log_path": str(log_path),
+        "assetripper_log_path": str(asset_log_path),
         "cancel_requested": False,
         "bridge_instance_controllable": True,
     }
@@ -163,6 +177,7 @@ def start_assetripper_export(
         "input_path": str(source),
         "output_path": str(output),
         "log_path": str(log_path),
+        "assetripper_log_path": str(asset_log_path),
         "mode": mode,
         "command": command,
         "timeout_minutes": timeout_minutes,
