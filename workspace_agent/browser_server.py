@@ -54,6 +54,8 @@ def browser_server_status(workspace_root: str) -> dict[str, Any]:
     state = _load_state(root)
     if not state:
         return {"running": False, "message": "No ArcScript-managed browser server is recorded for this workspace."}
+    if state.get("stopped_unix"):
+        return {**state, "running": False, "tracked_by_current_bridge": False}
     pid = int(state.get("pid", 0))
     process = _ACTIVE.get(str(state.get("job_id", "")))
     alive = process.poll() is None if process is not None else _pid_alive(pid)
