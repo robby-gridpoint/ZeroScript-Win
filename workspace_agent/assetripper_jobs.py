@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import time
 import uuid
@@ -30,7 +31,7 @@ def _save_state(root: Path, state: dict[str, Any]) -> None:
 
 
 def _read_state(root: Path, job_id: str) -> dict[str, Any]:
-    if not isinstance(job_id, str) or not __import__("re").fullmatch(r"assetripper-[a-f0-9]{12}", job_id):
+    if not isinstance(job_id, str) or not re.fullmatch(r"assetripper-[a-f0-9]{12}", job_id):
         raise UnityRecoveryError("Unknown or invalid AssetRipper job ID.")
     path = _state_file(root, job_id)
     if not path.is_file():
