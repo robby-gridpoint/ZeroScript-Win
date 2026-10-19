@@ -15,6 +15,8 @@ The coordinator dispatches tasks to idle ArcScript sessions in open provider tab
 Worker sessions currently share the selected local workspace. Dispatch-boundary policy denies write/command tools to analysis and review roles, limits documentation edits to approved documentation paths, blocks destructive filesystem/Git operations, and serializes write-capable tasks while the workspace is shared. QA must cite an exact excerpt from a successful tool output for every acceptance criterion. These controls are not an OS sandbox; isolated Git worktrees and automatic patch conflict resolution remain unfinished. High-impact actions (publishing, deployment, destructive changes, external communications, purchases, and credential/security changes) remain approval-gated.
 ## Unity recovery toolchain
 
+Operational sequence, tool contracts, limitations, and safety boundaries: [Unity Recovery Pipeline](docs/UNITY_RECOVERY_PIPELINE.md).
+
 The selected workspace now exposes a first Unity recovery toolset:
 
 - `scan_unity_installation` identifies Unity player metadata, detects Mono/IL2CPP from on-disk evidence, locates managed assemblies, summarizes large serialized asset files, and checks whether `Assets`, `Packages`, and `ProjectSettings` exist.
