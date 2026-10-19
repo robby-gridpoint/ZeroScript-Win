@@ -13,6 +13,17 @@ The extension includes an opt-in bounded continuation toggle and a separate **In
 The coordinator dispatches tasks to idle ArcScript sessions in open provider tabs. To get independent parallel workers, open multiple supported AI provider tabs, start the ArcScript agent in each, and leave the sessions idle. The scheduler leases tasks, tracks dependencies and evidence, retries worker failures within a bounded budget, recovers expired leases, and records blocked/unverified outcomes instead of treating a formatted answer as proof of success. The popup shows task state and can cancel the run; run state is stored locally and survives popup closure.
 
 Worker sessions currently share the selected local workspace. Dispatch-boundary policy denies write/command tools to analysis and review roles, limits documentation edits to approved documentation paths, blocks destructive filesystem/Git operations, and serializes write-capable tasks while the workspace is shared. QA must cite an exact excerpt from a successful tool output for every acceptance criterion. These controls are not an OS sandbox; isolated Git worktrees and automatic patch conflict resolution remain unfinished. High-impact actions (publishing, deployment, destructive changes, external communications, purchases, and credential/security changes) remain approval-gated.
+## Unity recovery toolchain
+
+The selected workspace now exposes a first Unity recovery toolset:
+
+- `scan_unity_installation` identifies Unity player metadata, detects Mono/IL2CPP from on-disk evidence, locates managed assemblies, summarizes large serialized asset files, and checks whether `Assets`, `Packages`, and `ProjectSettings` exist.
+- `catalog_unity_assets` creates a deterministic, resumable file-level catalog in bounded batches. It records paths, extensions, categories, sizes, and timestamps without reading large asset payloads or modifying the installation.
+- `inspect_recovery_tooling` reports whether ILSpy CLI, AssetRipper, Unity Editor, .NET, Node/npm, Git, and 7-Zip are available.
+- `decompile_unity_type` and `export_unity_assembly` use `ilspycmd` when installed, with bounded timeouts and no shell execution. Assembly export refuses to overwrite a non-empty output directory.
+
+These are the first recovery primitives, not a completed AssetRipper/Unity/Playwright pipeline. The catalog is file-level only; it does not yet parse serialized Unity object dependencies, extract assets, or prove browser feature parity. Tool installation is intentionally not automatic.
+
 ## Current status
 
 **Workspace-first IDE remaster in progress (v1.11.1).**
