@@ -94,7 +94,12 @@ def run_browser_qa(
 ) -> dict[str, Any]:
     """HTTP smoke test plus Playwright console/network/screenshot checks when installed."""
     root = _directory(workspace_root, "workspace")
-    if not isinstance(url, str) or not url.startswith(("http://127.0.0.1:", "http://localhost:", "https://")):
+    if not isinstance(url, str):
+        raise UnityRecoveryError("A browser URL is required.")
+    parsed_url = urllib.parse.urlparse(url)
+    local_http = parsed_url.scheme == "http" and parsed_url.hostname in {"127.0.0.1", "localhost"}
+    explicit_https = parsed_url.scheme == "https" and bool(parsed_url.hostname)
+    if not (local_http or explicit_https):
         raise UnityRecoveryError("Use a local http://127.0.0.1 or http://localhost URL, or an explicit HTTPS test URL.")
     timeout_seconds = max(1, min(int(timeout_seconds), 60))
     static = inspect_browser_port(str(root), port_path)
