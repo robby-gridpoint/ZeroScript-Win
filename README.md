@@ -24,6 +24,15 @@ The selected workspace now exposes a first Unity recovery toolset:
 
 These are the first recovery primitives, not a completed AssetRipper/Unity/Playwright pipeline. The catalog is file-level only; it does not yet parse serialized Unity object dependencies, extract assets, or prove browser feature parity. Tool installation is intentionally not automatic.
 
+## Browser restoration QA
+
+Two additional workspace tools support the browser port:
+
+- `inspect_browser_port` audits `browser-port/index.html`, checks referenced local scripts/styles, reports missing files, and reads package scripts when present.
+- `run_browser_qa` checks a running local URL over HTTP. If Python Playwright and Chromium are available, it also captures page errors, console errors, failed requests, page title, and a screenshot saved beneath the workspace.
+
+The browser QA tool does not start the local server or install Playwright. Without Playwright, the result is explicitly an HTTP/static smoke test rather than a full browser regression test. It does not claim gameplay parity from a successful page load.
+
 ## Current status
 
 **Workspace-first IDE remaster in progress (v1.11.1).**
