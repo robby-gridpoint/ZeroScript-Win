@@ -39,7 +39,7 @@ The first target build is a Unity 6 Mono player. The known managed assemblies in
 6. **Validate the browser restoration**
    - \`inspect_browser_port\` audits the entry point and referenced local scripts/styles.
    - \`start_browser_server\` launches a static HTTP server bound to \`127.0.0.1\` and returns a job ID/URL.
-   - \`run_browser_qa\` checks the HTTP response and static references. If Python Playwright and Chromium are installed, it also captures browser console/page errors, failed requests, and a screenshot.
+   - \`run_browser_qa\` checks the HTTP response and static references. If Python Playwright and Chromium are installed, it also captures browser console/page errors, failed requests, and a screenshot. It can also execute up to 40 bounded selector-based steps (`click`, `fill`, allowlisted `press`, visibility/text assertions, waits, and screenshots) against localhost only, providing the foundation for movement, interaction, menus, and save/load regression scenarios.
    - \`stop_browser_server\` stops only a process tracked by the current bridge instance.
    - A successful page load is not gameplay parity. Movement, interactions, schedules, menus, persistence, and visual comparisons need explicit automated tests.
 
