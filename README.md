@@ -33,7 +33,7 @@ These are the first recovery primitives, not a completed AssetRipper/Unity/Playw
 Two additional workspace tools support the browser port:
 
 - `inspect_browser_port` audits `browser-port/index.html`, checks referenced local scripts/styles, reports missing files, and reads package scripts when present.
-- `run_browser_qa` checks a running local URL over HTTP. If Python Playwright and Chromium are available, it also captures page errors, console errors, failed requests, page title, and a screenshot saved beneath the workspace.
+- `run_browser_qa` checks a running local URL over HTTP. If Python Playwright and Chromium are available, it also captures page errors, console errors, failed requests, page title, and a screenshot saved beneath the workspace. Optional bounded selector scenarios can click/fill/press, assert visibility/text, wait, and capture intermediate screenshots; interactive scenarios are localhost-only.
 - `start_browser_server`, `browser_server_status`, and `stop_browser_server` manage a static server with a job ID, log file, and loopback-only `127.0.0.1` binding. The stop operation only terminates a process tracked by the current bridge instance.
 - `start_assetripper_export`, `assetripper_job_status`, and `cancel_assetripper_job` manage an asynchronous export process with a durable job record, log file, timeout, output-directory protection, and cancellation when the current bridge owns the process. This requires an AssetRipper CLI-compatible executable at an explicit path; no download or installation occurs automatically.
 
