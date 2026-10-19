@@ -52,6 +52,11 @@ except Exception:
     browser_qa = None
 
 try:
+    from workspace_agent import browser_server
+except Exception:
+    browser_server = None
+
+try:
     # Sibling script (same folder as bridge.py, which Python puts on sys.path
     # automatically) - reused here purely to detect a Studio version bump
     # (see _current_studio_exe below), not to launch anything.
@@ -1212,6 +1217,12 @@ class MCPManager:
              "inputSchema": {"type": "object", "properties": {"port_path": {"type": "string", "default": "browser-port"}}, "additionalProperties": False}, "server": "workspace"},
             {"name": "run_browser_qa", "description": "Smoke-test a running browser restoration over HTTP; checks the static reference audit and, if Python Playwright plus Chromium are installed, captures console/page errors, failed requests, page title, and a screenshot under the workspace. Does not start a server or install dependencies.",
              "inputSchema": {"type": "object", "properties": {"url": {"type": "string"}, "port_path": {"type": "string", "default": "browser-port"}, "screenshot_path": {"type": "string", "default": "recovery/browser-qa.png"}, "timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 60, "default": 20}}, "required": ["url"], "additionalProperties": False}, "server": "workspace"},
+            {"name": "start_browser_server", "description": "Start a static HTTP server for browser-port/index.html bound only to 127.0.0.1. Returns a job ID, PID, URL, and log path. Does not install packages or expose the server to the LAN.",
+             "inputSchema": {"type": "object", "properties": {"port_path": {"type": "string", "default": "browser-port"}, "port": {"type": "integer", "minimum": 1024, "maximum": 65535, "default": 4173}}, "additionalProperties": False}, "server": "workspace"},
+            {"name": "browser_server_status", "description": "Read the recorded browser-server job state and report whether the process is running.",
+             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}, "server": "workspace"},
+            {"name": "stop_browser_server", "description": "Stop only a browser server process spawned and tracked by this bridge instance. It will not kill an unverified PID left over from another bridge session.",
+             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}, "server": "workspace"},
         ]
         tools.append({
             "name": "roblox_export_tree",
@@ -1425,6 +1436,14 @@ class MCPManager:
             return self.workspace.run_task(args["task"], args.get("timeout", 300))
         if name == "workspace_run_command":
             return self.workspace.run_command(args["command"], args.get("timeout", 60))
+        if name in {"start_browser_server", "browser_server_status", "stop_browser_server"}:
+            if browser_server is None:
+                raise RuntimeError("Browser server helpers could not be imported.")
+            if name == "start_browser_server":
+                return browser_server.start_browser_server(self.workspace_root, args.get("port_path", "browser-port"), args.get("port", 4173))
+            if name == "browser_server_status":
+                return browser_server.browser_server_status(self.workspace_root)
+            return browser_server.stop_browser_server(self.workspace_root)
         if name == "inspect_browser_port":
             if browser_qa is None:
                 raise RuntimeError("Browser QA helpers could not be imported.")
