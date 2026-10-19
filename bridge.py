@@ -42,6 +42,11 @@ except Exception:
     export_roblox_tree = None
 
 try:
+    from workspace_agent import unity_recovery
+except Exception:
+    unity_recovery = None
+
+try:
     # Sibling script (same folder as bridge.py, which Python puts on sys.path
     # automatically) - reused here purely to detect a Studio version bump
     # (see _current_studio_exe below), not to launch anything.
@@ -1188,6 +1193,16 @@ class MCPManager:
              "inputSchema": {"type": "object", "properties": {"task": {"type": "string", "minLength": 1}, "timeout": {"type": "integer", "minimum": 1, "maximum": 300, "default": 300}}, "required": ["task"], "additionalProperties": False}, "server": "workspace"},
             {"name": "workspace_run_command", "description": "Run a command as an argument array from the selected project directory. Shell expansion is disabled. Use only commands required for the requested development task.",
              "inputSchema": {"type": "object", "properties": {"command": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 100}, "timeout": {"type": "integer", "minimum": 1, "maximum": 300}}, "required": ["command"], "additionalProperties": False}, "server": "workspace"},
+            {"name": "scan_unity_installation", "description": "Inspect an installed Unity player without modifying it. Reports Unity version when detectable, Mono vs IL2CPP evidence, managed assemblies, large asset files, and whether a full editable project exists. Defaults to the selected workspace; pass install_path only when the installation is elsewhere.",
+             "inputSchema": {"type": "object", "properties": {"install_path": {"type": "string", "default": ""}}, "additionalProperties": False}, "server": "workspace"},
+            {"name": "catalog_unity_assets", "description": "Create or resume a deterministic, file-level Unity asset catalog. Writes only under the selected workspace; never extracts or modifies original assets. Re-call until status=complete. Serialized Unity object dependencies are not parsed.",
+             "inputSchema": {"type": "object", "properties": {"install_path": {"type": "string", "default": ""}, "output_path": {"type": "string", "default": "recovery/asset-catalog.json"}, "batch_size": {"type": "integer", "minimum": 1, "maximum": 2000, "default": 500}}, "additionalProperties": False}, "server": "workspace"},
+            {"name": "inspect_recovery_tooling", "description": "Check PATH availability of ILSpy CLI, AssetRipper, Unity Editor, .NET, Node/npm, Git, and 7-Zip, plus browser-port markers. Does not install software.",
+             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}, "server": "workspace"},
+            {"name": "decompile_unity_type", "description": "Decompile a named managed type from the installed Mono assembly using ilspycmd. Bounded timeout, no shell, original DLL is read-only. Requires ILSpy CLI to be installed.",
+             "inputSchema": {"type": "object", "properties": {"install_path": {"type": "string"}, "type_name": {"type": "string", "minLength": 1}, "assembly_path": {"type": "string", "default": ""}, "timeout": {"type": "integer", "minimum": 1, "maximum": 180, "default": 90}}, "required": ["install_path", "type_name"], "additionalProperties": False}, "server": "workspace"},
+            {"name": "export_unity_assembly", "description": "Export one managed assembly to C# source using ilspycmd. Refuses to overwrite a non-empty output directory; output must remain within the selected workspace. Requires ILSpy CLI.",
+             "inputSchema": {"type": "object", "properties": {"install_path": {"type": "string"}, "assembly_path": {"type": "string", "default": ""}, "output_path": {"type": "string", "default": "recovery/decompiled"}, "timeout": {"type": "integer", "minimum": 1, "maximum": 180, "default": 180}}, "required": ["install_path"], "additionalProperties": False}, "server": "workspace"},
         ]
         tools.append({
             "name": "roblox_export_tree",
@@ -1401,6 +1416,19 @@ class MCPManager:
             return self.workspace.run_task(args["task"], args.get("timeout", 300))
         if name == "workspace_run_command":
             return self.workspace.run_command(args["command"], args.get("timeout", 60))
+        if name in {"scan_unity_installation", "catalog_unity_assets", "inspect_recovery_tooling", "decompile_unity_type", "export_unity_assembly"}:
+            if unity_recovery is None:
+                raise RuntimeError("Unity recovery helpers could not be imported.")
+            if name == "scan_unity_installation":
+                return unity_recovery.scan_unity_installation(args.get("install_path", ""), self.workspace_root)
+            if name == "catalog_unity_assets":
+                return unity_recovery.catalog_unity_assets(args.get("install_path", ""), self.workspace_root, args.get("output_path", "recovery/asset-catalog.json"), args.get("batch_size", 500))
+            if name == "inspect_recovery_tooling":
+                return unity_recovery.inspect_recovery_tooling(self.workspace_root)
+            if name == "decompile_unity_type":
+                return unity_recovery.decompile_unity_type(args["install_path"], self.workspace_root, args["type_name"], args.get("assembly_path", ""), args.get("timeout", 90))
+            if name == "export_unity_assembly":
+                return unity_recovery.export_unity_assembly(args["install_path"], self.workspace_root, args.get("assembly_path", ""), args.get("output_path", "recovery/decompiled"), args.get("timeout", 180))
         raise RuntimeError(f"unknown workspace tool '{name}'")
     def load_config(self):
         servers = _read_config().get("mcpServers", {}) or {}
