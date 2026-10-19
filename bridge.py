@@ -52,6 +52,11 @@ except Exception:
     unity_asset_inspector = None
 
 try:
+    from workspace_agent import reconstruction_tracker
+except Exception:
+    reconstruction_tracker = None
+
+try:
     from workspace_agent import code_intelligence
 except Exception:
     code_intelligence = None
@@ -1222,6 +1227,10 @@ class MCPManager:
              "inputSchema": {"type": "object", "properties": {"install_path": {"type": "string", "default": ""}}, "additionalProperties": False}, "server": "workspace"},
             {"name": "catalog_unity_assets", "description": "Create or resume a deterministic, file-level Unity asset catalog. Writes only under the selected workspace; never extracts or modifies original assets. Re-call until status=complete. Serialized Unity object dependencies are not parsed.",
              "inputSchema": {"type": "object", "properties": {"install_path": {"type": "string", "default": ""}, "output_path": {"type": "string", "default": "recovery/asset-catalog.json"}, "batch_size": {"type": "integer", "minimum": 1, "maximum": 2000, "default": 500}}, "additionalProperties": False}, "server": "workspace"},
+            {"name": "update_reconstruction_feature", "description": "Create/update an evidence-linked browser restoration feature record. Records decompiled source locators, asset files, implementation files, tests, status, and notes in recovery/reconstruction/features.json. Paths must exist inside the workspace; this records evidence but does not claim tests passed.",
+             "inputSchema": {"type": "object", "properties": {"feature_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,79}$"}, "name": {"type": "string", "minLength": 1, "maxLength": 200}, "status": {"type": "string", "enum": ["planned", "investigating", "implemented", "blocked"], "default": "planned"}, "notes": {"type": "string", "maxLength": 4000, "default": ""}, "source_evidence": {"type": "array", "items": {"type": "object", "properties": {"path": {"type": "string"}, "locator": {"type": "string"}}, "required": ["path", "locator"], "additionalProperties": false}}, "asset_evidence": {"type": "array", "items": {"type": "string"}}, "implementation_files": {"type": "array", "items": {"type": "string"}}, "test_files": {"type": "array", "items": {"type": "string"}}}, "required": ["feature_id", "name"], "additionalProperties": false}, "server": "workspace"},
+            {"name": "report_reconstruction_readiness", "description": "Report missing source, asset, implementation, and regression-test evidence for browser restoration features. Can inspect one feature_id or the entire inventory. Readiness is not a test pass or proof of gameplay parity.",
+             "inputSchema": {"type": "object", "properties": {"feature_id": {"type": "string", "default": ""}}, "additionalProperties": false}, "server": "workspace"},
             {"name": "inspect_unity_serialized_file", "description": "Inspect UnityPy object types, path IDs, and object names in one selected serialized asset/bundle file. Refuses files above a bounded size (default 256 MiB) to protect memory; do not point it at a 1.64 GB resources.assets file. Requires UnityPy installed in the bridge Python environment and never modifies source assets.",
              "inputSchema": {"type": "object", "properties": {"install_path": {"type": "string"}, "asset_path": {"type": "string", "description": "Path relative to the Unity installation, such as YandereSimulator_Data/sharedassets0.assets."}, "max_file_mb": {"type": "integer", "minimum": 1, "maximum": 512, "default": 256}, "max_objects": {"type": "integer", "minimum": 1, "maximum": 5000, "default": 1000}}, "required": ["install_path", "asset_path"], "additionalProperties": False}, "server": "workspace"},
             {"name": "inspect_recovery_tooling", "description": "Check PATH availability of ILSpy CLI, AssetRipper, Unity Editor, .NET, Node/npm, Git, and 7-Zip, plus browser-port markers. Does not install software.",
@@ -1506,6 +1515,16 @@ class MCPManager:
                 args.get("max_results", 100), args.get("case_sensitive", False),
                 args.get("regex", False), args.get("context_lines", 2),
             )
+        if name in {"update_reconstruction_feature", "report_reconstruction_readiness"}:
+            if reconstruction_tracker is None:
+                raise RuntimeError("Reconstruction tracker could not be imported.")
+            if name == "update_reconstruction_feature":
+                return reconstruction_tracker.update_reconstruction_feature(
+                    self.workspace_root, args["feature_id"], args["name"], args.get("status", "planned"),
+                    args.get("notes", ""), args.get("source_evidence"), args.get("asset_evidence"),
+                    args.get("implementation_files"), args.get("test_files"),
+                )
+            return reconstruction_tracker.report_reconstruction_readiness(self.workspace_root, args.get("feature_id", ""))
         if name == "inspect_unity_serialized_file":
             if unity_asset_inspector is None:
                 raise RuntimeError("Unity asset inspector could not be imported.")
