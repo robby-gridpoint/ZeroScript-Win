@@ -68,10 +68,12 @@ class AssetRipperJobTests(unittest.TestCase):
             jobs.start_assetripper_export(str(self.workspace), str(self.executable), str(self.input), "recovery/export")
 
     def test_rejects_output_inside_original_installation(self):
+        source = self.workspace / "YandereSimulator"
+        source.mkdir()
         with self.assertRaisesRegex(UnityRecoveryError, "cannot be inside"):
             jobs.start_assetripper_export(
-                str(self.workspace), str(self.executable), str(self.input),
-                str(self.workspace / "inside" / "export").replace(str(self.workspace), str(self.input)),
+                str(self.workspace), str(self.executable), str(source),
+                "YandereSimulator/recovery",
             )
 
     def test_rejects_invalid_export_mode(self):
